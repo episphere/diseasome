@@ -19,31 +19,21 @@
     <nav class="navbar navbar-expand-sm bg-dark navbar-dark ">
         <div id="mySidepanel" class="sidepanel">
             <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">×</a>
-            <a class="nav-link" href="#calculator">Calculator</a>
             <a class="nav-link" href="#notices">Notices</a>
         </div>
 
-        <div class="navbar-header">
-            <button class=" btn btn-dark" onclick="openNav()">☰ </button>
-            <script>
-                function openNav() {
-                    document.getElementById("mySidepanel").style.width = "250px";
-                }
 
-                function closeNav() {
-                    document.getElementById("mySidepanel").style.width = "0";
-                }
-            </script>
-        </div>
         <div>
 
             <ul class="nav navbar-nav navbar-right">
                 <li class="nav-item active">
-                    <a class="nav-link" target="_blank" href="https://github.com/episphere/diseasome">Github
-                        Code</a>
+                    <a class="nav-link"  href="#notices">Notices</a>
+                </li>
+                <li class="nav-item active">
+                    <a class="nav-link" target="_blank" href="https://github.com/episphere/diseasome">Github Code</a>
                 </li>
                 <li class="nav-item active"><a class="nav-link" target="_blank"
-                        href="https://observablehq.com/@lorenasandoval88/riskome" target="_blank">Notebook</a>
+                        href="https://observablehq.com/@lorenasandoval88/polygenic_risk_scores_sdk" target="_blank">Notebook</a>
                 </li>
                 <li class="nav-item active">
                     <a class="nav-link" target="_blank" href="https://gitter.im/episphere/PRS">Discussion</a>
@@ -59,84 +49,56 @@
     <!-- side panel ----------------------------------------------->
     <section class="bgimage" id="home">
         <div class="container-fluid">
-            <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 hero-text">
+            <div class="col-lg-10 col-md-10 col-sm-10 col-xs-10 hero-text">
                 <h2 class="hero_title">Diseasome</h2>
                 <p class="hero_desc">Calculation of multiple <br> (<a href="https://www.nature.com/articles/nrg.2016.27"
                         target="_blank">risk profiles</a>) for
                     23andme
                     reports, using the <a href='https://www.pgscatalog.org' target="_blank">PGS Catalog</a>.</p>
-            </div>
+                    <button  class="glow-on-hover" onclick="location.href='https://observablehq.com/@lorenasandoval88/polygenic_risk_scores_sdk'" type="button">
+                        Get Started</button>
+                </div>
         </div>
 
     </section>
 
     <!-- pgs scoring counts bar plot ----------------------------->
-    <h5>PGS catalog Traits</h5>
+  
+
+    <h3 class='display-4'>Counts of PGS entries</h3>
+
+    <div class='graph-container'>
+        <div id="topBarCategories"></div>
+    </div>
+
+    <div class='graph-container'>
+        <div id="secondBarCategories"></div>
+        <div id="pgsPie"></div>
+    </div>
+
+    <div class='graph-container'>
+        <div id="thirdBarCategories"></div>
+    </div>
+<hr>
+    <div class='graph-container'>
+        <div id="topBarTraits"></div>
+        <div id="secondBarTraits"></div>
+
+    </div>
+
+ 
+
     <div class="spinner-border m-5" role="status" id="spinner">
         <span class="visually-hidden">Loading...</span>
     </div>
+  
 
-    <div id="pgsBar"></div>
-
-
-    <!--  input to select pgs trait ------------------------------>
-    <form>
-        <h5>Select trait of interest</h5>
-        <select id="myTrait">
-            <option>--Selelct trait from dropdown--</option>
-        </select>
-    </form>
-    <br>
-
-    <!--  input to select variant number --------------------------->
-    <form>
-        <h5>Select max number of variants in scoring files</h5>
-        <select id="myNum">
-            <option>--Selelct variant limit from dropdown--</option>
-            <option> 50</option>
-            <option> 100 </option>
-            <option> 500 </option>
-            <option> 1000 </option>
-        </select>
-    </form>
-    <br>
-
-    <!--  input to select pgs trait ------------------------------>
-    <!-- <form>
-        <h5>Select 23andMe file</h5>
-        <select id="my23File">
-            <option>--Selelct 23andMe from dropdown--</option>
-        </select>
-    </form>
-    <br> -->
-
-    <!-- calc div----------------------------------------------->
-    <h5>Select 23andMe file</h5>
-
-      <div id="my23Div">
-    </div>
-
-
-    <!--  run calc for scores --------------------------->
-    <div id="pgsDiv"></div>
-
-
-    <!-- calc div----------------------------------------------->
-    <div id="calcDiv">
-    </div>
 
     <!-- scripts----------------------------------------------->
-    <script type="module" src="app/data.js"></script>
-
-    <script type="module" src="app/calc.js"></script>
-    <script type="module" src="input2.js"></script>
+  
     <script type="module" src="sdk/allTraits.js"></script>
     <script type="module" src="sdk/openSnp.js"></script>
-
-    <script type="module" src="sdk/oneTrait.js"></script>
-    <script type="module" src="main.js"></script>
     <script type="module" src="dependencies.js"></script>
-    <script type="module" src="pgs.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js"></script>
 
 

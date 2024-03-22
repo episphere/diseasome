@@ -1,20 +1,16 @@
-import { 
-    PGS23,
-    ui
-} from './main.js'
 
 import { 
     plot
 } from './sdk/allTraits.js' 
 
-import { 
-    pgs
-} from './pgs.js'
+// import { 
+//     pgs
+// } from './pgs.js'
 
 
 import { 
-clearCache,
-endpointStore,
+//clearCache,
+//endpointStore,
 pako,
 plotly,
 localforage,
@@ -22,12 +18,12 @@ localforage,
 
 export{
     pgs,
-    clearCache,
-    endpointStore,
+   // clearCache,
+    //endpointStore,
     pako,
     localforage,
-    PGS23,
+   // PGS23,
     plot,
     plotly,
-    ui
+    //ui
 }
