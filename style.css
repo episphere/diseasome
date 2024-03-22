@@ -4,14 +4,14 @@
 }
 /* hero background image */
 .bgimage {
-    height:40vh;
+    height:45vh;
     background: url('dna2.jpg');
     background-size:cover;
     position:relative;
 }
 /* text css above hero image*/
 .hero_title {
-    font-size: 4rem;
+    font-size: 3.5rem;
         color: rgb(225, 222, 222);
 
 }
