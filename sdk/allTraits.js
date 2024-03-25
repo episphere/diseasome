@@ -322,8 +322,6 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
 
     // bar chart of variant size by trait from pie selection------------------------
     document.getElementById("pgsPie").on('plotly_click', async function (data3) {
-        console.log(data3)
-        console.log("scoreFiles", scoreFiles)
         let res = scoreFiles.filter(x => x.trait_reported === data3.points[0].label).sort((a, b) => a.variants_number - b.variants_number)
         console.log("res", res)
 
@@ -338,7 +336,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
         }];
         var layout = {
             autosize: true,
-            title: `${res.length} "${data3.points[0].label}" entries`,
+            title: `Variant sizes ${res.length} "${data3.points[0].label}" entries`,
             margin: {    l: 290,  r: 20,  t: -10, b: -10 },
             xaxis: {
                 autorange: false,
@@ -346,8 +344,6 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
                 type: 'linear'
             },
         }
-
-        console.log("layout", layout)
         plotly.newPlot('thirdBarCategories', data2, layout);
 
     })
