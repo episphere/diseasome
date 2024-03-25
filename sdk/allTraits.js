@@ -206,11 +206,7 @@ var layout = {
     height: traitFiles.length*4,
     title: `Counts of PGS entries across ${traitList.length} Traits`,
     margin: {
-        l: 300,
-        r: 50,
-        t: -10,
-        b: -10
-    },
+        l: 300},
     xaxis: {
         autorange: false,
         range: [0, 30],
@@ -310,7 +306,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
         obj[item.trait_reported] ? obj[item.trait_reported]++ : obj[item.trait_reported] = 1;
     });
     var layout = {
-    title: ` ${Object.keys(obj).length} "${data.points[0].y}" traits`,
+    title: `${Object.keys(obj).length} traits found in "${data.points[0].y}" Category`,
     autosize: true,
     // height: 600,
     // width: 600,
@@ -351,7 +347,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
             },
         }
 
-        console.log("layout", layout2)
+        console.log("layout", layout)
         plotly.newPlot('thirdBarCategories', data2, layout);
 
     })
