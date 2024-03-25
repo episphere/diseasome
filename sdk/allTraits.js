@@ -157,14 +157,20 @@ let allTraitsDt = (await traitsData( traits)).sort(function (a, b) {return a.cou
 let topBarCategoriesDiv = document.getElementById("topBarCategories")
 var layout = {
     height: 500,
+    width: 500,
     autosize: true,
-    title: `${allTraitsDt.length} Categories`,
+    title: `Counts of PGS entries across ${allTraitsDt.length} Categories`,
     margin: {
-        l: 300,
+        l: 220,
         r: 50,
         t: -10,
         b: -10
-    }
+    },
+    xaxis: {
+        autorange: false,
+        range: [0, 300],
+        type: 'linear'
+    },
 }
 var dt = [{
     x: allTraitsDt.map(x => x.count),
@@ -197,13 +203,18 @@ let traitList = traitFiles.sort((a, b) => a.associated_pgs_ids.length - b.associ
 
 var layout = {
     autosize: true,
-    height: 700,
-    title: `${traitList.length} Traits`,
+    height: 1000,
+    title: `Counts of PGS entries across ${traitList.length} Traits`,
     margin: {
         l: 300,
         r: 50,
         t: -10,
         b: -10
+    },
+    xaxis: {
+        autorange: false,
+        range: [0, 30],
+        type: 'linear'
     }
 }
 
@@ -239,9 +250,10 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
 
     var layout = {
         autosize: true,
-        height: 900,
+        height: 600,
+        width: 600,
         title: `Variant sizes for ${pgsIds.length} ${data.points[0].y} entries `,
-        margin: {  l: 300,  r: 60,  t: -10, b: -10},
+        margin: {  l: 390,  r: 60,  t: -10, b: -10},
 
         xaxis: {
             autorange: false,
@@ -300,8 +312,8 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
     var layout = {
     title: `Proportion of ${data.points[0].y} entries`,
     autosize: false,
-    height: 900,
-    width: 900,
+    height: 600,
+    width: 600,
     }
     var data = [{
         values: Object.values(obj),
@@ -328,7 +340,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
                 color: data3.points[0].color,
             }
         }];
-        var layout2 = {
+        var layout = {
             autosize: true,
             title: `${res.length} ${data3.points[0].label} entries`,
             margin: {    l: 290,  r: 20,  t: -10, b: -10 },
@@ -340,7 +352,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
         }
 
         console.log("layout", layout2)
-        plotly.newPlot('thirdBarCategories', data2, layout2);
+        plotly.newPlot('thirdBarCategories', data2, layout);
 
     })
 })

@@ -307,3 +307,15 @@ input[type=submit] {
   50% { background-position: 400% 0; }
   100% { background-position: 0 0; }
 }
+
+.link-unstyled, .link-unstyled:link, .link-unstyled:hover {
+  color: inherit;
+  text-decoration: inherit;
+}
+.bg-menu:hover {
+  background-color: #0079C1;
+  color: #FFFFFF;
+}
+.clickable {
+  cursor: pointer;
+}
