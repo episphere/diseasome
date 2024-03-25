@@ -203,7 +203,7 @@ let traitList = traitFiles.sort((a, b) => a.associated_pgs_ids.length - b.associ
 
 var layout = {
     autosize: true,
-    height: 1000,
+    height: traitFiles.length*4,
     title: `Counts of PGS entries across ${traitList.length} Traits`,
     margin: {
         l: 300,
@@ -252,12 +252,12 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
         autosize: true,
         height: 600,
         width: 600,
-        title: `Variant sizes for ${pgsIds.length} ${data.points[0].y} entries `,
-        margin: {  l: 390,  r: 60,  t: -10, b: -10},
+        title: `Variant sizes for ${pgsIds.length} "${data.points[0].y}" entries `,
+        margin: {  l: 390,  r: 0,  t: -10, b: -10},
 
         xaxis: {
             autorange: false,
-            range: [0, 1000],
+            range: [0, 500],
             type: 'linear'
         }
     }
@@ -279,14 +279,14 @@ topBarTraitsDiv.on('plotly_click', async function (data) {
 
     let scoreFiles = (await getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
     var layout = {
-        //autosize: true,
-        title: `Variant sizes for ${pgsIds.length} ${data.points[0].y} entries `,
-        margin: {  l: 300,  r: 60,  t: -10, b: -10   },
+        autosize: true,
+        title: `Variant sizes for ${pgsIds.length} "${data.points[0].y}" entries `,
+        margin: {  l: 390 },
         xaxis: {
             autorange: false,
-            range: [0, 1000],
+            range: [0, 500],
             type: 'linear'
-        }
+        },
     }
     var data = [{
         x: scoreFiles.map(x => x.variants_number),
@@ -310,10 +310,10 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
         obj[item.trait_reported] ? obj[item.trait_reported]++ : obj[item.trait_reported] = 1;
     });
     var layout = {
-    title: `Proportion of ${data.points[0].y} entries`,
-    autosize: false,
-    height: 600,
-    width: 600,
+    title: ` ${Object.keys(obj).length} "${data.points[0].y}" traits`,
+    autosize: true,
+    // height: 600,
+    // width: 600,
     }
     var data = [{
         values: Object.values(obj),
@@ -342,11 +342,11 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
         }];
         var layout = {
             autosize: true,
-            title: `${res.length} ${data3.points[0].label} entries`,
+            title: `${res.length} "${data3.points[0].label}" entries`,
             margin: {    l: 290,  r: 20,  t: -10, b: -10 },
             xaxis: {
                 autorange: false,
-                range: [0, 1000],
+                range: [0, 500],
                 type: 'linear'
             },
         }
