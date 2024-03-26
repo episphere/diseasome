@@ -232,6 +232,11 @@ input[type=submit] {
 .graph-container {
   display: flex;
 }
+.wrap {
+  display: flex;
+  background: #ccc;
+  justify-content: space-between;
+}
 
 /* #topBarCategories {
   flex: 1;

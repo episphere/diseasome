@@ -1,12 +1,5 @@
-import {  plotly } from "../dependencies.js";
+import { plotly} from "../dependencies.js";
 import localforage from 'https://cdn.skypack.dev/localforage';
-
-console.log("---------------------")
-
-console.log("allTraits.js loaded")
-let allTraits = {
-    dt: []
-}
 
 localforage.config({
     driver: [
@@ -18,7 +11,7 @@ localforage.config({
 });
 let pgs = localforage.createInstance({
     name: "pgs",
-    storeName: "scoreFiles",    
+    storeName: "scoreFiles",
 })
 let fetchAll = localforage.createInstance({
     name: "fetchAll",
@@ -27,8 +20,8 @@ let fetchAll = localforage.createInstance({
 
 const traitFiles = (await fetchAll2('https://www.pgscatalog.org/rest/trait/all')).flatMap(x => x)
 const traits = Array.from(new Set(traitFiles.flatMap(x => x["trait_categories"])
-                .sort().filter(e => e.length).map(JSON.stringify)), JSON.parse)
-                traits.map(x => getAllPgsIdsByCategory(x))
+    .sort().filter(e => e.length).map(JSON.stringify)), JSON.parse)
+traits.map(x => getAllPgsIdsByCategory(x))
 
 // get all data from API without limits--------------------------------------------
 async function fetchAll2(url, maxPolls = null) {
@@ -55,7 +48,8 @@ async function fetchAll2(url, maxPolls = null) {
             allResults.push(notCachedData)
         }
         if (allResults.length > 40) {
-            break }
+            break
+        }
     }
     spinner.style.display = "none";
     return allResults
@@ -68,11 +62,11 @@ async function removeLocalStorageValues(target, dbName) {
 
         if ((await dbName.getItem(key)).message != undefined) { //.includes(target)) {
             dbName.removeItem(key);
-            console.log("removeLocalStorageValues with failed requests (limits)",i)
+            console.log("removeLocalStorageValues with failed requests (limits)", i)
         }
     }
 }
-removeLocalStorageValues('request',pgs)
+removeLocalStorageValues('request', pgs)
 
 // get pgsids for all 17 traits ------------------------------------------------
 async function traitsData(traits) {
@@ -114,11 +108,12 @@ function getAllPgsIdsByCategory(trait) {
     // get trait files that match selected trait from drop down
     traitFiles.map(tfile => {
         if (trait.includes(tfile["trait_categories"][0])) {
-            traitFilesArr.push(tfile)        }
-        })
-        if (traitFilesArr.length != 0) {
-            pgsIds.push(traitFilesArr.flatMap(x => x.associated_pgs_ids).sort().filter((v, i) => traitFilesArr.flatMap(x => x.associated_pgs_ids).sort().indexOf(v) == i))
+            traitFilesArr.push(tfile)
         }
+    })
+    if (traitFilesArr.length != 0) {
+        pgsIds.push(traitFilesArr.flatMap(x => x.associated_pgs_ids).sort().filter((v, i) => traitFilesArr.flatMap(x => x.associated_pgs_ids).sort().indexOf(v) == i))
+    }
     return pgsIds.flatMap(x => x)
 
 }
@@ -136,10 +131,12 @@ async function getscoreFiles(pgsIds) {
         if (cachedData !== null) {
             scores.push(cachedData)
         } else if (cachedData == null) {
-            console.log(i, "No cached data found for ",`${pgsIds[i]}`)
+            console.log(i, "No cached data found for ", `${pgsIds[i]}`)
             await timeout(150); // pgs has 100 queries per minute limit
             let notCachedData =
-                await (fetch(url)).then(function (response) {return response.json()})
+                await (fetch(url)).then(function (response) {
+                    return response.json()
+                })
                 .then(function (response) {
                     return response
                 }).catch(function (ex) {
@@ -153,7 +150,9 @@ async function getscoreFiles(pgsIds) {
     return scores
 }
 // top bar plot of PGS entries by category--------------------------------------------------------------------------------
-let allTraitsDt = (await traitsData( traits)).sort(function (a, b) {return a.count - b.count});
+let allTraitsDt = (await traitsData(traits)).sort(function (a, b) {
+    return a.count - b.count
+});
 let topBarCategoriesDiv = document.getElementById("topBarCategories")
 var layout = {
     height: 500,
@@ -203,10 +202,11 @@ let traitList = traitFiles.sort((a, b) => a.associated_pgs_ids.length - b.associ
 
 var layout = {
     autosize: true,
-    height: traitFiles.length*4,
+    height: traitFiles.length * 4,
     title: `Counts of PGS entries across ${traitList.length} Traits`,
     margin: {
-        l: 300},
+        l: 300
+    },
     xaxis: {
         autorange: false,
         range: [0, 30],
@@ -243,13 +243,18 @@ plotly.newPlot(topBarTraitsDiv, dt, layout);
 topBarCategoriesDiv.on('plotly_click', async function (data) {
     let pgsIds = getAllPgsIdsByCategory(data.points[0].y)
     let scoreFiles = (await getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
-
+console.log("scoreFiles.length",scoreFiles.length)
     var layout = {
         autosize: true,
         height: 600,
         width: 600,
         title: `Variant sizes for ${pgsIds.length} "${data.points[0].y}" entries `,
-        margin: {  l: 390,  r: 0,  t: -10, b: -10},
+        margin: {
+            l: 390,
+            r: 0,
+            t: -10,
+            b: -10
+        },
 
         xaxis: {
             autorange: false,
@@ -266,18 +271,77 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
             color: Array(scoreFiles.length).fill([data.points[0]['marker.color']]).flat().splice(0, scoreFiles.length)
         }
     }];
-    plotly.newPlot('secondBarCategories', data, layout);
+    plotly.newPlot('secondBarCategories', data, layout)
+    createButton("secondBarCategories","button1", scoreFiles);
 })
 
-// bar chart of variant sizes after trait bar chart click-----------------------------------------
-topBarTraitsDiv.on('plotly_click', async function (data) {
-    let pgsIds = traitFiles.filter(tfile => tfile.label == data.points[0].label)[0].associated_pgs_ids
+// pie chart of traits -----------------------------------
+topBarCategoriesDiv.on('plotly_click', async function (data) {
+    const newH = document.getElementById("h5");
+    newH.innerHTML = "Select a trait from the pie chart to display variant sizes for all entries related to that subcategory"
+    newH.style = "color: rgb(6, 137, 231);"
+    let pgsIds = getAllPgsIdsByCategory(data.points[0].y)
+    let scoreFiles = (await getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
 
+    var obj = {};
+    scoreFiles.forEach(function (item) {
+        obj[item.trait_reported] ? obj[item.trait_reported]++ : obj[item.trait_reported] = 1;
+    });
+    var layout = {
+        title: `${Object.keys(obj).length} traits found in "${data.points[0].y}" Category`,
+        autosize: true,
+    }
+    var data = [{
+        values: Object.values(obj),
+        labels: Object.keys(obj),
+        type: 'pie',
+        textposition: 'inside'
+    }];
+
+    plotly.newPlot('pgsPie', data, layout);
+
+    // bar chart of variant size by trait from pie selection------------------------
+    document.getElementById("pgsPie").on('plotly_click', async function (data3) {
+        let res = scoreFiles.filter(x => x.trait_reported === data3.points[0].label).sort((a, b) => a.variants_number - b.variants_number)
+        var data2 = [{
+            x: res.map(x => x.variants_number),
+            y: res.map(x => x.trait_reported.concat(" " + x.id)),
+            type: 'bar',
+            orientation: 'h',
+            marker: {
+                color: data3.points[0].color,
+            }
+        }];
+        var layout = {
+            autosize: true,
+            title: `Variant sizes ${res.length} "${data3.points[0].label}" entries`,
+            margin: {
+                l: 250
+            },
+            xaxis: {
+                autorange: false,
+                range: [0, 500],
+                type: 'linear'
+            },
+        }
+        plotly.newPlot('thirdBarCategories', data2, layout);
+
+        // add download button for pgsIds
+        createButton("thirdBarCategories","button2", res);
+    })
+})
+
+//bar chart of traits -----------------------------------------
+topBarTraitsDiv.on('plotly_click', async function (data) {
+
+    let pgsIds = traitFiles.filter(tfile => tfile.label == data.points[0].label)[0].associated_pgs_ids
     let scoreFiles = (await getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
     var layout = {
         autosize: true,
         title: `Variant sizes for ${pgsIds.length} "${data.points[0].y}" entries `,
-        margin: {  l: 390 },
+        margin: {
+            l: 390
+        },
         xaxis: {
             autorange: false,
             range: [0, 500],
@@ -294,64 +358,40 @@ topBarTraitsDiv.on('plotly_click', async function (data) {
         }
     }];
     plotly.newPlot('secondBarTraits', data, layout);
-})
+    // add download button for pgsIds
+     // add download button for pgsIds
+     createButton("secondBarTraits","button3", scoreFiles);
+  })
 
-// pie chart of traits -----------------------------------
-topBarCategoriesDiv.on('plotly_click', async function (data) {
-    let pgsIds = getAllPgsIdsByCategory(data.points[0].y)
-    let scoreFiles = (await getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
 
-    var obj = {};
-    scoreFiles.forEach(function (item) {
-        obj[item.trait_reported] ? obj[item.trait_reported]++ : obj[item.trait_reported] = 1;
+/** Download contents as a file
+ * Source: https://stackoverflow.com/questions/14964035/how-to-export-javascript-array-info-to-csv-on-client-side
+ */
+function downloadBlob(content, filename, contentType) {
+    // Create a blob
+    var blob = new Blob([content], {
+        type: contentType
     });
-    var layout = {
-    title: `${Object.keys(obj).length} traits found in "${data.points[0].y}" Category`,
-    autosize: true,
-    // height: 600,
-    // width: 600,
-    }
-    var data = [{
-        values: Object.values(obj),
-        labels: Object.keys(obj),
-        type: 'pie',
-        textposition:'inside'
-    }];
+    var url = URL.createObjectURL(blob);
 
-    plotly.newPlot('pgsPie', data, layout);
-
-    // bar chart of variant size by trait from pie selection------------------------
-    document.getElementById("pgsPie").on('plotly_click', async function (data3) {
-        let res = scoreFiles.filter(x => x.trait_reported === data3.points[0].label).sort((a, b) => a.variants_number - b.variants_number)
-        console.log("res", res)
-
-        var data2 = [{
-            x: res.map(x => x.variants_number),
-            y: res.map(x => x.trait_reported.concat(" " + x.id)),
-            type: 'bar',
-            orientation: 'h',
-            marker: {
-                color: data3.points[0].color,
-            }
-        }];
-        var layout = {
-            autosize: true,
-            title: `Variant sizes ${res.length} "${data3.points[0].label}" entries`,
-            margin: {    l: 290,  r: 20,  t: -10, b: -10 },
-            xaxis: {
-                autorange: false,
-                range: [0, 500],
-                type: 'linear'
-            },
-        }
-        plotly.newPlot('thirdBarCategories', data2, layout);
-
-    })
-})
-
-//-----------------------------------
-
-
-export {
-    allTraits
+    // Create a link to download it
+    var pom = document.createElement('a');
+    pom.href = url;
+    pom.setAttribute('download', filename);
+    pom.click();
 }
+
+
+function createButton(parent,buttonId, dt) {
+    const button = document.createElement("button");
+    button.textContent = "download pgs IDs";
+    button.id = buttonId
+    document.getElementById(parent).appendChild(button)
+    document.getElementById(buttonId).replaceWith(button)
+
+    button.addEventListener("click", function() {
+      downloadBlob(dt.map(x => x.id), 'export.csv', 'text/csv;charset=utf-8;')
+  });
+}
+
+
