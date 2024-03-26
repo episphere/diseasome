@@ -17,6 +17,7 @@ let fetchAll = localforage.createInstance({
     name: "fetchAll",
     storeName: "urls"
 })
+let output = []
 
 const traitFiles = (await fetchAll2('https://www.pgscatalog.org/rest/trait/all')).flatMap(x => x)
 const traits = Array.from(new Set(traitFiles.flatMap(x => x["trait_categories"])
@@ -73,7 +74,6 @@ plotly.newPlot(topBarCategoriesDiv, dt, layout);
 
 let topBarTraitsDiv = document.getElementById("topBarTraits")
 let traitList = traitFiles.sort((a, b) => a.associated_pgs_ids.length - b.associated_pgs_ids.length)
-
 var layout = {
     autosize: true,
     height: traitFiles.length * 4,
@@ -115,14 +115,21 @@ plotly.newPlot(topBarTraitsDiv, dt, layout);
 
 // bar chart of variant sizes after click-----------------------------------------
 topBarCategoriesDiv.on('plotly_click', async function (data) {
-    console.log("Category selected:",data.points[0].y)
-    let pgsIds = getAllPgsIdsByCategory(data.points[0].y)
+    let category = data.points[0].y
+    console.log("Category selected:",category)
+
+    let pgsIds = getAllPgsIdsByCategory(category)
     let scoreFiles = (await getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
+    let obj = {}
+    obj[category] = scoreFiles
+    output.push(obj)
+    console.log("output",output)
+
     var layout = {
         autosize: true,
         height: 600,
         width: 600,
-        title: `Variant sizes for ${pgsIds.length} "${data.points[0].y}" entries `,
+        title: `Variant sizes for ${pgsIds.length} "${category}" entries `,
         margin: {
             l: 390,
             r: 0,
@@ -177,9 +184,12 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
     // bar chart of variant size by trait from pie selection------------------------
     document.getElementById("pgsPie").on('plotly_click', async function (data2) {
         let trait = data2.points[0].label
-        console.log("Subcategory selected:",data2.points[0].label)
-
-        let res = scoreFiles.filter(x => x.trait_reported === data2.points[0].label).sort((a, b) => a.variants_number - b.variants_number)
+        console.log("Subcategory selected:",trait)
+        let res = scoreFiles.filter(x => x.trait_reported === trait).sort((a, b) => a.variants_number - b.variants_number)
+        let obj = {}
+        obj[trait] = res
+        output.push(obj)
+        console.log("output",output)
         var data = [{
             x: res.map(x => x.variants_number),
             y: res.map(x => x.trait_reported.concat(" " + x.id)),
@@ -191,7 +201,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
         }];
         var layout = {
             autosize: true,
-            title: `Variant sizes ${res.length} "${data2.points[0].label}" entries`,
+            title: `Variant sizes ${res.length} "${trait}" entries`,
             margin: {
                 l: 250
             },
@@ -210,12 +220,17 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
 
 //bar chart of traits -----------------------------------------
 topBarTraitsDiv.on('plotly_click', async function (data) {
-    console.log("Trait selected:",data.points[0].y)
+    let trait = data.points[0].y
+    console.log("Trait selected:",trait)
     let pgsIds = traitFiles.filter(tfile => tfile.label == data.points[0].label)[0].associated_pgs_ids
     let scoreFiles = (await getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
+    let obj = {}
+    obj[trait] = scoreFiles
+    output.push(obj)
+    console.log("output",output)
     var layout = {
         autosize: true,
-        title: `Variant sizes for ${pgsIds.length} "${data.points[0].y}" entries `,
+        title: `Variant sizes for ${pgsIds.length} "${trait}" entries `,
         margin: {
             l: 390
         },
