@@ -23,6 +23,255 @@ const traits = Array.from(new Set(traitFiles.flatMap(x => x["trait_categories"])
     .sort().filter(e => e.length).map(JSON.stringify)), JSON.parse)
 traits.map(x => getAllPgsIdsByCategory(x))
 
+// top bar plot of PGS entries by category--------------------------------------------------------------------------------
+let allTraitsDt = (await traitsData(traits)).sort(function (a, b) {
+    return a.count - b.count
+});
+let topBarCategoriesDiv = document.getElementById("topBarCategories")
+var layout = {
+    height: 500,
+    width: 500,
+    autosize: true,
+    title: `Counts of PGS entries across ${allTraitsDt.length} Categories`,
+    margin: {
+        l: 220,
+        r: 50,
+        t: -10,
+        b: -10
+    },
+    xaxis: {
+        autorange: false,
+        range: [0, 300],
+        type: 'linear'
+    },
+}
+var dt = [{
+    x: allTraitsDt.map(x => x.count),
+    y: allTraitsDt.map(x => x.trait),
+    type: 'bar',
+    orientation: 'h',
+    marker: {
+        color: Array(allTraitsDt.length).fill(['orange', 'green', 'red',
+            '#1f77b4', //muted blue
+            '#ff7f0e', // safety orange
+            '#2ca02c', // cooked asparagus green
+            '#d62728', //brick red
+            'blue', "goldenrod", "magenta",
+            '#9467bd', //muted purple
+            '#8c564b', //chestnut brown
+            '#e377c2', //raspberry yogurt pink
+            '#7f7f7f', //middle gray
+            'yellow',
+            '#bcbd22', //curry yellow-green
+            '#17becf' //blue-teal])
+        ]).flat().splice(0, allTraitsDt.length)
+    }
+}]
+plotly.newPlot(topBarCategoriesDiv, dt, layout);
+
+// top bar plot of PGS entries by category--------------------------------------------------------------------------------
+
+let topBarTraitsDiv = document.getElementById("topBarTraits")
+let traitList = traitFiles.sort((a, b) => a.associated_pgs_ids.length - b.associated_pgs_ids.length)
+
+var layout = {
+    autosize: true,
+    height: traitFiles.length * 4,
+    title: `Counts of PGS entries across ${traitList.length} Traits`,
+    margin: {
+        l: 300
+    },
+    xaxis: {
+        autorange: false,
+        range: [0, 30],
+        type: 'linear'
+    }
+}
+
+var dt = [{
+    x: traitFiles.map(x => x.associated_pgs_ids.length),
+    y: traitFiles.map(x => x.label),
+    type: 'bar',
+    orientation: 'h',
+    marker: {
+        color: Array(traitList.length).fill(['orange', 'green', 'red',
+            '#1f77b4', //muted blue
+            '#ff7f0e', // safety orange
+            '#2ca02c', // cooked asparagus green
+            '#d62728', //brick red
+            'blue',
+            '#9467bd', //muted purple
+            '#8c564b', //chestnut brown
+            '#e377c2', //raspberry yogurt pink
+            '#7f7f7f', //middle gray
+            'yellow',
+            '#bcbd22', //curry yellow-green
+            '#17becf' //blue-teal])
+        ]).flat().splice(0, traitList.length)
+    }
+}]
+plotly.newPlot(topBarTraitsDiv, dt, layout);
+
+
+// bar chart of variant sizes after click-----------------------------------------
+topBarCategoriesDiv.on('plotly_click', async function (data) {
+    console.log("Category selected:",data.points[0].y)
+    let pgsIds = getAllPgsIdsByCategory(data.points[0].y)
+    let scoreFiles = (await getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
+    var layout = {
+        autosize: true,
+        height: 600,
+        width: 600,
+        title: `Variant sizes for ${pgsIds.length} "${data.points[0].y}" entries `,
+        margin: {
+            l: 390,
+            r: 0,
+            t: -10,
+            b: -10
+        },
+
+        xaxis: {
+            autorange: false,
+            range: [0, 500],
+            type: 'linear'
+        }
+    }
+    var data = [{
+        x: scoreFiles.map(x => x.variants_number),
+        y: scoreFiles.map(x => x.trait_reported.concat(" " + x.id)),
+        type: 'bar',
+        orientation: 'h',
+        marker: {
+            color: Array(scoreFiles.length).fill([data.points[0]['marker.color']]).flat().splice(0, scoreFiles.length)
+        }
+    }];
+    plotly.newPlot('secondBarCategories', data, layout)
+    createButton("secondBarCategories","button1", scoreFiles);
+})
+
+// pie chart of traits -----------------------------------
+topBarCategoriesDiv.on('plotly_click', async function (data) {
+    const newH = document.getElementById("pieHeader");
+    newH.innerHTML = "Select a subcategory to display entries and variant sizes"
+    newH.style = "color: rgb(6, 137, 231);"
+    let pgsIds = getAllPgsIdsByCategory(data.points[0].y)
+    let scoreFiles = (await getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
+
+    var obj = {};
+    scoreFiles.forEach(function (item) {
+        obj[item.trait_reported] ? obj[item.trait_reported]++ : obj[item.trait_reported] = 1;
+    });
+    var layout = {
+        title: `${Object.keys(obj).length} traits found in "${data.points[0].y}" Category`,
+        autosize: true,
+    }
+    var data = [{
+        values: Object.values(obj),
+        labels: Object.keys(obj),
+        type: 'pie',
+        textposition: 'inside'
+    }];
+
+    plotly.newPlot('pgsPie', data, layout);
+
+    // bar chart of variant size by trait from pie selection------------------------
+    document.getElementById("pgsPie").on('plotly_click', async function (data2) {
+        let trait = data2.points[0].label
+        console.log("Subcategory selected:",data2.points[0].label)
+
+        let res = scoreFiles.filter(x => x.trait_reported === data2.points[0].label).sort((a, b) => a.variants_number - b.variants_number)
+        var data = [{
+            x: res.map(x => x.variants_number),
+            y: res.map(x => x.trait_reported.concat(" " + x.id)),
+            type: 'bar',
+            orientation: 'h',
+            marker: {
+                color: data2.points[0].color,
+            }
+        }];
+        var layout = {
+            autosize: true,
+            title: `Variant sizes ${res.length} "${data2.points[0].label}" entries`,
+            margin: {
+                l: 250
+            },
+            xaxis: {
+                autorange: false,
+                range: [0, 500],
+                type: 'linear'
+            },
+        }
+        plotly.newPlot('thirdBarCategories', data, layout);
+
+        // add download button for pgsIds
+        createButton("thirdBarCategories","button2", res);
+    })
+})
+
+//bar chart of traits -----------------------------------------
+topBarTraitsDiv.on('plotly_click', async function (data) {
+    console.log("Trait selected:",data.points[0].y)
+    let pgsIds = traitFiles.filter(tfile => tfile.label == data.points[0].label)[0].associated_pgs_ids
+    let scoreFiles = (await getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
+    var layout = {
+        autosize: true,
+        title: `Variant sizes for ${pgsIds.length} "${data.points[0].y}" entries `,
+        margin: {
+            l: 390
+        },
+        xaxis: {
+            autorange: false,
+            range: [0, 500],
+            type: 'linear'
+        },
+    }
+    var data = [{
+        x: scoreFiles.map(x => x.variants_number),
+        y: scoreFiles.map(x => x.trait_reported.concat(" " + x.id)),
+        type: 'bar',
+        orientation: 'h',
+        marker: {
+            color: Array(scoreFiles.length).fill([data.points[0]['marker.color']]).flat().splice(0, scoreFiles.length)
+        }
+    }];
+    plotly.newPlot('secondBarTraits', data, layout);
+    // add download button for pgsIds
+     // add download button for pgsIds
+     createButton("secondBarTraits","button3", scoreFiles);
+  })
+
+// FUNCTIONS------------------------------------------------------------------------
+/** Download contents as a file
+ * Source: https://stackoverflow.com/questions/14964035/how-to-export-javascript-array-info-to-csv-on-client-side
+ */
+function downloadBlob(content, filename, contentType) {
+    // Create a blob
+    var blob = new Blob([content], {
+        type: contentType
+    });
+    var url = URL.createObjectURL(blob);
+
+    // Create a link to download it
+    var pom = document.createElement('a');
+    pom.href = url;
+    pom.setAttribute('download', filename);
+    pom.click();
+}
+
+// make download buttons under plots
+function createButton(parent,buttonId, dt) {
+    const button = document.createElement("button");
+    button.textContent = "download pgs IDs";
+    button.id = buttonId
+    document.getElementById(parent).appendChild(button)
+    document.getElementById(buttonId).replaceWith(button)
+
+    button.addEventListener("click", function() {
+      downloadBlob(dt.map(x => x.id), 'export.csv', 'text/csv;charset=utf-8;')
+  });
+}
+
+
 // get all data from API without limits--------------------------------------------
 async function fetchAll2(url, maxPolls = null) {
     var spinner = document.getElementById("spinner");
@@ -148,250 +397,6 @@ async function getscoreFiles(pgsIds) {
         i += 1
     }
     return scores
-}
-// top bar plot of PGS entries by category--------------------------------------------------------------------------------
-let allTraitsDt = (await traitsData(traits)).sort(function (a, b) {
-    return a.count - b.count
-});
-let topBarCategoriesDiv = document.getElementById("topBarCategories")
-var layout = {
-    height: 500,
-    width: 500,
-    autosize: true,
-    title: `Counts of PGS entries across ${allTraitsDt.length} Categories`,
-    margin: {
-        l: 220,
-        r: 50,
-        t: -10,
-        b: -10
-    },
-    xaxis: {
-        autorange: false,
-        range: [0, 300],
-        type: 'linear'
-    },
-}
-var dt = [{
-    x: allTraitsDt.map(x => x.count),
-    y: allTraitsDt.map(x => x.trait),
-    type: 'bar',
-    orientation: 'h',
-    marker: {
-        color: Array(allTraitsDt.length).fill(['orange', 'green', 'red',
-            '#1f77b4', //muted blue
-            '#ff7f0e', // safety orange
-            '#2ca02c', // cooked asparagus green
-            '#d62728', //brick red
-            'blue', "goldenrod", "magenta",
-            '#9467bd', //muted purple
-            '#8c564b', //chestnut brown
-            '#e377c2', //raspberry yogurt pink
-            '#7f7f7f', //middle gray
-            'yellow',
-            '#bcbd22', //curry yellow-green
-            '#17becf' //blue-teal])
-        ]).flat().splice(0, allTraitsDt.length)
-    }
-}]
-plotly.newPlot(topBarCategoriesDiv, dt, layout);
-
-// top bar plot of PGS entries by category--------------------------------------------------------------------------------
-
-let topBarTraitsDiv = document.getElementById("topBarTraits")
-let traitList = traitFiles.sort((a, b) => a.associated_pgs_ids.length - b.associated_pgs_ids.length)
-
-var layout = {
-    autosize: true,
-    height: traitFiles.length * 4,
-    title: `Counts of PGS entries across ${traitList.length} Traits`,
-    margin: {
-        l: 300
-    },
-    xaxis: {
-        autorange: false,
-        range: [0, 30],
-        type: 'linear'
-    }
-}
-
-var dt = [{
-    x: traitFiles.map(x => x.associated_pgs_ids.length),
-    y: traitFiles.map(x => x.label),
-    type: 'bar',
-    orientation: 'h',
-    marker: {
-        color: Array(traitList.length).fill(['orange', 'green', 'red',
-            '#1f77b4', //muted blue
-            '#ff7f0e', // safety orange
-            '#2ca02c', // cooked asparagus green
-            '#d62728', //brick red
-            'blue',
-            '#9467bd', //muted purple
-            '#8c564b', //chestnut brown
-            '#e377c2', //raspberry yogurt pink
-            '#7f7f7f', //middle gray
-            'yellow',
-            '#bcbd22', //curry yellow-green
-            '#17becf' //blue-teal])
-        ]).flat().splice(0, traitList.length)
-    }
-}]
-plotly.newPlot(topBarTraitsDiv, dt, layout);
-
-
-// bar chart of variant sizes after category bar chart click-----------------------------------------
-topBarCategoriesDiv.on('plotly_click', async function (data) {
-    let pgsIds = getAllPgsIdsByCategory(data.points[0].y)
-    let scoreFiles = (await getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
-console.log("scoreFiles.length",scoreFiles.length)
-    var layout = {
-        autosize: true,
-        height: 600,
-        width: 600,
-        title: `Variant sizes for ${pgsIds.length} "${data.points[0].y}" entries `,
-        margin: {
-            l: 390,
-            r: 0,
-            t: -10,
-            b: -10
-        },
-
-        xaxis: {
-            autorange: false,
-            range: [0, 500],
-            type: 'linear'
-        }
-    }
-    var data = [{
-        x: scoreFiles.map(x => x.variants_number),
-        y: scoreFiles.map(x => x.trait_reported.concat(" " + x.id)),
-        type: 'bar',
-        orientation: 'h',
-        marker: {
-            color: Array(scoreFiles.length).fill([data.points[0]['marker.color']]).flat().splice(0, scoreFiles.length)
-        }
-    }];
-    plotly.newPlot('secondBarCategories', data, layout)
-    createButton("secondBarCategories","button1", scoreFiles);
-})
-
-// pie chart of traits -----------------------------------
-topBarCategoriesDiv.on('plotly_click', async function (data) {
-    const newH = document.getElementById("h5");
-    newH.innerHTML = "Select a trait from the pie chart to display variant sizes for all entries related to that subcategory"
-    newH.style = "color: rgb(6, 137, 231);"
-    let pgsIds = getAllPgsIdsByCategory(data.points[0].y)
-    let scoreFiles = (await getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
-
-    var obj = {};
-    scoreFiles.forEach(function (item) {
-        obj[item.trait_reported] ? obj[item.trait_reported]++ : obj[item.trait_reported] = 1;
-    });
-    var layout = {
-        title: `${Object.keys(obj).length} traits found in "${data.points[0].y}" Category`,
-        autosize: true,
-    }
-    var data = [{
-        values: Object.values(obj),
-        labels: Object.keys(obj),
-        type: 'pie',
-        textposition: 'inside'
-    }];
-
-    plotly.newPlot('pgsPie', data, layout);
-
-    // bar chart of variant size by trait from pie selection------------------------
-    document.getElementById("pgsPie").on('plotly_click', async function (data3) {
-        let res = scoreFiles.filter(x => x.trait_reported === data3.points[0].label).sort((a, b) => a.variants_number - b.variants_number)
-        var data2 = [{
-            x: res.map(x => x.variants_number),
-            y: res.map(x => x.trait_reported.concat(" " + x.id)),
-            type: 'bar',
-            orientation: 'h',
-            marker: {
-                color: data3.points[0].color,
-            }
-        }];
-        var layout = {
-            autosize: true,
-            title: `Variant sizes ${res.length} "${data3.points[0].label}" entries`,
-            margin: {
-                l: 250
-            },
-            xaxis: {
-                autorange: false,
-                range: [0, 500],
-                type: 'linear'
-            },
-        }
-        plotly.newPlot('thirdBarCategories', data2, layout);
-
-        // add download button for pgsIds
-        createButton("thirdBarCategories","button2", res);
-    })
-})
-
-//bar chart of traits -----------------------------------------
-topBarTraitsDiv.on('plotly_click', async function (data) {
-
-    let pgsIds = traitFiles.filter(tfile => tfile.label == data.points[0].label)[0].associated_pgs_ids
-    let scoreFiles = (await getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
-    var layout = {
-        autosize: true,
-        title: `Variant sizes for ${pgsIds.length} "${data.points[0].y}" entries `,
-        margin: {
-            l: 390
-        },
-        xaxis: {
-            autorange: false,
-            range: [0, 500],
-            type: 'linear'
-        },
-    }
-    var data = [{
-        x: scoreFiles.map(x => x.variants_number),
-        y: scoreFiles.map(x => x.trait_reported.concat(" " + x.id)),
-        type: 'bar',
-        orientation: 'h',
-        marker: {
-            color: Array(scoreFiles.length).fill([data.points[0]['marker.color']]).flat().splice(0, scoreFiles.length)
-        }
-    }];
-    plotly.newPlot('secondBarTraits', data, layout);
-    // add download button for pgsIds
-     // add download button for pgsIds
-     createButton("secondBarTraits","button3", scoreFiles);
-  })
-
-
-/** Download contents as a file
- * Source: https://stackoverflow.com/questions/14964035/how-to-export-javascript-array-info-to-csv-on-client-side
- */
-function downloadBlob(content, filename, contentType) {
-    // Create a blob
-    var blob = new Blob([content], {
-        type: contentType
-    });
-    var url = URL.createObjectURL(blob);
-
-    // Create a link to download it
-    var pom = document.createElement('a');
-    pom.href = url;
-    pom.setAttribute('download', filename);
-    pom.click();
-}
-
-
-function createButton(parent,buttonId, dt) {
-    const button = document.createElement("button");
-    button.textContent = "download pgs IDs";
-    button.id = buttonId
-    document.getElementById(parent).appendChild(button)
-    document.getElementById(buttonId).replaceWith(button)
-
-    button.addEventListener("click", function() {
-      downloadBlob(dt.map(x => x.id), 'export.csv', 'text/csv;charset=utf-8;')
-  });
 }
 
 
