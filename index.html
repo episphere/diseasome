@@ -17,7 +17,7 @@
 
 <body>
     <!-- top banner -->
-    <nav  class="navbar navbar-expand-sm bg-dark navbar-dark ">
+    <nav class="navbar navbar-expand-sm bg-dark navbar-dark ">
         <!-- <div id="mySidepanel" class="sidepanel">
             <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">×</a>
             <a class="nav-link" href="#notices">Notices</a>
@@ -52,35 +52,43 @@
         <div class="container-fluid">
             <div class="col-lg-10 col-md-10 col-sm-10 col-xs-10 hero-text">
                 <h4 class="hero_title">Diseasome</h3>
-                <p class="hero_desc">Calculation of multiple <a class="link-unstyled"
-                        href="https://www.nature.com/articles/nrg.2016.27" target="_blank">risk profiles</a> for
-                    <br>23andme reports,using the <a class="link-unstyled" href='https://www.pgscatalog.org'
-                        target="_blank">PGS Catalog</a>.</p>
-                <button class="glow-on-hover"
-                    onclick="location.href='https://observablehq.com/@lorenasandoval88/polygenic_risk_scores_sdk'"
-                    type="button">
-                    Get Started</button>
+                    <p class="hero_desc">Calculation of multiple <a class="link-unstyled"
+                            href="https://www.nature.com/articles/nrg.2016.27" target="_blank">risk profiles</a> for
+                        <br>23andme reports,using the <a class="link-unstyled" href='https://www.pgscatalog.org'
+                            target="_blank">PGS Catalog</a>.</p>
+                    <button class="glow-on-hover"
+                        onclick="location.href='https://observablehq.com/@lorenasandoval88/polygenic_risk_scores_sdk'"
+                        type="button">
+                        Get Started</button>
             </div>
         </div>
 
     </section>
-<!-- 23 and me -->
-<h5>OpenSNP</h5>
-<div id = snp></div>
-  <br>
+    <!-- 23 and me -->
+    <h5>OpenSNP</h5>
+    <p>OpenSNP.org is a repository to which users can upload their SNP-sets (and exome-VCFs) from a variety of
+        direct-to-consumer genetic testing brands including 23andMe.</p>
+        <h6 style="color: rgb(6, 137, 231);">Select from the bar chart below, to retreive openSNP data</h6>
+
+    <div id=snp></div>
+    <div id="snpButton"></div>
+
+    <hr><br>
 
     <!-- pgs scoring counts bar plot ----------------------------->
     <h5>The Polygenic Score (PGS) Catalog</h5>
-    <p>The PGS Catalog is an open database of published polygenic scores (PGS). Each PGS in the Catalog is consistently annotated with relevant metadata; including scoring files (variants, effect alleles/weights), annotations of how the PGS was developed and applied, and evaluations of their predictive performance.</p>
+    <p>The PGS Catalog is an open database of published polygenic scores (PGS), annotated with relevant metadata; including scoring files (variants, effect alleles/weights).</p>
     <br>
-    <h6 style="color: rgb(6, 137, 231);">Select from the bar chart below, to display variant sizes for entries in a category</h6>
+    <h6 style="color: rgb(6, 137, 231);">Select from the bar chart below, to display variant sizes for entries in a
+        category</h6>
+ 
 
     <div class='graph-container'>
         <div id="topBarCategories"></div>
         <div id="secondBarCategories"></div>
     </div>
     <div id="secondBarCategoriesButton"></div>
-<!--  --------------------->
+    <!--  --------------------->
 
     <br>
     <h6 id="pieHeader"></h6>
@@ -90,25 +98,19 @@
     </div>
     <div id="thirdBarCategoriesButton"></div>
 
-        <div class="spinner-border m-5" role="status" id="spinner">
+    <div class="spinner-border m-5" role="status" id="spinner">
         <span class="visually-hidden">Loading...</span>
     </div>
 
-<!--  --------------------->
-
+    <!--  --------------------->
     <hr>
-    <h6 style="color: rgb(6, 137, 231);">Select from the bar charts below, to display variant sizes for entries in a subcategory</h6>
-
+    <h6 style="color: rgb(6, 137, 231);">Select from the bar charts below, to display variant sizes for one trait</h6>
+    <div id="topBarTraits"></div>
+    <div id="secondBarTraits"></div>
+<!-- 
     <div class='graph-container'>
-        <div id="topBarTraits"></div>
-        <div id="secondBarTraits"></div>
-    </div>
+    </div> -->
     <div id="secondBarTraitsButton"></div>
-
-
-
-
-
 
     <!-- scripts----------------------------------------------->
 

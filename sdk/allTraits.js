@@ -25,10 +25,10 @@ let openSnpDbUsers = localforage.createInstance({
     name: "openSnpDbUsers",
     storeName: "usersTxt"
 })
-let output = []
+let output = {pgs:[],snp:[]}
 // 23andMe ///////////////////////////////////////////////////////////////////////////////////
 // get all users with genotype data (23andMe, illumina, ancestry etc)-------------------------------
-async function getUserUrls() { // opensnp user data includes ancestry, familtyTree, and 23and me genotype data
+async function getUsers() { // opensnp user data includes ancestry, familtyTree, and 23and me genotype data
     const newLocal = 'usersFull';
     let dt
     dt = await openSnpDbUrls.getItem(newLocal); // check for users in localstorage
@@ -38,17 +38,17 @@ async function getUserUrls() { // opensnp user data includes ancestry, familtyTr
         let dt2 = users.sort((a, b) => a.id - b.id)
         dt = openSnpDbUrls.setItem('usersFull', dt2)
     }
-    // console.log("getUrls, dt:", dt)
     return dt
 }
 
 // filter users without 23andme/ancestry data---------------------------------------------------------
-async function filterUsers(type) {
-    let users = await getUserUrls()
+async function filterUsers(type, users) {
+    //let users = await getUsers()
     let dt
     let arr = []
-    dt = await openSnpDbUrls.getItem('usersFiltered'); // check local storage for user data 
+    dt = await openSnpDbUrls.getItem(type); // check local storage for user data 
     if (dt == null) {
+        console.log("null",null)
         users.filter(row => row.genotypes.length > 0).map(dt => {
 
             // keep user with one or more 23andme files
@@ -66,13 +66,11 @@ async function filterUsers(type) {
             })
         })
         dt = arr //.filter(x=> x.genotypes.length != 0)
-        openSnpDbUrls.setItem('usersFiltered', dt)
+        openSnpDbUrls.setItem(type, dt)
     }
-    //console.log("fiter, dt:", dt)
     return dt
 }
-let users2 = await filterUsers("23andme")
-console.log("users2",users2)
+
 
 async function get23(urls) {
     let arr23Txts = []
@@ -92,15 +90,14 @@ async function get23(urls) {
             console.log("ERROR:This is NOT a valid 23andMe file:", user.substring(0, 37))
         }
     }
-
     return arr23Txts
 }
 
 // plot opensnp data types --------------
-let users = (await getUserUrls())
+let users = (await getUsers())
 let usersFlat = users.flatMap(x=>x.genotypes)
 let datatypes = [...new Set(users.flatMap(x=>x.genotypes.flatMap(e=>e.filetype)))]
-console.log("usersFlat",usersFlat)
+// console.log("usersFlat",usersFlat)
 var obj = {};
 var counter = {}
 
@@ -108,9 +105,9 @@ for (var i = 0, len = usersFlat.length; i < len; i++) {
   obj[usersFlat[i]['filetype']] = usersFlat[i];
   counter[usersFlat[i]['filetype']] = (counter[usersFlat[i]['filetype']] || 0) + 1
 }
-let newArr = new Array();
+let datatypesCounts = new Array();
 for (var key in obj){
-  newArr.push(extend( obj[key], {count:counter[key]}));
+    datatypesCounts.push(extend( obj[key], {count:counter[key]}));
 }
 
 function extend(a, b){
@@ -119,36 +116,55 @@ function extend(a, b){
             a[key] = b[key];
     return a;
 }
-console.log(newArr)
+// console.log("datatypes:",datatypesCounts)
 
-
+// plot openSNP------------------------------------------------------------
 let snpDiv = document.getElementById("snp")
 var layout = {
-
-    autosize: true,
-    title: `Counts of OpenSNP datatypes`,
+    autosize: false,
+    height: 300, 
+    width: 400,
+    title: `OpenSNP datatypes`,
  margin: {l:150},
     xaxis: {
         autorange: false,
         range: [0, 1000],
         type: 'linear'
     },
+    yaxis:{
+        title: {
+            standoff: 10,
+            text: "Counts"},
+    }
 }
 var dt = [{
-    x: newArr.map(x => x.count),
-    y: newArr.map(x => x.filetype),
+    x: datatypesCounts.map(x => x.count),
+    y: datatypesCounts.map(x => x.filetype),
     type: 'bar',
     orientation: 'h',
     marker: {
-        color: Array(newArr.length).fill(['orange', 'green', 'red',
-            '#1f77b4', //muted blue
-            '#ff7f0e', // safety orange
-            '#2ca02c', // cooked asparagus green
-            '#d62728', //brick red
-        ]).flat().splice(0, newArr.length)
+        color: Array(datatypesCounts.length).fill([
+            'blue', "goldenrod", "magenta",
+            '#8c564b', //chestnut brown
+            '#9467bd', //muted purple
+            'red', //raspberry yogurt pink
+            'green', //middle gray
+        ]).flat().splice(0, datatypesCounts.length)
     }
 }]
 plotly.newPlot(snpDiv, dt, layout);
+// download button for opensnp data---------------------------------
+snpDiv.on('plotly_click', async function (data) {
+    let snpLabel = data.points[0].label
+    console.log("snp type selected:",snpLabel)
+    let results = await filterUsers(snpLabel, users)
+    output.snp = results
+    console.log("output",output)
+    let snpUrls = results.map( x => x["genotype.download_url"])
+    
+        // add download button for pgsIds
+        createButton("snp","snpButton", "download snp urls", snpUrls);
+})
 
 // top bar plot
 // PGS ///////////////////////////////////////////////////////////////////////////////////
@@ -159,31 +175,33 @@ traits.map(x => getAllPgsIdsByCategory(x))
 
 // top bar plot of PGS entries by category--------------------------------------------------------------------------------
 let allTraitsDt = (await traitsData(traits)).sort(function (a, b) {
-    return a.count - b.count
+    return b.count - a.count
 });
 let topBarCategoriesDiv = document.getElementById("topBarCategories")
 var layout = {
     height: 500,
-    width: 500,
-    autosize: true,
-    title: `Counts of PGS entries across ${allTraitsDt.length} Categories`,
-    margin: {
-        l: 220,
-        r: 50,
-        t: -10,
-        b: -10
+    width: 600,
+    autosize: false,
+   // title: `Counts of PGS entries across ${allTraitsDt.length} Categories`,
+     margin: {
+
+       b: 200
     },
-    xaxis: {
-        autorange: false,
+
+    yaxis: {
+        title: {
+            text: 'Category Counts',
+          },
+              autorange: false,
         range: [0, 300],
         type: 'linear'
     },
 }
 var dt = [{
-    x: allTraitsDt.map(x => x.count),
-    y: allTraitsDt.map(x => x.trait),
+    x: allTraitsDt.map(x => x.trait),
+    y: allTraitsDt.map(x => x.count),
     type: 'bar',
-    orientation: 'h',
+    //orientation: 'h',
     marker: {
         color: Array(allTraitsDt.length).fill(['orange', 'green', 'red',
             '#1f77b4', //muted blue
@@ -206,26 +224,34 @@ plotly.newPlot(topBarCategoriesDiv, dt, layout);
 // top bar plot of PGS entries by category--------------------------------------------------------------------------------
 
 let topBarTraitsDiv = document.getElementById("topBarTraits")
-let traitList = traitFiles.sort((a, b) => a.associated_pgs_ids.length - b.associated_pgs_ids.length)
+let traitList = traitFiles.sort((a, b) => b.associated_pgs_ids.length - a.associated_pgs_ids.length)
 var layout = {
-    autosize: true,
-    height: traitFiles.length * 4,
-    title: `Counts of PGS entries across ${traitList.length} Traits`,
+    autosize: false,
+    height: 700,
+    width: 12000,
+   // title: `Counts of PGS entries across ${traitList.length} Traits`,
     margin: {
-        l: 300
+       // t: 200,
+        b: 400
     },
-    xaxis: {
+    yaxis: {
+        title: {
+            text: 'Trait Counts',
+          },
+          constraintoward: 'left',
+
         autorange: false,
-        range: [0, 30],
+        range: [0, 100],
         type: 'linear'
-    }
+    },
+  
 }
 
 var dt = [{
-    x: traitFiles.map(x => x.associated_pgs_ids.length),
-    y: traitFiles.map(x => x.label),
+    x: traitFiles.map(x => x.label),
+    y: traitFiles.map(x => x.associated_pgs_ids.length),
     type: 'bar',
-    orientation: 'h',
+    //orientation: 'h',
     marker: {
         color: Array(traitList.length).fill(['orange', 'green', 'red',
             '#1f77b4', //muted blue
@@ -248,20 +274,21 @@ plotly.newPlot(topBarTraitsDiv, dt, layout);
 
 // bar chart of variant sizes after click-----------------------------------------
 topBarCategoriesDiv.on('plotly_click', async function (data) {
-    let category = data.points[0].y
+    console.log("data.points[0]",data.points[0])
+    let category = data.points[0].label
     console.log("Category selected:",category)
 
     let pgsIds = getAllPgsIdsByCategory(category)
     let scoreFiles = (await getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
     let obj = {}
     obj[category] = scoreFiles
-    output.push(obj)
+    output.pgs.push(obj)
     console.log("output",output)
 
     var layout = {
         autosize: true,
-        height: 600,
-        width: 600,
+        height: 400,
+        width: 500,
         title: `Variant sizes for ${pgsIds.length} "${category}" entries `,
         margin: {
             l: 390,
@@ -286,7 +313,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
         }
     }];
     plotly.newPlot('secondBarCategories', data, layout)
-    createButton("secondBarCategories","button1", scoreFiles);
+    createButton("secondBarCategories","button1", "download pgs IDs",scoreFiles);
 })
 
 // pie chart of traits -----------------------------------
@@ -294,7 +321,8 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
     const newH = document.getElementById("pieHeader");
     newH.innerHTML = "Select a subcategory to display entries and variant sizes"
     newH.style = "color: rgb(6, 137, 231);"
-    let pgsIds = getAllPgsIdsByCategory(data.points[0].y)
+    let category = data.points[0].label
+    let pgsIds = getAllPgsIdsByCategory(category)
     let scoreFiles = (await getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
 
     var obj = {};
@@ -302,7 +330,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
         obj[item.trait_reported] ? obj[item.trait_reported]++ : obj[item.trait_reported] = 1;
     });
     var layout = {
-        title: `${Object.keys(obj).length} traits found in "${data.points[0].y}" Category`,
+        title: `${Object.keys(obj).length} traits found in "${category}" Category`,
         autosize: true,
     }
     var data = [{
@@ -321,7 +349,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
         let res = scoreFiles.filter(x => x.trait_reported === trait).sort((a, b) => a.variants_number - b.variants_number)
         let obj = {}
         obj[trait] = res
-        output.push(obj)
+        output.pgs.push(obj)
         console.log("output",output)
         var data = [{
             x: res.map(x => x.variants_number),
@@ -347,19 +375,19 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
         plotly.newPlot('thirdBarCategories', data, layout);
 
         // add download button for pgsIds
-        createButton("thirdBarCategories","button2", res);
+        createButton("thirdBarCategories","button2", "download pgs IDs",res);
     })
 })
 
 //bar chart of traits -----------------------------------------
 topBarTraitsDiv.on('plotly_click', async function (data) {
-    let trait = data.points[0].y
+    let trait = data.points[0].label
     console.log("Trait selected:",trait)
-    let pgsIds = traitFiles.filter(tfile => tfile.label == data.points[0].label)[0].associated_pgs_ids
+    let pgsIds = traitFiles.filter(tfile => tfile.label == trait)[0].associated_pgs_ids
     let scoreFiles = (await getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
     let obj = {}
     obj[trait] = scoreFiles
-    output.push(obj)
+    output.pgs.push(obj)
     console.log("output",output)
     var layout = {
         autosize: true,
@@ -385,7 +413,7 @@ topBarTraitsDiv.on('plotly_click', async function (data) {
     plotly.newPlot('secondBarTraits', data, layout);
     // add download button for pgsIds
      // add download button for pgsIds
-     createButton("secondBarTraits","button3", scoreFiles);
+     createButton("secondBarTraits","button3","download pgs IDs", scoreFiles);
   })
 
 // FUNCTIONS------------------------------------------------------------------------
@@ -407,15 +435,15 @@ function downloadBlob(content, filename, contentType) {
 }
 
 // make download buttons under plots
-function createButton(parent,buttonId, dt) {
+function createButton(parent,buttonId, buttonTxt, dt) {
     const button = document.createElement("button");
-    button.textContent = "download pgs IDs";
+    button.textContent = buttonTxt;
     button.id = buttonId
     document.getElementById(parent).appendChild(button)
     document.getElementById(buttonId).replaceWith(button)
 
     button.addEventListener("click", function() {
-      downloadBlob(dt.map(x => x.id), 'export.csv', 'text/csv;charset=utf-8;')
+      downloadBlob(dt, 'export.csv', 'text/csv;charset=utf-8;')
   });
 }
 
