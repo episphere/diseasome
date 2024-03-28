@@ -284,11 +284,17 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
     obj[category] = scoreFiles
     output.pgs.push(obj)
     console.log("output",output)
+    var obj2 = {};
+    scoreFiles.forEach(function (item) {
+        obj2[item.trait_reported] ? obj2[item.trait_reported]++ : obj2[item.trait_reported] = 1;
+    });
+    
+    document.getElementById("description1").innerHTML = `${Object.values(obj2).length} traits with a total of ${pgsIds.length} entries found within the "${category}" category!`
 
     var layout = {
         autosize: true,
         height: 400,
-        width: 500,
+        width: 600,
         title: `Variant sizes for ${pgsIds.length} "${category}" entries `,
         margin: {
             l: 390,
@@ -318,10 +324,10 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
 
 // pie chart of traits -----------------------------------
 topBarCategoriesDiv.on('plotly_click', async function (data) {
-    const newH = document.getElementById("pieHeader");
-    newH.innerHTML = "Select a subcategory to display entries and variant sizes"
-    newH.style = "color: rgb(6, 137, 231);"
     let category = data.points[0].label
+    const newH = document.getElementById("pieHeader");
+    newH.innerHTML = `Select a "${category}" trait below`
+    newH.style = "color: rgb(6, 137, 231);"
     let pgsIds = getAllPgsIdsByCategory(category)
     let scoreFiles = (await getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
 
@@ -389,6 +395,7 @@ topBarTraitsDiv.on('plotly_click', async function (data) {
     obj[trait] = scoreFiles
     output.pgs.push(obj)
     console.log("output",output)
+
     var layout = {
         autosize: true,
         title: `Variant sizes for ${pgsIds.length} "${trait}" entries `,
