@@ -68,7 +68,7 @@
     <h5>OpenSNP</h5>
     <p>OpenSNP.org is a repository to which users can upload their SNP-sets (and exome-VCFs) from a variety of
         direct-to-consumer genetic testing brands including 23andMe.</p>
-        <h6 style="color: rgb(6, 137, 231);">Select from the bar chart below, to retreive openSNP data</h6>
+        <h6 style="color: rgb(6, 137, 231);">Select an openSNP datatype below:</h6>
 
     <div id=snp></div>
     <div id="snpButton"></div>
@@ -79,14 +79,13 @@
     <h5>The Polygenic Score (PGS) Catalog</h5>
     <p>The PGS Catalog is an open database of published polygenic scores (PGS), annotated with relevant metadata; including scoring files (variants, effect alleles/weights).</p>
     <br>
-    <h6 style="color: rgb(6, 137, 231);">Select a PGS category below
-        category</h6>
+    <h6 style="color: rgb(6, 137, 231);">Select a PGS category below:</h6>
  
 
     <!-- <div class='graph-container'>
     </div> -->
     <div id="topBarCategories"></div>
-    <div id="description1"></div>
+    <p id="description1" style = "font-size:10px;color:blue"></p>
 
     <div id="secondBarCategories"></div>
     <div id="secondBarCategoriesButton"></div>
@@ -94,6 +93,9 @@
 
     <br>
     <h6 id="pieHeader"></h6>
+    <div class="spinner-border m-5"  style="display: none;" role="status" id="spinner2">
+        <span class="visually-hidden">Loading...</span>
+    </div>
     <div id="pgsPie"></div>
     <div id="thirdBarCategories"></div>
     <div id="thirdBarCategoriesButton"></div>
@@ -101,10 +103,11 @@
     <div class="spinner-border m-5" role="status" id="spinner">
         <span class="visually-hidden">Loading...</span>
     </div>
+  
 
     <!--  --------------------->
     <hr>
-    <h6 style="color: rgb(6, 137, 231);">Select from the bar charts below, to display variant sizes for one trait</h6>
+    <h6 style="color: rgb(6, 137, 231);">Or select a PGS trait below:</h6>
     <div id="topBarTraits"></div>
     <div id="secondBarTraits"></div>
 <!-- 
@@ -113,8 +116,9 @@
     <div id="secondBarTraitsButton"></div>
 
     <!-- scripts----------------------------------------------->
-
-    <script type="module" src="sdk/allTraits.js"></script>
+    <script type="module" src="sdk/sdk.js"></script>
+    <script type="module" src="sdk/main.js"></script>
+    <script type="module" src="sdk/plots.js"></script>
     <script type="module" src="sdk/openSnp.js"></script>
     <script type="module" src="dependencies.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js"></script>
