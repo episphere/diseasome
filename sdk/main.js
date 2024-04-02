@@ -1,4 +1,3 @@
-
 import localforage from 'https://cdn.skypack.dev/localforage';
 
 localforage.config({
@@ -13,6 +12,7 @@ let pgs = localforage.createInstance({
     name: "pgs",
     storeName: "scoreFiles",
 })
+
 let fetchAll = localforage.createInstance({
     name: "fetchAll",
     storeName: "urls"
@@ -117,10 +117,16 @@ functions.get23 = async function(urls) {
     document.getElementById(buttonId).replaceWith(button)
 
     button.addEventListener("click", function() {
-      downloadBlob(dt, 'export.csv', 'text/csv;charset=utf-8;')
+      functions.downloadBlob(dt, 'export.csv', 'text/csv;charset=utf-8;')
   });
 }
-
+functions.createButton2 = function(parent,buttonId, buttonTxt) {
+    const button = document.createElement("button");
+    button.textContent = buttonTxt;
+    button.id = buttonId
+    document.getElementById(parent).appendChild(button)
+    document.getElementById(buttonId).replaceWith(button)
+}
 
 // get all data from API without limits--------------------------------------------
 functions.fetchAll2 = async function(url, maxPolls = null) {

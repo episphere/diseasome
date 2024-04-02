@@ -1,6 +1,14 @@
+import localforage from 'https://cdn.skypack.dev/localforage';
+
+import pako from 'https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.esm.mjs'
+let pgsTxts = localforage.createInstance({
+    name: "pgsTxts",
+    storeName: "pgsTxts",
+})
+let sdk = {}
 // 23andMe ///////////////////////////////////////////////////////////////////////////////////
 // get all users urls genotype data (23andMe, illumina, ancestry etc)-------------------------------
-const getUsers = async function (length) {
+sdk.getUsers = async function (length) {
     let arr = []
     let url = 'https://corsproxy.io/?https://opensnp.org/users.json'
     let users = (await (await fetch(url)).json()).sort((a, b) => a.id - b.id).filter(row => row.genotypes.length > 0).map(dt => {
@@ -38,12 +46,10 @@ const getUsers = async function (length) {
     return txts23
 }
 
-// let users = await getUsers()
-// console.log("users",users)
 
 // create 23andme obj and data --------------------------
-async function parse23(txt, url) {
-    // normally info is the file name
+sdk.parse23 = async function(txt, url) {
+    // normally info is the file namesdk.
     let obj = {}
     let rows = txt.split(/[\r\n]+/g)
     obj.txt = txt
@@ -63,7 +69,7 @@ async function parse23(txt, url) {
     return obj
 }
 // PGS ///////////////////////////////////////////////////////////////////////////////
-const getscoreFiles = async function (pgsIds) {
+sdk.getscoreFiles = async function (pgsIds) {
     var scores = []
     let i = 0
     while (i < pgsIds.length) {
@@ -85,7 +91,97 @@ const getscoreFiles = async function (pgsIds) {
     return scores
 }
 
-const timeout = (ms) => {
+sdk.timeout = (ms) => {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 //console.log("pgs",await getscoreFiles(["PGS002130"]))
+
+sdk.loadScoreHm = async function(entry, build = 37, range) {
+    let txt = ""
+    let dt
+    dt = await pgsTxts.getItem(entry); // check for users in localstorage
+    if (entry == null){
+         txt = "no pgs entry provided"
+        return txt
+    } else {
+    txt = ""
+    entry = "PGS000000".slice(0, -entry.length) + entry
+    // https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/PGS000004/ScoringFiles/Harmonized/PGS000004_hmPOS_GRCh37.txt.gz
+    const url = `https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/${entry}/ScoringFiles/Harmonized/${entry}_hmPOS_GRCh${build}.txt.gz` //
+    if (range) {
+        if (typeof (range) == 'number') {
+            range = [0, range]
+        }
+        txt = pako.inflate(await (await fetch(url, {
+            headers: {
+                'content-type': 'multipart/byteranges',
+                'range': `bytes=${range.join('-')}`,
+            }
+        })).arrayBuffer(), {
+            to: 'string'
+        })
+    } else {
+        txt = pako.inflate(await (await fetch(url)).arrayBuffer(), {
+            to: 'string'
+        })
+    }
+    // Check if PGS catalog FTP site is down-----------------------
+    let response
+    response = await fetch(url) // testing url 'https://httpbin.org/status/429'
+    if (response?.ok) {
+        ////console.log('Use the response here!');
+    } else {
+        txt = `:( Error loading PGS file. HTTP Response Code: ${response?.status}`
+        document.getElementById('pgsTextArea').value = txt
+    }
+    txt = await sdk.parsePGS(entry, txt)
+    pgsTxts.setItem(entry, txt)
+}
+
+    return txt
+}
+
+// create PGS obj and data --------------------------
+sdk.parsePGS = async function(id, txt) {
+    let obj = {
+        id: id
+    }
+    obj.txt = txt
+    let rows = obj.txt.split(/[\r\n]/g)
+    let metaL = rows.filter(r => (r[0] == '#')).length
+    obj.meta = {
+        txt: rows.slice(0, metaL)
+    }
+    obj.cols = rows[metaL].split(/\t/g)
+    obj.dt = rows.slice(metaL + 1).map(r => r.split(/\t/g))
+    if (obj.dt.slice(-1).length == 1) {
+        obj.dt.pop(-1)
+    }
+    // parse numerical types
+    const indInt = [obj.cols.indexOf('chr_position'), obj.cols.indexOf('hm_pos')]
+    const indFloat = [obj.cols.indexOf('effect_weight'), obj.cols.indexOf('allelefrequency_effect')]
+    const indBol = [obj.cols.indexOf('hm_match_chr'), obj.cols.indexOf('hm_match_pos')]
+
+    // /* this is the efficient way to do it, but for large files it has memory issues
+    obj.dt = obj.dt.map(r => {
+        // for each data row
+        indFloat.forEach(ind => {
+            r[ind] = parseFloat(r[ind])
+        })
+        indInt.forEach(ind => {
+            r[ind] = parseInt(r[ind])
+        })
+        indBol.forEach(ind => {
+            r[ind] = (r[11] == 'True') ? true : false
+        })
+        return r
+    })
+    // parse metadata
+    obj.meta.txt.filter(r => (r[1] != '#')).forEach(aa => {
+        aa = aa.slice(1).split('=')
+        obj.meta[aa[0]] = aa[1]
+    })
+    return obj
+}
+
+export {sdk}
