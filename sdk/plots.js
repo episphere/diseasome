@@ -8,8 +8,9 @@ let output = {pgs:[], snp:[]}
 
 let users = (await functions.getUsers())
 let usersFlat = users.flatMap(x=>x.genotypes)
-let datatypes = [...new Set(users.flatMap(x=>x.genotypes.flatMap(e=>e.filetype)))]
-// console.log("usersFlat",usersFlat)
+console.log("users",users)
+
+console.log("usersFlat",usersFlat)
 var obj = {};
 var counter = {}
 
@@ -28,7 +29,7 @@ function extend(a, b){
             a[key] = b[key];
     return a;
 }
-// console.log("datatypes:",datatypesCounts)
+
 
 // plot openSNP------------------------------------------------------------
 let snpDiv = document.getElementById("snp")
@@ -41,12 +42,13 @@ var layout = {
     xaxis: {
         autorange: false,
         range: [0, 1000],
-        type: 'linear'
+        type: 'linear',
+        title: {
+           // standoff: 10,
+            text: "Counts"},
     },
     yaxis:{
-        title: {
-            standoff: 10,
-            text: "Counts"},
+   
     }
 }
 var dt = [{
@@ -75,8 +77,104 @@ snpDiv.on('plotly_click', async function (data) {
     let snpUrls = results.map( x => x["genotype.download_url"])
     
         // add download button for pgsIds
-        functions.createButton("snp","snpButton", "download snp urls", snpUrls);
+        functions.createButton("snp","snpButton", `download ${snpLabel} snp urls`, snpUrls);
 })
+
+//plot openSNP phenotypes -----------------------------------------------
+let phenotypes = (await (await fetch('https://corsproxy.io/?https://opensnp.org/phenotypes.json')).json())
+                    .sort((a, b) => b.number_of_users - a.number_of_users)
+                    console.log(phenotypes)
+let snpPhenoDiv = document.getElementById("snpPheno")
+var layout = {
+    margin: { t:30, b: 320},
+    autosize: false,
+    height: 600, 
+    width: 3300,
+   // title: `OpenSNP phenotypes`,
+    yaxis: {
+        title: {
+            text: "Counts"},
+        autorange: false,
+        range: [0, 2000],
+        type: 'linear'
+    },
+    xaxis:{
+        title: {
+            standoff: 20,
+            text: "Phenotypes"},
+            tickfont:{
+              //  family:"Times New Roman",
+                size : 9
+            }
+    }
+}
+var dt = [{
+    y: phenotypes.map(x => x.number_of_users),
+    x: phenotypes.map(x => x.characteristic),
+    type: 'bar',
+    orientation: 'v',
+    marker: {
+        color: Array(phenotypes.length).fill([
+            'orange', 'green', 'red',
+            '#1f77b4', //muted blue
+            '#ff7f0e', // safety orange
+            '#2ca02c', // cooked asparagus green
+            '#d62728', //brick red
+            'blue', "goldenrod", "magenta",
+            '#9467bd', //muted purple
+            '#8c564b', //chestnut brown
+            '#e377c2', //raspberry yogurt pink
+            '#7f7f7f', //middle gray
+            'yellow',
+            '#bcbd22', //curry yellow-green
+            '#17becf' //blue-teal])
+        ]).flat().splice(0, phenotypes.length)
+    }
+}]
+plotly.newPlot(snpPhenoDiv, dt, layout);
+
+snpPhenoDiv.on('plotly_click', async function (data) {
+
+let phenoLabel = data.points[0].label
+let phenoData = phenotypes.filter( x => x.characteristic == phenoLabel)
+let phenoId = phenoData[0].id
+console.log("phenoId:",phenoId,phenoLabel)
+
+let phenotype = (await (await fetch(`https://corsproxy.io/?https://opensnp.org/phenotypes/json/variations/${phenoId}.json`)).json())
+let phenotypeUsers = phenotype.users.map( x => x.user_id)
+var arr = users.filter(({id}) => phenotypeUsers.includes(id));
+
+let types = datatypesCounts.map(x => x.filetype)
+
+let usersPheno = await Promise.all(types.map(async function (x){
+    let obj = {}
+    obj[x] = await functions.filterUsers(x, arr)
+    return obj
+}))
+console.log("usersPheno:",usersPheno)//,usersPheno.map( x => x.map( y => y["genotype.filetype"])))
+var layout = {
+    title: `OpenSnp users with "${phenoLabel}" phenotype data`, //"${category}" Category`,
+    autosize: true,
+}
+var data = [{
+    values: usersPheno.map( x=> Object.values(x)[0].length),
+    labels: types,
+    type: 'pie',
+    textposition: 'inside'
+}];
+
+plotly.newPlot('snpPhenoPie', data, layout);
+document.getElementById("snpPhenoPie").on('plotly_click', async function (data2) {
+    let trait = data2.points[0].label
+
+    let pieData = usersPheno.filter( x => Object.keys(x) == trait)
+    console.log("pieData",pieData[0][trait],pieData)
+    functions.createButton("snpPhenoPieButton","button0", `download ${pieData[0][trait].length} users`,pieData);
+
+})
+})
+
+
 
 // top bar plot
 // PGS ///////////////////////////////////////////////////////////////////////////////////
@@ -230,11 +328,11 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
 
     //plotBetas(category, scoreFiles,'betasBarCategories',"button1_2")
    // plot betas
-       // save texts for small models (<300 variants)
+       // save texts for small models (<350 variants)
        let txts = []
-       let pgsIds300 = scoreFiles.filter( x => x.variants_number <300).map(x=>x.id)
-       pgsIds300.map(async x => txts.push((await sdk.loadScoreHm(x))) )
-       output.pgs[`txts ${category} 300 var`] = txts
+       let pgsIds350 = scoreFiles.filter( x => x.variants_number <350).map(x=>x.id)
+       pgsIds350.map(async x => txts.push((await sdk.loadScoreHm(x))) )
+       output.pgs[`txts ${category} 350 var`] = txts
         document.getElementById('button1_2').addEventListener('click', function(event) {
         let traces = {}
         txts.map( x => {
@@ -245,7 +343,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
                 x.dt.map( e=> obj[e[chr]+"_"+e[pos]] = e[weight])
                 traces[x.id] = obj
             })
-        output.pgs[`plot ${category} 300 var`] = traces
+        output.pgs[`plot ${category} 350 var`] = traces
         console.log( "output.pgs",output.pgs)
 
         let plotData=  Object.keys(traces).map( x =>{
@@ -262,7 +360,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
         let betas = plotData.map( x => x.y).flat()  
         var layout = {
             "barmode": 'overlay', 
-            title: `betas for ${pgsIds300.length} "${category}" entries with < 300 variants`,
+            title: `betas for ${pgsIds350.length} "${category}" entries with < 350 variants`,
             height: 1000,
             //  width: (txts.length*170)/(0.2),
             xaxis:{
@@ -276,9 +374,10 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
                 text: "beta"}, 
                 range: [betas.sort((a, b) => a - b)[0], betas.sort((a, b) => b - a)[0]]},
             showlegend: true,
-            legend: {x: -0.09, y: 1.1}
+            legend: {x: -0.09, y: 1}
             }
     plotly.newPlot('betasBarCategories', plotData,layout,{showSendToCloud: true});
+    
     })
 })
 
@@ -421,11 +520,11 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
         functions.createButton2("betasthirdBarCategoriesButton","button1_3", `plot betas`);
 
        // plot betas
-           // save texts for small models (<300 variants)
+           // save texts for small models (<350 variants)
            let txts = []
-           let pgsIds300 = res.filter( x => x.variants_number <300).map(x=>x.id)
-           pgsIds300.map(async x => txts.push((await sdk.loadScoreHm(x))) )
-           output.pgs[`txts ${trait} 300 var`] = txts
+           let pgsIds350 = res.filter( x => x.variants_number <350).map(x=>x.id)
+           pgsIds350.map(async x => txts.push((await sdk.loadScoreHm(x))) )
+           output.pgs[`txts ${trait} 350 var`] = txts
             document.getElementById('button1_3').addEventListener('click', function(event) {
             let traces = {}
             txts.map( x => {
@@ -436,7 +535,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
                     x.dt.map( e=> obj[e[chr]+"_"+e[pos]] = e[weight])
                     traces[x.id] = obj
                 })
-            output.pgs[`plot ${trait} 300 var`] = traces
+            output.pgs[`plot ${trait} 350 var`] = traces
             console.log( "output.pgs",output.pgs)
     
             let plotData=  Object.keys(traces).map( x =>{
@@ -453,7 +552,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
             let betas = plotData.map( x => x.y).flat()  
             var layout = {
                 "barmode": 'overlay', 
-                title: `betas for ${pgsIds300.length} "${trait}" entries with < 300 variants`,
+                title: `betas for ${pgsIds350.length} "${trait}" entries with < 350 variants`,
                 height: 1000,
                 //  width: (txts.length*170)/(0.2),
                 xaxis:{
@@ -509,11 +608,11 @@ topBarTraitsDiv.on('plotly_click', async function (data) {
             functions.createButton("secondBarTraitsButton","button3",`download ${scoreFiles.length} pgs IDs`, scoreFiles);
             functions.createButton2("betassecondBarTraitsButton","button3_2", `plot betas`);
 
-            // save texts for small models (<300 variants)
+            // save texts for small models (<350 variants)
            let txts = []
-           let pgsIds300 = scoreFiles.filter( x => x.variants_number <300).map(x=>x.id)
-           pgsIds300.map(async x => txts.push((await sdk.loadScoreHm(x))) )
-           output.pgs[`txts ${trait} 300 var`] = txts
+           let pgsIds350 = scoreFiles.filter( x => x.variants_number <350).map(x=>x.id)
+           pgsIds350.map(async x => txts.push((await sdk.loadScoreHm(x))) )
+           output.pgs[`txts ${trait} 350 var`] = txts
             document.getElementById('button3_2').addEventListener('click', function(event) {
             let traces = {}
             txts.map( x => {
@@ -524,7 +623,7 @@ topBarTraitsDiv.on('plotly_click', async function (data) {
                     x.dt.map( e=> obj[e[chr]+"_"+e[pos]] = e[weight])
                     traces[x.id] = obj
                 })
-            output.pgs[`plot ${trait} 300 var`] = traces
+            output.pgs[`plot ${trait} 350 var`] = traces
             console.log( "output.pgs",output.pgs)
     
             let plotData=  Object.keys(traces).map( x =>{
@@ -541,7 +640,7 @@ topBarTraitsDiv.on('plotly_click', async function (data) {
             let betas = plotData.map( x => x.y).flat()  
             var layout = {
                 "barmode": 'overlay', 
-                title: `betas for ${pgsIds300.length} "${trait}" entries with < 300 variants`,
+                title: `betas for ${pgsIds350.length} "${trait}" entries with < 350 variants`,
                 height: 1000,
                 //  width: (txts.length*170)/(0.2),
                 xaxis:{

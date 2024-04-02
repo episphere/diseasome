@@ -11,11 +11,11 @@ let sdk = {}
 sdk.getUsers = async function (length) {
     let arr = []
     let url = 'https://corsproxy.io/?https://opensnp.org/users.json'
-    let users = (await (await fetch(url)).json()).sort((a, b) => a.id - b.id).filter(row => row.genotypes.length > 0).map(dt => {
+    let dt = (await (await fetch(url)).json()).sort((a, b) => a.id - b.id).filter(row => row.genotypes.length > 0).map(x => {
 
         // keep user urls  with one or more 23andme files
         dt.genotypes.map(i => {
-            if (dt.genotypes.length > 0 && i.filetype == "23andme") {
+            if (x.genotypes.length > 0 && i.filetype == "23andme") {
                 let innerObj = {};
                 innerObj["name"] = dt["name"];
                 innerObj["id"] = dt["id"];
@@ -26,6 +26,7 @@ sdk.getUsers = async function (length) {
 
             }
         })
+        return arr
     })
    // get texts and run qc
     let urls23 = arr.map(x => x["genotype.download_url"]).slice(0, length)

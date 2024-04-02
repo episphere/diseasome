@@ -37,6 +37,7 @@ functions.getUsers = async function() { // opensnp user data includes ancestry, 
         let url = 'https://corsproxy.io/?https://opensnp.org/users.json'
         let users = (await (await fetch(url)).json())
         let dt2 = users.sort((a, b) => a.id - b.id)
+        
         dt = openSnpDbUrls.setItem('usersFull', dt2)
     }
     return dt
@@ -44,12 +45,8 @@ functions.getUsers = async function() { // opensnp user data includes ancestry, 
 
 // filter users without 23andme/ancestry data---------------------------------------------------------
 functions.filterUsers = async function(type, users) {
-    //let users = await getUsers()
-    let dt
     let arr = []
-    dt = await openSnpDbUrls.getItem(type); // check local storage for user data 
-    if (dt == null) {
-        console.log("null",null)
+
         users.filter(row => row.genotypes.length > 0).map(dt => {
 
             // keep user with one or more 23andme files
@@ -62,14 +59,10 @@ functions.filterUsers = async function(type, users) {
                     innerObj["genotype.filetype"] = i.filetype;
                     innerObj["genotype.download_url"] = i.download_url.replace("http", "https")
                     arr.push(innerObj)
-
                 }
             })
         })
-        dt = arr //.filter(x=> x.genotypes.length != 0)
-        openSnpDbUrls.setItem(type, dt)
-    }
-    return dt
+    return arr
 }
 
 
