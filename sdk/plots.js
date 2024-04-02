@@ -230,11 +230,11 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
 
     //plotBetas(category, scoreFiles,'betasBarCategories',"button1_2")
    // plot betas
-       // save texts for small models (<200 variants)
+       // save texts for small models (<300 variants)
        let txts = []
-       let pgsIds200 = scoreFiles.filter( x => x.variants_number <200).map(x=>x.id)
-       pgsIds200.map(async x => txts.push((await sdk.loadScoreHm(x))) )
-       output.pgs[`txts ${category} 200 var`] = txts
+       let pgsIds300 = scoreFiles.filter( x => x.variants_number <300).map(x=>x.id)
+       pgsIds300.map(async x => txts.push((await sdk.loadScoreHm(x))) )
+       output.pgs[`txts ${category} 300 var`] = txts
         document.getElementById('button1_2').addEventListener('click', function(event) {
         let traces = {}
         txts.map( x => {
@@ -245,7 +245,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
                 x.dt.map( e=> obj[e[chr]+"_"+e[pos]] = e[weight])
                 traces[x.id] = obj
             })
-        output.pgs[`plot ${category} 200 var`] = traces
+        output.pgs[`plot ${category} 300 var`] = traces
         console.log( "output.pgs",output.pgs)
 
         let plotData=  Object.keys(traces).map( x =>{
@@ -262,7 +262,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
         let betas = plotData.map( x => x.y).flat()  
         var layout = {
             "barmode": 'overlay', 
-            title: `betas for ${pgsIds200.length} "${category}" entries with < 200 variants`,
+            title: `betas for ${pgsIds300.length} "${category}" entries with < 300 variants`,
             height: 1000,
             //  width: (txts.length*170)/(0.2),
             xaxis:{
@@ -421,11 +421,11 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
         functions.createButton2("betasthirdBarCategoriesButton","button1_3", `plot betas`);
 
        // plot betas
-           // save texts for small models (<200 variants)
+           // save texts for small models (<300 variants)
            let txts = []
-           let pgsIds200 = res.filter( x => x.variants_number <200).map(x=>x.id)
-           pgsIds200.map(async x => txts.push((await sdk.loadScoreHm(x))) )
-           output.pgs[`txts ${trait} 200 var`] = txts
+           let pgsIds300 = res.filter( x => x.variants_number <300).map(x=>x.id)
+           pgsIds300.map(async x => txts.push((await sdk.loadScoreHm(x))) )
+           output.pgs[`txts ${trait} 300 var`] = txts
             document.getElementById('button1_3').addEventListener('click', function(event) {
             let traces = {}
             txts.map( x => {
@@ -436,7 +436,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
                     x.dt.map( e=> obj[e[chr]+"_"+e[pos]] = e[weight])
                     traces[x.id] = obj
                 })
-            output.pgs[`plot ${trait} 200 var`] = traces
+            output.pgs[`plot ${trait} 300 var`] = traces
             console.log( "output.pgs",output.pgs)
     
             let plotData=  Object.keys(traces).map( x =>{
@@ -453,7 +453,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
             let betas = plotData.map( x => x.y).flat()  
             var layout = {
                 "barmode": 'overlay', 
-                title: `betas for ${pgsIds200.length} "${trait}" entries with < 200 variants`,
+                title: `betas for ${pgsIds300.length} "${trait}" entries with < 300 variants`,
                 height: 1000,
                 //  width: (txts.length*170)/(0.2),
                 xaxis:{
@@ -509,11 +509,11 @@ topBarTraitsDiv.on('plotly_click', async function (data) {
             functions.createButton("secondBarTraitsButton","button3",`download ${scoreFiles.length} pgs IDs`, scoreFiles);
             functions.createButton2("betassecondBarTraitsButton","button3_2", `plot betas`);
 
-            // save texts for small models (<200 variants)
+            // save texts for small models (<300 variants)
            let txts = []
-           let pgsIds200 = scoreFiles.filter( x => x.variants_number <200).map(x=>x.id)
-           pgsIds200.map(async x => txts.push((await sdk.loadScoreHm(x))) )
-           output.pgs[`txts ${trait} 200 var`] = txts
+           let pgsIds300 = scoreFiles.filter( x => x.variants_number <300).map(x=>x.id)
+           pgsIds300.map(async x => txts.push((await sdk.loadScoreHm(x))) )
+           output.pgs[`txts ${trait} 300 var`] = txts
             document.getElementById('button3_2').addEventListener('click', function(event) {
             let traces = {}
             txts.map( x => {
@@ -524,7 +524,7 @@ topBarTraitsDiv.on('plotly_click', async function (data) {
                     x.dt.map( e=> obj[e[chr]+"_"+e[pos]] = e[weight])
                     traces[x.id] = obj
                 })
-            output.pgs[`plot ${trait} 200 var`] = traces
+            output.pgs[`plot ${trait} 300 var`] = traces
             console.log( "output.pgs",output.pgs)
     
             let plotData=  Object.keys(traces).map( x =>{
@@ -541,7 +541,7 @@ topBarTraitsDiv.on('plotly_click', async function (data) {
             let betas = plotData.map( x => x.y).flat()  
             var layout = {
                 "barmode": 'overlay', 
-                title: `betas for ${pgsIds200.length} "${trait}" entries with < 200 variants`,
+                title: `betas for ${pgsIds300.length} "${trait}" entries with < 300 variants`,
                 height: 1000,
                 //  width: (txts.length*170)/(0.2),
                 xaxis:{
