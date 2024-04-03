@@ -87,14 +87,14 @@ let snpPhenoDiv = document.getElementById("snpPheno")
 var layout = {
     margin: { t:30, b: 320},
     autosize: false,
-    height: 600, 
-    width: 3300,
+    height: 650, 
+    width: 3500,
    // title: `OpenSNP phenotypes`,
     yaxis: {
         title: {
             text: "Counts"},
         autorange: false,
-        range: [0, 2000],
+        range: [0, 1000],
         type: 'linear'
     },
     xaxis:{
@@ -159,8 +159,6 @@ var layout = {
           size: 12
         }
     },
-    //`Users with "${phenoLabel}" phenotype data`, //"${category}" Category`,
-    //autosize: true,
     height: 500,
     width: 500
 }
@@ -197,7 +195,7 @@ let allTraitsDt = (await functions.traitsData(traits)).sort(function (a, b) {
 let topBarCategoriesDiv = document.getElementById("topBarCategories")
 var layout = {
     height: 500,
-    width: 600,
+    width: 400,
     autosize: false,
    // title: `Counts of PGS entries across ${allTraitsDt.length} Categories`,
      margin: {
@@ -209,9 +207,12 @@ var layout = {
             text: 'Category Counts',
           },
               autorange: false,
-        range: [0, 300],
+        range: [0, 150],
         type: 'linear'
     },
+    xaxis:{      tickfont:{
+        size : 11
+    },}
 }
 var dt = [{
     x: allTraitsDt.map(x => x.trait),
@@ -244,7 +245,7 @@ let traitList = traitFiles.sort((a, b) => b.associated_pgs_ids.length - a.associ
 var layout = {
     autosize: false,
     height: 700,
-    width: 12000,
+    width: 8000,
    // title: `Counts of PGS entries across ${traitList.length} Traits`,
     margin: {
        // t: 200,
@@ -260,6 +261,9 @@ var layout = {
         range: [0, 100],
         type: 'linear'
     },
+    xaxis:{      tickfont:{
+        size : 9
+    },}
   
 }
 
@@ -601,7 +605,7 @@ topBarTraitsDiv.on('plotly_click', async function (data) {
         xaxis: {
             autorange: false,
             range: [0, 500],
-            type: 'linear'
+            type: 'linear',
         },
     }
     var data = [{
