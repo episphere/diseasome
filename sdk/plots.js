@@ -582,6 +582,9 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
 
 //bar chart of traits -----------------------------------------
 topBarTraitsDiv.on('plotly_click', async function (data) {
+    var spinner = document.getElementById("spinner3");
+    spinner.style.display = "block";
+
     let trait = data.points[0].label
     console.log("Trait selected:",trait)
     let pgsIds = traitFiles.filter(tfile => tfile.label == trait)[0].associated_pgs_ids
@@ -611,6 +614,8 @@ topBarTraitsDiv.on('plotly_click', async function (data) {
         }
     }];
     plotly.newPlot('secondBarTraits', data, layout);
+    spinner.style.display = "none";
+
             // plot betas
             functions.createButton("secondBarTraitsButton","button3",`download ${scoreFiles.length} pgs IDs`, scoreFiles.map(x => x.id));
             functions.createButton2("betassecondBarTraitsButton","button3_2", `plot betas`);
