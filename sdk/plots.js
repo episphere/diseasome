@@ -134,49 +134,76 @@ plotly.newPlot(snpPhenoDiv, dt, layout);
 
 snpPhenoDiv.on('plotly_click', async function (data) {
 
-let phenoLabel = data.points[0].label
-let phenoData = phenotypes.filter( x => x.characteristic == phenoLabel)
-let phenoId = phenoData[0].id
-console.log("phenoId:",phenoId,phenoLabel)
+    let phenoLabel = data.points[0].label
+    let phenoData = phenotypes.filter( x => x.characteristic == phenoLabel)
+    let phenoId = phenoData[0].id
+    console.log("phenoId:",phenoId,phenoLabel)
 
-let phenotype = (await (await fetch(`https://corsproxy.io/?https://opensnp.org/phenotypes/json/variations/${phenoId}.json`)).json())
-let phenotypeUsers = phenotype.users.map( x => x.user_id)
-var arr = users.filter(({id}) => phenotypeUsers.includes(id));
+    let phenotype = (await (await fetch(`https://corsproxy.io/?https://opensnp.org/phenotypes/json/variations/${phenoId}.json`)).json())
+    let phenotypeUserIds = phenotype.users.map( x => x.user_id)
+    console.log("phenotypeUsers : ",phenotypeUserIds)
 
-let types = datatypesCounts.map(x => x.filetype)
+    var phenotypeUsers2 = users.filter(({id}) => phenotypeUserIds.includes(id));
+    console.log("phenotypeUsers2 : ",phenotypeUsers2)
 
-let usersPheno = await Promise.all(types.map(async function (x){
-    let obj = {}
-    obj[x] = await functions.filterUsers(x, arr)
-    return obj
-}))
-//console.log("usersPheno:",usersPheno)//,usersPheno.map( x => x.map( y => y["genotype.filetype"])))
-var layout = {
-    title: {
-        text:`Users with "${phenoLabel}" data`,
-        font: {
-          //family: 'Courier New, monospace',
-          size: 12
-        }
-    },
-    height: 500,
-    width: 500
-}
-var data = [{
-    values: usersPheno.map( x=> Object.values(x)[0].length),
-    labels: types,
-    type: 'pie',
-    textposition: 'inside'
-}];
+    let types = datatypesCounts.map(x => x.filetype)
 
-plotly.newPlot('snpPhenoPie', data, layout);
-document.getElementById("snpPhenoPie").on('plotly_click', async function (data2) {
-    let trait = data2.points[0].label
-    let pieData = usersPheno.filter( x => Object.keys(x) == trait)
+    let usersPheno = await Promise.all(types.map(async function (type){
+        let obj = {}
+        let filteredUsers2 = await Promise.all((await functions.filterUsers(type, phenotypeUsers2)).map( async (row,i)  => {
+                let phenoData = (await (await fetch(`https://corsproxy.io/?https://opensnp.org/phenotypes/json/${row.id}.json`)).json())//.phenotypes
+                row["phenotypes"] = await phenoData.phenotypes
+                //console.log("row2",row)
+            return row
+        }))
+        obj[type] = filteredUsers2
+        return obj
+    }))
+    //console.log("usersPheno : ",usersPheno)
 
-    console.log("pieData for ",phenoLabel, pieData)
-    functions.createButton("snpPhenoPieButton","button0", `download ${pieData[0][trait].length} users`,pieData[0][trait]);
-})
+    var layout = {
+        title: {
+            text:`Users with "${phenoLabel}" data`,
+            font: {
+            size: 12
+            }
+        },
+        height: 420,
+        width: 420
+    }
+    var data = [{
+        values: usersPheno.map( x=> Object.values(x)[0].length),
+        labels: types,
+        type: 'pie',
+        textposition: 'inside'
+    }];
+
+    plotly.newPlot('snpPhenoPie', data, layout);
+    document.getElementById("snpPhenoPie").on('plotly_click', async function (data2) {
+        let trait = data2.points[0].label
+        let pieData = usersPheno.filter( x => Object.keys(x) == trait)
+
+        console.log("pieData for ",phenoLabel, pieData)
+
+        let pieIds = [...new Set(Object.values(pieData[0])[0].map(x=>x.id))]
+
+        console.log("pieData for ",pieIds)
+        //Get all phenotypes from a specific user(-ID)
+        var pieUsers = users.filter(({id}) => pieIds.includes(id));
+        console.log(" pieUsers ",pieUsers)
+
+        let allPhenotypes =   pieIds.slice(0,5).map( async x=> {
+            console.log("x",x)
+        let obj = {}
+        let user = (await (await fetch(`https://corsproxy.io/?https://opensnp.org/phenotypes/json/${x}.json`)).json()).phenotypes
+        obj[x] = user
+
+        console.log("user",obj)
+        return obj        
+        })
+        console.log(" allPhenotypes ",allPhenotypes)
+        functions.createButton("snpPhenoPieButton","button0", `download ${pieData[0][trait].length} users`,pieData[0][trait]);
+    })
 })
 
 
