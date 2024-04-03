@@ -74,7 +74,6 @@ snpDiv.on('plotly_click', async function (data) {
     let results = await functions.filterUsers(snpLabel, users)
     output.snp = results
     console.log("output",output)
-    let snpUrls = results.map( x => x["genotype.download_url"])
     
         // add download button for pgsIds
         functions.createButton("snp","snpButton", `download ${results.length} "${snpLabel}" users`, results);
@@ -658,11 +657,11 @@ topBarTraitsDiv.on('plotly_click', async function (data) {
                 },
             margin: {l:5,b: 200 },
                 yaxis: {title: {
-                    standoff: 10,
-                    text: "beta"}, 
+                    standoff: 55,
+                    text: "beta values"}, 
                     range: [betas.sort((a, b) => a - b)[0], betas.sort((a, b) => b - a)[0]]},
                 showlegend: true,
-                legend: {x: -0.09, y: 1.1}
+                legend: {x: -0.09, y: 1}
                 }
         plotly.newPlot('betassecondBarTraits', plotData,layout,{showSendToCloud: true});
         })
