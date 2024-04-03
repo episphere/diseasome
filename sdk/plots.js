@@ -2,15 +2,15 @@ import { plotly} from "../dependencies.js";
 import {functions} from "./main.js"
 import {sdk} from "./sdk.js"
 
-let output = {pgs:[], snp:[]}
+const output = {pgs:[], snp:[]}
 // plot opensnp data types --------------
 //functions.removeLocalStorageValues('request', pgs)
 
 let users = (await functions.getUsers())
 let usersFlat = users.flatMap(x=>x.genotypes)
-console.log("users",users)
+console.log("users[0]",users[0])
 
-console.log("usersFlat",usersFlat)
+//console.log("usersFlat",usersFlat)
 var obj = {};
 var counter = {}
 
@@ -77,13 +77,13 @@ snpDiv.on('plotly_click', async function (data) {
     let snpUrls = results.map( x => x["genotype.download_url"])
     
         // add download button for pgsIds
-        functions.createButton("snp","snpButton", `download ${snpLabel} snp urls`, snpUrls);
+        functions.createButton("snp","snpButton", `download ${snpLabel} users`, snpUrls);
 })
 
 //plot openSNP phenotypes -----------------------------------------------
 let phenotypes = (await (await fetch('https://corsproxy.io/?https://opensnp.org/phenotypes.json')).json())
                     .sort((a, b) => b.number_of_users - a.number_of_users)
-                    console.log(phenotypes)
+//console.log("phenotypes:",phenotypes.map(x=>x.characteristic))
 let snpPhenoDiv = document.getElementById("snpPheno")
 var layout = {
     margin: { t:30, b: 320},
@@ -151,10 +151,19 @@ let usersPheno = await Promise.all(types.map(async function (x){
     obj[x] = await functions.filterUsers(x, arr)
     return obj
 }))
-console.log("usersPheno:",usersPheno)//,usersPheno.map( x => x.map( y => y["genotype.filetype"])))
+//console.log("usersPheno:",usersPheno)//,usersPheno.map( x => x.map( y => y["genotype.filetype"])))
 var layout = {
-    title: `OpenSnp users with "${phenoLabel}" phenotype data`, //"${category}" Category`,
-    autosize: true,
+    title: {
+        text:`Users with "${phenoLabel}" data`,
+        font: {
+          //family: 'Courier New, monospace',
+          size: 12
+        }
+    },
+    //`Users with "${phenoLabel}" phenotype data`, //"${category}" Category`,
+    //autosize: true,
+    height: 500,
+    width: 500
 }
 var data = [{
     values: usersPheno.map( x=> Object.values(x)[0].length),
@@ -166,11 +175,10 @@ var data = [{
 plotly.newPlot('snpPhenoPie', data, layout);
 document.getElementById("snpPhenoPie").on('plotly_click', async function (data2) {
     let trait = data2.points[0].label
-
     let pieData = usersPheno.filter( x => Object.keys(x) == trait)
-    console.log("pieData",pieData[0][trait],pieData)
-    functions.createButton("snpPhenoPieButton","button0", `download ${pieData[0][trait].length} users`,pieData);
 
+    console.log("pieData for ",phenoLabel, pieData)
+    functions.createButton("snpPhenoPieButton","button0", `download ${pieData[0][trait].length} users`,pieData[0][trait]);
 })
 })
 
@@ -322,7 +330,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
         }
     }];
     plotly.newPlot('secondBarCategories', data, layout)
-    functions.createButton("secondBarCategories","button1", `download ${scoreFiles.length} pgs IDs`,scoreFiles);
+    functions.createButton("secondBarCategories","button1", `download ${pgsIds.length} pgs IDs`,pgsIds);
     //
     functions.createButton2("betasBarCategoriesButton","button1_2", `plot betas`);
 
@@ -516,7 +524,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
         plotly.newPlot('thirdBarCategories', data, layout);
 
         // add download button for pgsIds
-        functions.createButton("thirdBarCategories","button2", `download ${res.length} pgs IDs`,res);
+        functions.createButton("thirdBarCategories","button2", `download ${res.length} pgs IDs`,res.map(x => x.id));
         functions.createButton2("betasthirdBarCategoriesButton","button1_3", `plot betas`);
 
        // plot betas
@@ -605,7 +613,7 @@ topBarTraitsDiv.on('plotly_click', async function (data) {
     }];
     plotly.newPlot('secondBarTraits', data, layout);
             // plot betas
-            functions.createButton("secondBarTraitsButton","button3",`download ${scoreFiles.length} pgs IDs`, scoreFiles);
+            functions.createButton("secondBarTraitsButton","button3",`download ${scoreFiles.length} pgs IDs`, scoreFiles.map(x => x.id));
             functions.createButton2("betassecondBarTraitsButton","button3_2", `plot betas`);
 
             // save texts for small models (<350 variants)

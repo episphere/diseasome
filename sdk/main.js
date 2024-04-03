@@ -89,7 +89,8 @@ functions.get23 = async function(urls) {
 // FUNCTIONS------------------------------------------------------------------------
  functions.downloadBlob = function(content, filename, contentType) {
     // Create a blob
-    var blob = new Blob([content], {
+    var jsonse = JSON.stringify(content)
+    var blob = new Blob([jsonse], {
         type: contentType
     });
     var url = URL.createObjectURL(blob);
@@ -110,7 +111,7 @@ functions.get23 = async function(urls) {
     document.getElementById(buttonId).replaceWith(button)
 
     button.addEventListener("click", function() {
-      functions.downloadBlob(dt, 'export.csv', 'text/csv;charset=utf-8;')
+      functions.downloadBlob(dt, 'export.txt', "application/json")
   });
 }
 functions.createButton2 = function(parent,buttonId, buttonTxt) {
@@ -230,7 +231,7 @@ functions.getscoreFiles = async function(pgsIds) {
             scores.push(cachedData)
         } else if (cachedData == null) {
             console.log(i, "No cached data found for ", `${pgsIds[i]}`)
-            await timeout(150); // pgs has 100 queries per minute limit
+            await timeout(200); // pgs has 100 queries per minute limit
             let notCachedData =
                 await (fetch(url)).then(function (response) {
                     return response.json()
