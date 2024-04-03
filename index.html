@@ -53,7 +53,8 @@
             <div class="col-lg-10 col-md-10 col-sm-10 col-xs-10 hero-text">
                 <h4 class="hero_title">Diseasome</h3>
                     <p class="hero_desc">Calculation of multiple <a class="link-unstyled"
-                            href="https://www.nature.com/articles/nrg.2016.27" target="_blank"><u>risk profiles</u></a> for
+                            href="https://www.nature.com/articles/nrg.2016.27" target="_blank"><u>risk profiles</u></a>
+                        for
                         <br>23andme reports,using the <a class="link-unstyled" href='https://www.pgscatalog.org'
                             target="_blank">PGS Catalog</a>.</p>
                     <button class="glow-on-hover"
@@ -65,104 +66,113 @@
 
     </section>
 
-      <!-- Tab content -->
+    <!-- Tab content -->
 
     <!-- Tab links -->
-<div class="tab">
-    <button class="tablinks" onclick="openCity(event, 'PGS catalog')">PGS catalog</button>
-    <button class="tablinks" onclick="openCity(event, 'OpenSNP')">OpenSNP</button>
+    <div class="tab">
+        <button class="tablinks" onclick="openCity(event, 'PGS catalog')">PGS catalog</button>
+        <button class="tablinks" onclick="openCity(event, 'OpenSNP')">OpenSNP</button>
 
-    <button class="tablinks" onclick="openCity(event, 'PRS')">PRS</button>
-  </div>
-  
+        <button class="tablinks" onclick="openCity(event, 'PRS')">PRS</button>
+    </div>
+
     <!-- PRS -->
 
-  
-  <div id="PRS" class="tabcontent">
-    <h3>PRS</h3> 
-    <p>A prototype personal risk score <a class="link-unstyled"
-        href="https://episphere.github.io/prs" target="_blank"> <u>calculator</u></a> , created for research purposes, was developed to demonstrate how the PGS Catalog can be privately and readily applied to readily available direct-to-consumer genetic testing services, such as 23andMe. No software download, installation, or configuration is needed. The PRS web calculator matches individual PGS catalog entries with an individual's 23andMe genome data composed of 600k to 1.4 M single-nucleotide polymorphisms (SNPs). Beta coefficients provide researchers with a convenient assessment of risk associated with matched SNPs. This in-browser application was tested in a variety of personal devices, including smartphones, establishing the feasibility of privately calculating personal risk scores with up to a few thousand reference genetic variations and from the full 23andMe SNP data file (compressed or not).</p>
-  </div>
+
+    <div id="PRS" class="tabcontent">
+        <h3>PRS</h3>
+        <p>A prototype personal risk score <a class="link-unstyled" href="https://episphere.github.io/prs"
+                target="_blank"> <u>calculator</u></a> , created for research purposes, was developed to demonstrate how
+            the PGS Catalog can be privately and readily applied to readily available direct-to-consumer genetic testing
+            services, such as 23andMe. No software download, installation, or configuration is needed. The PRS web
+            calculator matches individual PGS catalog entries with an individual's 23andMe genome data composed of 600k
+            to 1.4 M single-nucleotide polymorphisms (SNPs). Beta coefficients provide researchers with a convenient
+            assessment of risk associated with matched SNPs. This in-browser application was tested in a variety of
+            personal devices, including smartphones, establishing the feasibility of privately calculating personal risk
+            scores with up to a few thousand reference genetic variations and from the full 23andMe SNP data file
+            (compressed or not).</p>
+    </div>
 
     <!-- 23 and me -->
 
-  <div id="OpenSNP" class="tabcontent">
-    <h3>OpenSNP</h3>
-    <p>OpenSNP.org is a repository to which users can upload their SNP-sets (and exome-VCFs) from a variety of
-        direct-to-consumer genetic testing brands including 23andMe.</p>
+    <div id="OpenSNP" class="tabcontent">
+        <h3>OpenSNP</h3>
+        <p>OpenSNP.org is a repository to which users can upload their SNP-sets (and exome-VCFs) from a variety of
+            direct-to-consumer genetic testing brands including 23andMe.</p>
 
         <h6 style="color: rgb(6, 137, 231);">Select an openSNP datatype below:</h6>
 
-    <div id=snp></div>
-    <div id="snpButton"></div>
-    <br>
+        <div id=snp></div>
+        <div id="snpButton"></div>
+        <br>
 
-    <div style="position:relative;left:100px;bottom:0px;text-align:left">
-  <span style="font-size: 13pt;">OpenSNP phenotypes</span>
-</div>
-    <div id=snpPheno></div>
-    <div id="snpPhenoButton"></div>
-    <div id = snpPhenoPie></div>
-    <div id = snpPhenoPieButton></div>
-</div>
+        <div style="position:relative;left:100px;bottom:0px;text-align:left">
+            <span style="font-size: 13pt;">OpenSNP phenotypes</span>
+        </div>
+        <div id=snpPheno></div>
+        <div id="snpPhenoButton"></div>
+        <div id=snpPhenoPie></div>
+        <div id=snpPhenoPieButton></div>
+    </div>
 
     <!-- pgs scoring counts bar plot ----------------------------->
     <div id="PGS catalog" class="tabcontent">
         <h3>The Polygenic Score (PGS) Catalog</h3>
-        <p>The PGS Catalog is an open database of published polygenic scores (PGS), annotated with relevant metadata; including scoring files (variants, effect alleles/weights).</p>
-    <br>
-    <h6 style="color: rgb(6, 137, 231);">Select a PGS category below:</h6>
- 
+        <p>The PGS Catalog is an open database of published polygenic scores (PGS), annotated with relevant metadata;
+            including scoring files (variants, effect alleles/weights).</p>
 
-    <!-- <div class='graph-container'>
+        <h6 style="color: rgb(6, 137, 231);">Select a PGS category below:</h6>
+
+
+        <!-- <div class='graph-container'>
     </div> -->
-    <div id="topBarCategories"></div>
-    <p id="description1" style = "font-size:10px;color:blue"></p>
+        <div id="topBarCategories"></div>
+        <p id="description1" style="font-size:10px;color:blue"></p>
 
-    <div id="secondBarCategories"></div>
-    <div id="secondBarCategoriesButton"></div>
-    
-    <div id="betasBarCategoriesButton"></div>
-    <div id="betasBarCategories"></div>
-    <!--  --------------------->
+        <div id="secondBarCategories"></div>
+        <div id="secondBarCategoriesButton"></div>
 
-    <br>
-    <h6 id="pieHeader"></h6>
-    <div class="spinner-border m-5"  style="display: none;" role="status" id="spinner2">
-        <span class="visually-hidden">Loading...</span>
-    </div>
+        <div id="betasBarCategoriesButton"></div>
+        <div id="betasBarCategories"></div>
+        <!--  --------------------->
 
-    <div id="pgsPie"></div>
-    <div id="thirdBarCategories"></div>
-    <div id="thirdBarCategoriesButton"></div>
+        <br>
+        <h6 id="pieHeader"></h6>
+        <div class="spinner-border m-5" style="display: none;" role="status" id="spinner2">
+            <span class="visually-hidden">Loading...</span>
+        </div>
 
-    <div id="betasthirdBarCategoriesButton"></div>
-    <div id="betasthirdBarCategories"></div>
+        <div id="pgsPie"></div>
+        <div id="thirdBarCategories"></div>
+        <div id="thirdBarCategoriesButton"></div>
 
-    <div class="spinner-border m-5" role="status" id="spinner">
-        <span class="visually-hidden">Loading...</span>
-    </div>
-  
+        <div id="betasthirdBarCategoriesButton"></div>
+        <div id="betasthirdBarCategories"></div>
 
-    <!--  --------------------->
-    <hr>
-    <h6 style="color: rgb(6, 137, 231);">Or select a PGS trait below:</h6>
-    <div id="topBarTraits"></div>
-    <div class="spinner-border m-5" style="display: none;" role="status" id="spinner3">
-        <span class="visually-hidden">Loading...</span>
-    </div>
-    <div id="secondBarTraits"></div>
-<!-- 
+        <div class="spinner-border m-5" role="status" id="spinner">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+
+
+        <!--  --------------------->
+        <hr>
+        <h6 style="color: rgb(6, 137, 231);">Or select a PGS trait below:</h6>
+        <div id="topBarTraits"></div>
+        <div class="spinner-border m-5" style="display: none;" role="status" id="spinner3">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <div id="secondBarTraits"></div>
+        <!-- 
     <div class='graph-container'>
     </div> -->
-    <div id="secondBarTraitsButton"></div>
+        <div id="secondBarTraitsButton"></div>
 
-    <div id="betassecondBarTraitsButton"></div>
-    <div id="betassecondBarTraits"></div>
-</div>
+        <div id="betassecondBarTraitsButton"></div>
+        <div id="betassecondBarTraits"></div>
+    </div>
 
     <!-- scripts----------------------------------------------->
-    <script  src="tabs.js"></script>
+    <script src="tabs.js"></script>
 
     <script type="module" src="sdk/sdk.js"></script>
     <script type="module" src="sdk/main.js"></script>
