@@ -72,9 +72,9 @@
     <div class="tab">
         <button class="tablinks" onclick="openCity(event, 'PGS catalog')">PGS catalog</button>
         <button class="tablinks" onclick="openCity(event, 'OpenSNP')">OpenSNP</button>
-
         <button class="tablinks" onclick="openCity(event, 'PRS')">PRS</button>
     </div>
+
 
     <!-- PRS -->
 
@@ -117,46 +117,51 @@
 
     <!-- pgs scoring counts bar plot ----------------------------->
     <div id="PGS catalog" class="tabcontent">
+
         <h3>The Polygenic Score (PGS) Catalog</h3>
         <p>The PGS Catalog is an open database of published polygenic scores (PGS), annotated with relevant metadata;
             including scoring files (variants, effect alleles/weights).</p>
 
-        <h6 style="color: rgb(6, 137, 231);">Select a PGS category below:</h6>
 
-
-        <!-- <div class='graph-container'>
-    </div> -->
-        <div id="topBarCategories"></div>
-        <p id="description1" style="font-size:10px;color:blue"></p>
-
-        <div id="secondBarCategories"></div>
-        <div id="secondBarCategoriesButton"></div>
-
-        <div id="betasBarCategoriesButton"></div>
-        <div id="betasBarCategories"></div>
-        <!--  --------------------->
-
-        <br>
-        <h6 id="pieHeader"></h6>
-        <div class="spinner-border m-5" style="display: none;" role="status" id="spinner2">
-            <span class="visually-hidden">Loading...</span>
+        <div class="tab">
+            <button class="tablinks" onclick="openCity(event, 'Categories', true)">Categories</button>
+            <button class="tablinks" onclick="openCity(event, 'Traits', true)">Traits</button>
         </div>
 
-        <div id="pgsPie"></div>
-        <div id="thirdBarCategories"></div>
-        <div id="thirdBarCategoriesButton"></div>
+        <div id="Categories" class="tabcontent">
 
-        <div id="betasthirdBarCategoriesButton"></div>
-        <div id="betasthirdBarCategories"></div>
+            <h6 style="color: rgb(6, 137, 231);">Select a PGS category below:</h6>
+            <div id="topBarCategories"></div>
+            <p id="description1" style="font-size:10px;color:blue"></p>
 
-        <div class="spinner-border m-5" role="status" id="spinner">
-            <span class="visually-hidden">Loading...</span>
+            <div id="secondBarCategories"></div>
+            <div id="secondBarCategoriesButton"></div>
+
+            <div id="betasBarCategoriesButton"></div>
+            <div id="betasBarCategories"></div>
+            <!--  --------------------->
+
+            <br>
+            <h6 id="pieHeader"></h6>
+            <div class="spinner-border m-5" style="display: none;" role="status" id="spinner2">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+
+            <div id="pgsPie"></div>
+            <div id="thirdBarCategories"></div>
+            <div id="thirdBarCategoriesButton"></div>
+
+            <div id="betasthirdBarCategoriesButton"></div>
+            <div id="betasthirdBarCategories"></div>
+
+            <div class="spinner-border m-5" role="status" id="spinner">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+
         </div>
-
-
         <!--  --------------------->
-        <hr>
-        <h6 style="color: rgb(6, 137, 231);">Or select a PGS trait below:</h6>
+        <div id="Traits" class="tabcontent">
+            <h6 style="color: rgb(6, 137, 231);">Or select a PGS trait below:</h6>
         <div id="topBarTraits"></div>
         <div class="spinner-border m-5" style="display: none;" role="status" id="spinner3">
             <span class="visually-hidden">Loading...</span>
@@ -170,7 +175,7 @@
         <div id="betassecondBarTraitsButton"></div>
         <div id="betassecondBarTraits"></div>
     </div>
-
+    </div>
     <!-- scripts----------------------------------------------->
     <script src="tabs.js"></script>
 

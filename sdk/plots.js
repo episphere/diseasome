@@ -1,6 +1,31 @@
 import { plotly} from "../dependencies.js";
 import {functions} from "./main.js"
 import {sdk} from "./sdk.js"
+import localforage from 'https://cdn.skypack.dev/localforage';
+localforage.config({
+    driver: [
+        localforage.INDEXEDDB,
+        localforage.LOCALSTORAGE,
+        localforage.WEBSQL
+    ],
+    name: 'localforage'
+});
+let userPhenotypes = localforage.createInstance({
+    name: "userPhenotypes",
+    storeName: "userPhenotypes"
+})
+
+let userPhenotype = localforage.createInstance({
+    name: "userPhenotype",
+    storeName: "userPhenotype"
+})
+
+let userPhenotype2 = localforage.createInstance({
+    name: "userPhenotype2",
+    storeName: "userPhenotype2"
+})
+
+let cors = `https://corsproxy.io/?`
 
 const output = {pgs:[], snp:[]}
 // plot opensnp data types --------------
@@ -8,9 +33,7 @@ const output = {pgs:[], snp:[]}
 
 let users = (await functions.getUsers())
 let usersFlat = users.flatMap(x=>x.genotypes)
-console.log("users[0]",users[0])
 
-//console.log("usersFlat",usersFlat)
 var obj = {};
 var counter = {}
 
@@ -80,9 +103,14 @@ snpDiv.on('plotly_click', async function (data) {
 })
 
 //plot openSNP phenotypes -----------------------------------------------
-let phenotypes = (await (await fetch('https://corsproxy.io/?https://opensnp.org/phenotypes.json')).json())
+let phenotypesUrl = 'https://opensnp.org/phenotypes.json'
+let phenotypes = await userPhenotypes.getItem(phenotypesUrl); // check for users in localstorage
+if (phenotypes == null) {
+   phenotypes = (await (await fetch(cors+phenotypesUrl)).json())
                     .sort((a, b) => b.number_of_users - a.number_of_users)
-//console.log("phenotypes:",phenotypes.map(x=>x.characteristic))
+        userPhenotypes.setItem(phenotypesUrl, phenotypes)
+}
+
 let snpPhenoDiv = document.getElementById("snpPheno")
 var layout = {
     margin: { t:30, b: 320},
@@ -139,27 +167,39 @@ snpPhenoDiv.on('plotly_click', async function (data) {
     let phenoId = phenoData[0].id
     console.log("phenoId:",phenoId,phenoLabel)
 
-    let phenotype = (await (await fetch(`https://corsproxy.io/?https://opensnp.org/phenotypes/json/variations/${phenoId}.json`)).json())
-    let phenotypeUserIds = phenotype.users.map( x => x.user_id)
-    console.log("phenotypeUsers : ",phenotypeUserIds)
 
-    var phenotypeUsers2 = users.filter(({id}) => phenotypeUserIds.includes(id));
-    console.log("phenotypeUsers2 : ",phenotypeUsers2)
+   let  phenotypeUrl = `https://opensnp.org/phenotypes/json/variations/${phenoId}.json`
+
+   let phenotype = await userPhenotype.getItem(phenotypeUrl); // check for users in localstorage
+    if (phenotype == null) {
+        phenotype = (await (await fetch(cors+phenotypeUrl)).json())
+          //.sort((a, b) => b.number_of_users - a.number_of_users)
+             userPhenotype.setItem(phenotypeUrl, phenotype)
+     }
+
+    let phenotypeUserIds = phenotype.users.map( x => x.user_id)
+    var phenotypeUsers = users.filter(({id}) => phenotypeUserIds.includes(id));
 
     let types = datatypesCounts.map(x => x.filetype)
 
     let usersPheno = await Promise.all(types.map(async function (type){
         let obj = {}
-        let filteredUsers2 = await Promise.all((await functions.filterUsers(type, phenotypeUsers2)).map( async (row,i)  => {
-                let phenoData = (await (await fetch(`https://corsproxy.io/?https://opensnp.org/phenotypes/json/${row.id}.json`)).json())//.phenotypes
-                row["phenotypes"] = await phenoData.phenotypes
-                //console.log("row2",row)
+        let filteredUsers2 = await Promise.all((await functions.filterUsers(type, phenotypeUsers)).map( async (row,i)  => {
+   
+                await functions.timeout(4000)
+                let phenoDataUrl = `https://opensnp.org/phenotypes/json/${row.id}.json`
+                let phenoData = await userPhenotype2.getItem(phenoDataUrl); // check for users in localstorage////.phenotypes
+                if (phenoData == null) {
+                    phenoData = (await (await fetch(cors+phenoDataUrl)).json())
+                    userPhenotype2.setItem(phenoDataUrl, phenoData)
+                }
+                    row["phenotypes"] = await phenoData.phenotypes
             return row
         }))
         obj[type] = filteredUsers2
         return obj
     }))
-    //console.log("usersPheno : ",usersPheno)
+    console.log("usersPheno : ",usersPheno)
 
     var layout = {
         title: {
@@ -195,10 +235,8 @@ snpPhenoDiv.on('plotly_click', async function (data) {
         let allPhenotypes =   pieIds.slice(0,5).map( async x=> {
             console.log("x",x)
         let obj = {}
-        let user = (await (await fetch(`https://corsproxy.io/?https://opensnp.org/phenotypes/json/${x}.json`)).json()).phenotypes
+        let user = (await (await fetch(cors+`https://opensnp.org/phenotypes/json/${x}.json`)).json()).phenotypes
         obj[x] = user
-
-        console.log("user",obj)
         return obj        
         })
         console.log(" allPhenotypes ",allPhenotypes)

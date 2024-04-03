@@ -217,7 +217,7 @@ functions.getAllPgsIdsByCategory = function(trait) {
 
 }
 //--------------------------------------
-const timeout = (ms) => {
+functions.timeout = (ms) => {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 //------------------------------------
@@ -231,7 +231,7 @@ functions.getscoreFiles = async function(pgsIds) {
             scores.push(cachedData)
         } else if (cachedData == null) {
             console.log(i, "No cached data found for ", `${pgsIds[i]}`)
-            await timeout(200); // pgs has 100 queries per minute limit
+            await functions.timeout(200); // pgs has 100 queries per minute limit
             let notCachedData =
                 await (fetch(url)).then(function (response) {
                     return response.json()
