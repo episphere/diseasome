@@ -77,7 +77,7 @@ snpDiv.on('plotly_click', async function (data) {
     let snpUrls = results.map( x => x["genotype.download_url"])
     
         // add download button for pgsIds
-        functions.createButton("snp","snpButton", `download ${snpLabel} users`, snpUrls);
+        functions.createButton("snp","snpButton", `download ${results.length} "${snpLabel}" users`, results);
 })
 
 //plot openSNP phenotypes -----------------------------------------------
