@@ -72,11 +72,12 @@
     <div class="tab">
         <button class="tablinks" onclick="openCity(event, 'PGS catalog')">PGS catalog</button>
         <button class="tablinks" onclick="openCity(event, 'OpenSNP')">OpenSNP</button>
-        <button class="tablinks" onclick="openCity(event, 'PRS')">PRS</button>
+        <button id = "prsButton" class="tablinks" onclick="openCity(event, 'PRS')">PRS</button>
     </div>
+<div id = "selection"></div>
 
 
-    <!-- PRS -->
+    <!-- PRS ------------------------------------------>
 
 
     <div id="PRS" class="tabcontent">
@@ -91,9 +92,15 @@
             personal devices, including smartphones, establishing the feasibility of privately calculating personal risk
             scores with up to a few thousand reference genetic variations and from the full 23andMe SNP data file
             (compressed or not).</p>
+
+            <div id=prsDiv>prsDiv</div>
+
+
     </div>
 
-    <!-- 23 and me -->
+
+
+    <!-- 23 and me ------------------------------------------>
 
     <div id="OpenSNP" class="tabcontent">
         <h3>OpenSNP</h3>
@@ -161,15 +168,12 @@
         </div>
         <!--  --------------------->
         <div id="Traits" class="tabcontent">
-            <h6 style="color: rgb(6, 137, 231);">Or select a PGS trait below:</h6>
+            <h6 style="color: rgb(6, 137, 231);">Select a PGS trait below:</h6>
         <div id="topBarTraits"></div>
         <div class="spinner-border m-5" style="display: none;" role="status" id="spinner3">
             <span class="visually-hidden">Loading...</span>
         </div>
         <div id="secondBarTraits"></div>
-        <!-- 
-    <div class='graph-container'>
-    </div> -->
         <div id="secondBarTraitsButton"></div>
 
         <div id="betassecondBarTraitsButton"></div>
@@ -178,6 +182,7 @@
     </div>
     <!-- scripts----------------------------------------------->
     <script src="tabs.js"></script>
+    <script type="module" src="sdk/prs.js"></script>
 
     <script type="module" src="sdk/sdk.js"></script>
     <script type="module" src="sdk/main.js"></script>

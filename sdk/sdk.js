@@ -49,6 +49,7 @@ sdk.getUsers = async function (length) {
 
    // get texts and run qc
 sdk.get23 = async function( urls){
+
    let urls23 = arr.map(x => x["genotype.download_url"]).slice(0, length)
    let txts23 = []
    console.log("total users = ", urls23.length)
@@ -172,10 +173,27 @@ sdk.parsePGS = async function(id, txt) {
         txt: rows.slice(0, metaL)
     }
     obj.cols = rows[metaL].split(/\t/g)
+
     obj.dt = rows.slice(metaL + 1).map(r => r.split(/\t/g))
     if (obj.dt.slice(-1).length == 1) {
         obj.dt.pop(-1)
     }
+
+    // check betas here and added QC
+    let betaIdx = obj.cols.indexOf('effect_weight')
+    let betas = obj.dt.map( x => x[betaIdx])
+    let qc1= betas.some(el => el < -0.00002) // false, if no beta is less than 0
+    let qc2 = betas.some(el => el < 10 ) // false, if beta is greater than 10
+    obj.qc = "true"//qcText
+    // console.log("id",  id)
+    // console.log("!qc1",  !qc1)
+    // console.log("!qc2",  !qc2)
+
+    if(!qc1 || !qc2){
+           obj.qc = "false"//failed both qc1 and qc2
+        }
+            
+
     // parse numerical types
     const indInt = [obj.cols.indexOf('chr_position'), obj.cols.indexOf('hm_pos')]
     const indFloat = [obj.cols.indexOf('effect_weight'), obj.cols.indexOf('allelefrequency_effect')]
