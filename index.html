@@ -94,6 +94,7 @@
             (compressed or not).</p>
 
             <div id=prsDiv>prsDiv</div>
+            <div id=prsButton></div>
 
 
     </div>
@@ -133,7 +134,11 @@
         <div class="tab">
             <button class="tablinks" onclick="openCity(event, 'Categories', true)">Categories</button>
             <button class="tablinks" onclick="openCity(event, 'Traits', true)">Traits</button>
+            <button class="tablinks" onclick="openCity(event, 'EFO_ids', true)">EFO_ids</button>
+
         </div>
+
+            <!--  --------------------->
 
         <div id="Categories" class="tabcontent">
 
@@ -168,7 +173,7 @@
         </div>
         <!--  --------------------->
         <div id="Traits" class="tabcontent">
-            <h6 style="color: rgb(6, 137, 231);">Select a PGS trait below:</h6>
+            <h6 style="color: rgb(6, 137, 231);">Select a PGS category below:</h6>
         <div id="topBarTraits"></div>
         <div class="spinner-border m-5" style="display: none;" role="status" id="spinner3">
             <span class="visually-hidden">Loading...</span>
@@ -180,10 +185,24 @@
         <div id="betassecondBarTraits"></div>
     </div>
     </div>
+
+          <!--  --------------------->
+
+          <div id="EFO_ids" class="tabcontent">
+
+            <h6 style="color: rgb(6, 137, 231);">Select an EFO id below:</h6>
+            <div id="topBarEFO_ids"></div>
+            <p id="description1" style="font-size:10px;color:blue"></p>
+
+
+          </div>
+          <button id="plotbetasButton"></button>
+
+          <div id="plotbetas">plotbetas</div>
+
     <!-- scripts----------------------------------------------->
     <script src="tabs.js"></script>
     <script type="module" src="sdk/prs.js"></script>
-
     <script type="module" src="sdk/sdk.js"></script>
     <script type="module" src="sdk/main.js"></script>
     <script type="module" src="sdk/plots.js"></script>

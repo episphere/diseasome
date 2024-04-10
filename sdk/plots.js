@@ -1,7 +1,8 @@
 import { plotly} from "../dependencies.js";
 import {functions} from "./main.js"
 import {sdk} from "./sdk.js"
-import localforage from 'https://cdn.skypack.dev/localforage';
+import {PRS} from "./prs.js"
+import localforage from 'https://cdn.jsdelivr.net/npm/localforage@1.10.0/+esm'//'https://cdn.skypack.dev/localforage';
 localforage.config({
     driver: [
         localforage.INDEXEDDB,
@@ -10,20 +11,14 @@ localforage.config({
     ],
     name: 'localforage'
 });
-let userPhenotypes = localforage.createInstance({
-    name: "userPhenotypes",
-    storeName: "userPhenotypes"
-})
 
-let userPhenotype = localforage.createInstance({
-    name: "userPhenotype",
-    storeName: "userPhenotype"
-})
 
-let userPhenotype2 = localforage.createInstance({
-    name: "userPhenotype2",
-    storeName: "userPhenotype2"
-})
+let singleUserAllPhenotypesTable = localforage.createInstance({name: "openSnpDb2",storeName: "singleUserAllPhenotypesTable"})
+let phenotypesTable = localforage.createInstance({name: "openSnpDb",storeName: "phenotypesTable"})
+let phenotypeUsersTable = localforage.createInstance({name: "openSnpDb",storeName: "phenotypesTable"})
+let filetypesTable = localforage.createInstance({name: "openSnpDb",storeName: "filetypesTable"})
+let filetypeCountsTable = localforage.createInstance({name: "openSnpDb",storeName: "filetypeCountsTable"})
+
 
 let cors = `https://corsproxy.io/?`
 
@@ -31,26 +26,32 @@ const output = {pgs:[], snp:[]}
 // plot opensnp data types --------------
 //functions.removeLocalStorageValues('request', pgs)
 
-let users = (await functions.getUsers())
-let usersFlat = users.flatMap(x=>x.genotypes)
+// get openSNP users with genotype data
+let openSnpUsers = (await functions.getUsers())
+//console.log("openSnpUsers",openSnpUsers.slice(0,9))
 
-var obj = {};
-var counter = {}
-
-for (var i = 0, len = usersFlat.length; i < len; i++) {
-  obj[usersFlat[i]['filetype']] = usersFlat[i];
-  counter[usersFlat[i]['filetype']] = (counter[usersFlat[i]['filetype']] || 0) + 1
-}
-let datatypesCounts = new Array();
-for (var key in obj){
-    datatypesCounts.push(extend( obj[key], {count:counter[key]}));
+// define list of filetypes ("23andme", "ancestry", etc)
+let filetypes = await filetypesTable.getItem("filetypes");
+//console.log("filetypes",filetypes)
+if(filetypes == null ){
+    let filetypes = [...new Set(openSnpUsers.flatMap(x=>x.genotypes).map( x => x.filetype))] 
+    filetypesTable.setItem("filetypes", filetypes)
 }
 
-function extend(a, b){
-    for(var key in b)
-        if(b.hasOwnProperty(key))
-            a[key] = b[key];
-    return a;
+let openSnpUsers2 = (await Promise.all(filetypes.map( async x => {
+    let dt = await functions.filterUsers(x, openSnpUsers)
+    return dt
+}))).flat()
+
+let filetypeCounts = await filetypeCountsTable.getItem("filetypeCounts");
+
+if(filetypeCounts == null ){
+    filetypeCounts = {}
+    openSnpUsers2.map(  x => {
+        filetypeCounts[x['genotype.filetype']] = (filetypeCounts[x['genotype.filetype']] || 0) + 1
+})    
+//console.log("filetypeCounts",filetypeCounts)
+ filetypeCountsTable.setItem("filetypeCounts", filetypeCounts)
 }
 
 
@@ -60,7 +61,7 @@ var layout = {
     autosize: false,
     height: 300, 
     width: 400,
-    title: `OpenSNP datatypes`,
+    title: `OpenSNP fileTypes`,
  margin: {l:150,b:-300},
     xaxis: {
         autorange: false,
@@ -75,18 +76,18 @@ var layout = {
     }
 }
 var dt = [{
-    x: datatypesCounts.map(x => x.count),
-    y: datatypesCounts.map(x => x.filetype),
+    x: Object.values(filetypeCounts),
+    y: Object.keys(filetypeCounts),
     type: 'bar',
     orientation: 'h',
     marker: {
-        color: Array(datatypesCounts.length).fill([
+        color: Array(Object.values(filetypeCounts).length).fill([
             'blue', "goldenrod", "magenta",
             '#8c564b', //chestnut brown
             '#9467bd', //muted purple
             'red', //raspberry yogurt pink
             'green', //middle gray
-        ]).flat().splice(0, datatypesCounts.length)
+        ]).flat().splice(0, Object.values(filetypeCounts).length)
     }
 }]
 plotly.newPlot(snpDiv, dt, layout);
@@ -94,7 +95,7 @@ plotly.newPlot(snpDiv, dt, layout);
 snpDiv.on('plotly_click', async function (data) {
     let snpLabel = data.points[0].label
     console.log("snp type selected:",snpLabel)
-    let results = await functions.filterUsers(snpLabel, users)
+    let results = await functions.filterUsers(snpLabel, openSnpUsers)
     output.snp = results
     console.log("output",output)
     
@@ -104,11 +105,11 @@ snpDiv.on('plotly_click', async function (data) {
 
 //plot openSNP phenotypes -----------------------------------------------
 let phenotypesUrl = 'https://opensnp.org/phenotypes.json'
-let phenotypes = await userPhenotypes.getItem(phenotypesUrl); // check for users in localstorage
+let phenotypes = await phenotypesTable.getItem(phenotypesUrl); // check for users in localstorage
 if (phenotypes == null) {
    phenotypes = (await (await fetch(cors+phenotypesUrl)).json())
                     .sort((a, b) => b.number_of_users - a.number_of_users)
-        userPhenotypes.setItem(phenotypesUrl, phenotypes)
+                    phenotypesTable.setItem(phenotypesUrl, phenotypes)
 }
 
 let snpPhenoDiv = document.getElementById("snpPheno")
@@ -165,42 +166,53 @@ snpPhenoDiv.on('plotly_click', async function (data) {
     let phenoLabel = data.points[0].label
     let phenoData = phenotypes.filter( x => x.characteristic == phenoLabel)
     let phenoId = phenoData[0].id
-    console.log("phenoId:",phenoId,phenoLabel)
+    console.log("phenotype selected:",phenoId,phenoLabel)
 
    let  phenotypeUrl = `https://opensnp.org/phenotypes/json/variations/${phenoId}.json`
 
-   let phenotype = await userPhenotype.getItem(phenotypeUrl); // check for users in localstorage
-    if (phenotype == null) {
-        phenotype = (await (await fetch(cors+phenotypeUrl)).json())
+   let users = await phenotypeUsersTable.getItem(phenotypeUrl); // check for users in localstorage
+    if (users == null) {
+        users = (await (await fetch(cors+phenotypeUrl)).json())
           //.sort((a, b) => b.number_of_users - a.number_of_users)
-             userPhenotype.setItem(phenotypeUrl, phenotype)
+             phenotypeUsersTable.setItem(phenotypeUrl, users)
      }
-     //console.log("phenotype:",phenotype)
+     console.log("users:",users)
 
-    let phenotypeUserIds = phenotype.users.map( x => x.user_id)
-    var phenotypeUsers = users.filter(({id}) => phenotypeUserIds.includes(id));
-    //console.log("phenotypeUsers:",phenotypeUsers)
+    let userIds = users.users.map( x => x.user_id)
 
-    let types = datatypesCounts.map(x => x.filetype)
+    // get users with phenotype data (even those without genotype data)
+    var phenotypeUsers = openSnpUsers.filter(({id}) => userIds.includes(id));
+    console.log("# of users with this phenotype = :",phenotypeUsers.length)
 
-    let usersPheno = await Promise.all(types.map(async function (type){
+  // retreive phenotype information for each user by filetype
+    let usersPheno = await Promise.all(filetypes.map(async function (type){
         let obj = {}
-        let filteredUsers2 = await Promise.all((await functions.filterUsers(type, phenotypeUsers)).map( async (row,i)  => {
-   
-                await functions.timeout(9000)
-                let phenoDataUrl = `https://opensnp.org/phenotypes/json/${row.id}.json`
-                let phenoData = await userPhenotype2.getItem(phenoDataUrl); // check for users in localstorage////.phenotypes
+                // filter users with genotype data, with 1 or more genotype files (ie. 3 23andme files)
+        let filteredUsers2 = await Promise.all(
+                            (await functions.filterUsers(type, phenotypeUsers)).map( async (row,i)  => {
+
+                let url = `https://opensnp.org/phenotypes/json/${row.id}.json`
+                let phenoData = await singleUserAllPhenotypesTable.getItem(url); // check for users in localstorage////.phenotypes
+                await functions.timeout(3000)
+
                 if (phenoData == null) {
-                    phenoData = (await (await fetch(cors+phenoDataUrl)).json())
-                    userPhenotype2.setItem(phenoDataUrl, phenoData)
+                    await functions.timeout(6000)
+
+                    phenoData = await ( (await fetch(cors+url))).json()
+                    await functions.timeout(6000)
+                    singleUserAllPhenotypesTable.setItem(url, phenoData)
                 }
-                    row["phenotypes"] = await phenoData.phenotypes
-            return row
+               // console.log(`getting ids for ${phenoLabel}`,row.id)
+                row["phenotypes"] = await phenoData.phenotypes
+                return row
         }))
+
         obj[type] = filteredUsers2
+
         return obj
     }))
 
+    console.log("usersPheno",usersPheno)
     var layout = {
         title: {
             text:`Users with "${phenoLabel}" data`,
@@ -213,7 +225,7 @@ snpPhenoDiv.on('plotly_click', async function (data) {
     }
     var data = [{
         values: usersPheno.map( x=> Object.values(x)[0].length),
-        labels: types,
+        labels: filetypes,
         type: 'pie',
         textposition: 'inside'
     }];
@@ -222,24 +234,23 @@ snpPhenoDiv.on('plotly_click', async function (data) {
     document.getElementById("snpPhenoPie").on('plotly_click', async function (data2) {
         let type = data2.points[0].label
         let usersData = Object.values(usersPheno.filter(x=>Object.keys(x)==type)[0])[0]
-       // console.log("usersData: ",usersData)
+       console.log("usersData: ",usersData)
         output.snp[`${phenoLabel}`]= [{"userInfo":usersData}]
         console.log("output.snp",output.snp)
         functions.createButton("snpPhenoPieButton","button0", `download ${usersData.length} users`,usersData);
 
     // get 23 and me texts from urls
-    let snpUrls = usersData.map( x => x["genotype.download_url"]).slice(0,20)
-    console.log("snpUrls",snpUrls)
-    console.log("snpTxts")
-
-    let snpTxts = await functions.get23(snpUrls)
-    console.log("snpTxts")
+    let snpTxts = await functions.get23(usersData)//)snpUrls)
 
     // qc: remove 23txts with older chips
-    console.log("snpTxts",snpTxts)
-    let snpTxts2 = snpTxts.filter(x=> x.meta.split(/\r?\n|\r|\n/g)[0].slice(-4) > 2015 )
+   // console.log("snpTxts",snpTxts)
 
-    console.log("snpTxts2:",snpTxts2)
+  //  console.log("snpTxts",snpTxts.map(x=> x.openSnp.phenotypes["Type II Diabetes"]))
+    //   console.log("arr23Txts",arr23Txts.map(x=> x.openSnp.phenotypes['Type II Diabetes']))
+    let snpTxts2 = snpTxts.filter(x=> x.meta.split(/\r?\n|\r|\n/g)[0].slice(-4) > 2010)
+
+    // console.log("snpTxts:",snpTxts2)
+    // console.log("snpTxts phenotypes:",snpTxts2.map(x=> x.openSnp.phenotypes["Type II Diabetes"]))
 
     //output.snp[`${phenoLabel}`].push({"userTxts":snpTxts})
     output["my23"] = snpTxts2
@@ -247,14 +258,12 @@ snpPhenoDiv.on('plotly_click', async function (data) {
 })
 
 
-
-
-// top bar plot
-// PGS ///////////////////////////////////////////////////////////////////////////////////
+// PGS ////////////////////////////////////////////////////////////////////////////////////////////////////
 const traitFiles = (await functions.fetchAll2('https://www.pgscatalog.org/rest/trait/all')).flatMap(x => x)
 const traits = Array.from(new Set(traitFiles.flatMap(x => x["trait_categories"])
     .sort().filter(e => e.length).map(JSON.stringify)), JSON.parse)
 traits.map(x => functions.getAllPgsIdsByCategory(x))
+
 
 // top bar plot of PGS entries by category--------------------------------------------------------------------------------
 let allTraitsDt = (await functions.traitsData(traits)).sort(function (a, b) {
@@ -369,8 +378,8 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
 
     let pgsIds =  (await (functions.getAllPgsIdsByCategory(category))).sort()
     let scoreFiles = (await functions.getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
-
-    output.pgs[category+" scorefiles"] = scoreFiles
+    output.pgs.scoreFiles = scoreFiles
+    output.pgs.id = category
 
     var obj2 = {};
     scoreFiles.forEach(function (item) {
@@ -409,12 +418,12 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
 
    // plot betas
        // save texts for small models (<500 variants)
-       //let txts = []
        let pgsIds500 = scoreFiles.filter( x => x.variants_number <500).map(x=>x.id)
        let txts = await Promise.all(pgsIds500.map(async x => (await sdk.loadScoreHm(x))))
-      // output.pgs[`txts ${category} 500 var`] = txts
-      output["myPgs"]=txts
-       console.log(" output:", output)
+
+      output["myPgsTxts"]=txts
+      console.log(" output:", output)
+
 
         document.getElementById('button1_2').addEventListener('click', function(event) {
         let traces = {}
@@ -464,79 +473,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
     })
 })
 
-// plot betas function
-// const plotBetas =  async function(category,scoreFiles,div,button){
-//     document.getElementById(button).addEventListener('click',  async function(event) {
 
-//   // save texts for small models (<200 variants)
-//   let txts = []
-//   let pgsIds200 = scoreFiles.filter( x => x.variants_number <200).map(x=>x.id)
-//   console.log( "pgsIds200", pgsIds200)
-
-//  let dt = pgsIds200.map(async x => {
-//     console.log( "x", x)
-//     let dt = await sdk.loadScoreHm(x)
-//     //console.log( "dt", dt)
-//         txts.push(dt)
-//         console.log("txts----", txts)
-//         return dt
-//     } )
-//     console.log( "dt", dt)
-
-//   let obj = {}
-//   obj[category+" texts"] =  txts
-//   output.pgs.push(obj)
-//   let traces = {}
-
-// dt.map( async function (x) {
-//         console.log("x", x);
-//         let data = await x
-//         let chr = data.cols.indexOf("hm_chr");
-//         let pos = data.cols.indexOf("hm_pos");
-//         let weight = data.cols.indexOf("effect_weight");
-//         let obj = {};
-//         data.dt.map(e => obj[e[chr] + "_" + e[pos]] = e[weight]);
-//         traces[data.id] = obj;
-//         console.log("traces", traces);
-//     })
-//     console.log( "Object.keys( traces)",  Object.keys( traces))
-
-//     let plotData=   pgsIds200.map(async function(x){
-//         let x2 =   x
-//         let traces2 = traces
-//         console.log(traces2)
-//         let obj =  {
-//         "y": Object.values(await traces[x2]),
-//         "x": Object.keys(await traces[x2]),
-//         "type": 'bar',
-//         "opacity": 0.65,
-//         "name":x,
-//         }
-//         return obj
-//     } )
-//     console.log( "plotData",plotData.map( x => x.y).flat())//.sort((a,b) => a.x - b.x))  
-//     let betas = plotData.map( x => x.y).flat()  
-// var layout = {
-//     "barmode": 'overlay', 
-//     title: `betas for ${pgsIds200.length} "${category}" entries with < 200 variants`,
-//       height: 1000,
-//     //  width: (txts.length*170)/(0.2),
-//     xaxis:{
-//         title: {
-//             standoff: 5,
-//             text: "chromosome_position"},
-//     },
-//    margin: {l:5,b: 200 },
-//      yaxis: {title: {
-//         standoff: 10,
-//         text: "beta"}, 
-//         range: [await betas.sort((a, b) => a - b)[0], await betas.sort((a, b) => b - a)[0]]},
-//     showlegend: true,
-//     legend: {x: -0.09, y: 1.1}
-//     }
-// plotly.newPlot(div, plotData,layout,{showSendToCloud: true});
-//     })
-// }
 // pie chart of traits -----------------------------------
 topBarCategoriesDiv.on('plotly_click', async function (data) {
     var spinner = document.getElementById("spinner2");
@@ -576,9 +513,10 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
         let trait = data2.points[0].label
         console.log("Subcategory selected:",trait)
         let res = scoreFiles.filter(x => x.trait_reported === trait).sort((a, b) => a.variants_number - b.variants_number)
-     
+        output.pgs.scoreFiles = res
+        output.pgs.id = trait
         // output.pgs[trait+" scorefiles"] = res
-        // console.log(" output.pgs", output.pgs)
+        console.log(" output:", output)
         var data = [{
             x: res.map(x => x.variants_number),
             y: res.map(x => x.trait_reported.concat(" " + x.id)),
@@ -616,7 +554,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
            let txts =  await Promise.all(pgsIds500.map(async x => (await sdk.loadScoreHm(x))))
            //pgsIds500.map(async x => txts.push((await sdk.loadScoreHm(x))) )
            //output.pgs[`txts ${trait} 500 var`] = txts
-           output["myPgs"] = txts.slice(0,50)
+           output["myPgsTxts"] = txts.slice(0,40)
             document.getElementById('button1_3').addEventListener('click', function(event) {
             let traces = {}
             txts.map( x => {
@@ -628,7 +566,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
                     traces[x.id] = obj
                 })
             output.pgs[`plot ${trait} 500 var`] = traces
-            console.log( "output.pgs",output.pgs)
+         //   console.log( "output.pgs",output.pgs)
     
             let plotData=  Object.keys(traces).map( x =>{
                 let obj = {
@@ -715,56 +653,168 @@ topBarTraitsDiv.on('plotly_click', async function (data) {
 
           // pgsIds500.map(async x => txts.push((await sdk.loadScoreHm(x))) )
           // output.pgs[`txts ${trait} 500 var`] = txts
-          output["myPgs"] = txts.slice(0,50)
-            document.getElementById('button3_2').addEventListener('click', function(event) {
-            let traces = {}
-            txts.map( x => {
-                let chr = x.cols.indexOf("hm_chr")
-                let pos = x.cols.indexOf("hm_pos")
-                let weight = x.cols.indexOf("effect_weight")
-                let obj = {};
-                    x.dt.map( e=> obj[e[chr]+"_"+e[pos]] = e[weight])
-                    traces[x.id] = obj
-                })
-            // output.pgs[`plot ${trait} 500 var`] = traces
-            // console.log( "output.pgs",output.pgs)
-    
-            let plotData=  Object.keys(traces).map( x =>{
-                let obj = {
-                "y": Object.values(traces[x]),
-                "x": Object.keys(traces[x]),
-                "type": 'bar',
-                "opacity": 0.65,
-                "name":x,
-                }
-                return obj
-            } )
-           // console.log( "plotData",plotData.map( x => x.y).flat())//.sort((a,b) => a.x - b.x))  
-            let betas = plotData.map( x => x.y).flat()  
-            var layout = {
-                "barmode": 'overlay', 
-                title: `betas for ${pgsIds500.length} "${trait}" entries with < 500 variants`,
-                height: 1000,
-                //  width: (txts.length*170)/(0.2),
-                xaxis:{
-                    title: {
-                        standoff: 5,
-                        text: "chromosome_position"},
-                },
-            margin: {l:5,b: 200 },
-                yaxis: {title: {
-                    standoff: 55,
-                    text: "beta values"}, 
-                    range: [betas.sort((a, b) => a - b)[0], betas.sort((a, b) => b - a)[0]]},
-                showlegend: true,
-                legend: {x: -0.09, y: 1}
-                }
-        plotly.newPlot('betassecondBarTraits', plotData,layout,{showSendToCloud: true});
-        })
+          output["myPgsTxts"] = txts.slice(0,40)
+
+          let scoreFiles2 = (await functions.getscoreFiles(pgsIds500)).sort((a, b) => a.variants_number - b.variants_number)
+          plotBetas(trait, scoreFiles2, 500, "betassecondBarTraits", "button3_2")
+        
     })
 
 document.getElementById("selection").data = output
 
+
+document.getElementById('prsButton').addEventListener('click', async function(event) {
+    let data = {}
+    data["PGS"] =  output["myPgsTxts"].filter(x => x.qc == "true")
+   console.log('output:', output)
+    data["my23"] = output["my23"]
+ 
+    let prsDt = PRS.calc(data)
+    data["PRS"] = await prsDt
+    //console.log("data",data )
+
+    // Plot PRS --------------------------------------------------------------------
+let prsDiv = document.getElementById("prsDiv")
+var layout = {
+    showlegend: true,
+    autosize: false,
+    height: 9800, 
+    width: 800,
+   title: `PRS scores`,
+    yaxis: {
+        title: {
+            text: "PRS"},
+    },
+    xaxis:{
+        title: {
+            text: "openSNP users"},
+    },
+    margin: {b: 440 },
+
+}
+
+// reverse look up the PRS matrix to fill the traces
+let traces = {}
+data.PGS.map( (x,i) => {
+    let arr = []
+    let idx = i
+//    //    let snpTxts2 = snpTxts.filter(x=> x.meta.split(/\r?\n|\r|\n/g)[0].slice(-4) > 2010)
+
+    data.my23.map( y => {
+        arr.push( data.PRS[idx])
+        idx += data.PGS.length
+        })
+        traces[data.PRS[i].pgsId] = arr
+    })
+   // console.log("traces",traces)
+
+
+let plotData=  Object.keys(traces).map( (x, i) =>{
+  
+    let obj = {
+    "y": traces[x].map( x => x.PRS),
+    "x": traces[x].map( x => {
+        let monthDay = x.my23meta.split(/\r?\n|\r|\n/g)[0].slice(-20,-14)
+        let year =  x.my23meta.split(/\r?\n|\r|\n/g)[0].slice(-4)
+        let phenotypeVariation = x.openSnp.phenotypes["Type II Diabetes"]["variation"]
+        let xlabel = phenotypeVariation + "_" + x.openSnp.name + "_" +  "ID" +  "_" +  x.my23Id  + "_" +  year + "_" + monthDay
+    return xlabel     
+    }),
+    mode: 'lines+markers',
+    "opacity": 0.80,
+    "name": x + "_var#_" + data.PGS[i].meta.variants_number,
+    }
+    return obj
+} )
+
+plotly.newPlot(prsDiv, plotData, layout);
+})
+
+
+
+//plot betas function
+const plotBetas = async function (category, scoreFiles, var_num ,div, button) {
+    document.getElementById(button).addEventListener('click', async function (event) {
+
+        // retreive texts for small models (<200 variants)
+        let pgsIds = scoreFiles.filter(x => x.variants_number < var_num).map(x => x.id)
+        let txts = await Promise.all(await pgsIds.map(async x => {
+            let res = await sdk.loadScoreHm(x)
+            return res
+        }))
+
+        let obj = {}
+        obj[category + " texts"] = txts
+        output["myPgsTxts"] = obj
+        console.log('output',output)
+
+        // get variants and betas for each PGS entry
+        let data = txts.reduce(function (acc, pgs) {
+            let chr = pgs.cols.indexOf("hm_chr");
+            let pos = pgs.cols.indexOf("hm_pos");
+            let weight = pgs.cols.indexOf("effect_weight");
+            let obj = {};
+            pgs.dt.map(e => obj[e[chr] + "_" + e[pos]] = e[weight]);
+            acc[pgs['id']] = obj
+            return acc
+        }, {})
+
+        // create a trace for each PGS entry
+        let plotData = pgsIds.map(function (x) {
+
+            let obj = {
+                "y": Object.values(data[x]),
+                "x": Object.keys(data[x]),
+                "type": 'bar',
+                "opacity": 0.65,
+                "name": x,
+            }
+            return obj
+        })
+        let betas = plotData.map(x => x.y).flat()
+        var layout = {
+            "barmode": 'overlay',
+            title: `betas for ${pgsIds.length} "${category}" entries with < ${var_num} variants`,
+            height: 1000,
+            //  width: (txts.length*170)/(0.2),
+            xaxis: {
+                title: {
+                    standoff: 5,
+                    text: "chromosome_position"
+                },
+            },
+           
+            margin: {l:5,b: 200 },
+            yaxis: {title: {
+                standoff: 95,
+                text: "beta values"}, 
+                range: [betas.sort((a, b) => a - b)[0], betas.sort((a, b) => b - a)[0]]},
+            showlegend: true,
+            legend: {x: -0.09, y: 1}
+            }
+        plotly.newPlot(div, plotData, layout, {
+            showSendToCloud: true
+        });
+    })
+}
+//
+//https://github.com/jonasalmeida/jmat/blob/gh-pages/jmat.js
+
+// memb:function(x,dst){ // builds membership function
+// 	var n = x.length-1;
+// 	if(!dst){
+// 		dst = this.sort(x);
+// 		Ind=dst[1];
+// 		dst[1]=dst[1].map(function(z,i){return i/(n)});
+// 		var y = x.map(function(z,i){return dst[1][Ind[i]]});
+// 		return dst;
+// 	}
+// 	else{ // interpolate y from distributions, dst
+// 		var y = this.interp1(dst[0],dst[1],x);
+// 		return y;
+// 	}
+	
+// },
 
     export{output}
 

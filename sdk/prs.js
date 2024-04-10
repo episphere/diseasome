@@ -1,29 +1,19 @@
-//import {PRS_fun}  from 'https://lorenasandoval88.github.io/diseasomeFork/sdk.js'
-import {output}  from '../sdk/plots.js'
-
-async function PRS_fun(matrix){
-    let PRS =[]
 
 
-    // todo remove qc from match2 function
-    // todo remove users with old chips
-    for (let i=0; i<matrix.my23.length; i++){
-        console.log("---------------------------")
-        console.log("processing user #...",i)
-
-        for(let j=0; j<matrix.PGS.length; j++){
-            let input = { "pgs":matrix.PGS[j], "my23":matrix.my23[i]}
-            let res = Match2(input)
-                PRS.push(res)
-                console.log("processing PGS model: ",matrix.PGS[j].id)
-        }
-    }
-
-    return PRS
-}
-
-function Match2(data){
+let PRS = {}
+PRS.Match2  = function (data){
     let data2 = {}
+    // define user id and pgs id in the final result
+    data2.pgsId = data.pgs.id
+    data2.my23Id = data.my23.openSnp.id
+    data2.my23meta = data.my23.meta
+
+    data2.openSnp = data.my23.openSnp
+    data2.pgsMeta = data.pgs.meta
+    //    let snpTxts2 = snpTxts.filter(x=> x.meta.split(/\r?\n|\r|\n/g)[0].slice(-4) > 2010)
+
+
+    //data.
   // extract harmonized data from PGS entry first
   const indChr = data.pgs.cols.indexOf('hm_chr')
   const indPos = data.pgs.cols.indexOf('hm_pos')
@@ -112,22 +102,90 @@ function Match2(data){
   return data2
   }
 
+// calculate prs for multiple pgs and users ----------------------------
 
-// data object defined here ----------------------------
+PRS.calc = async function(matrix){
+    let arr =[]
+    // todo remove qc from match2 function
+    // todo remove users with old chips
+    for (let i=0; i<matrix.my23.length; i++){
+        console.log("---------------------------")
+        console.log("processing user #...",i)
 
-let data = {}
+        for(let j=0; j<matrix.PGS.length; j++){
+            let input = { "pgs":matrix.PGS[j], "my23":matrix.my23[i]}
+            let res = PRS.Match2(input)
+                arr.push(res)
+                console.log("processing PGS model: ",matrix.PGS[j].id)
+        }
+    }
+    return arr
+}
+// data object defined here ---
 
-document.getElementById('prsButton').addEventListener('click', async function(event) {
+// document.getElementById('prsButton').addEventListener('click', async function(event) {
+//     let data = {}
+//     data["PGS"] =  output["myPgsTxts"].filter(x => x.qc == "true")
+//    // console.log('data pgs length:', data["PGS"].length)
+//     data["my23"] = output["my23"]
+ 
+//     let PRS = PRS_fun(data)
+//     data["PRS"] = await PRS
+//     console.log("data",data )
 
-    data["PGS"] =  output["myPgs"].filter(x => x.qc == "true")
-    console.log('data pgs length:', data["PGS"].length)
-    data["my23"] = output["my23"]
-    console.log("data",data )
-    
-    
-    let PRS = PRS_fun(data)
-    data["PRS"] = await PRS
-    
-    console.log("data",data )
-})
+//     // Plot PRS
+// let prsDiv = document.getElementById("prsDiv")
+// var layout = {
+//     showlegend: true,
+//     autosize: false,
+//     height: 700, 
+//     width: 700,
+//    // title: `OpenSNP phenotypes`,
+//     yaxis: {
+//         title: {
+//             text: "PRS"},
+//     },
+//     xaxis:{
+//         //standoff: 5,
+//         title: {
+//             text: "openSNP users"},
+//     },
+//     margin: {b: 400 },
+
+// }
+
+// // reverse look up the PRS matrix to fill the traces
+// let traces = {}
+// data.PGS.map( (x,i) => {
+//     let arr = []
+//     let idx = i
+
+//     data.my23.map( y => {
+//         arr.push( data.PRS[idx])
+//         idx += data.PGS.length
+//         })
+//         traces[data.PRS[i].pgsId] = arr
+//     })
+//     console.log(traces)
+
+
+// let plotData=  Object.keys(traces).map( x =>{
+//     console.log("traces[x]",traces[x].map( x => x.my23Id))
+
+//     console.log("traces[x]",traces[x].map( x => x.openSnp.phenotypes["Type II Diabetes"]["variation"]))
+
+//     let obj = {
+//     "y": traces[x].map( x => x.PRS),
+//     "x": traces[x].map( x => x.openSnp.phenotypes["Type II Diabetes"]["variation"] + "_" + "ID" +  x.my23Id + "_" +   x.openSnp.name),
+//     mode: 'lines+markers',
+//     "opacity": 0.80,
+//     "name":x,
+//     }
+//     return obj
+// } )
+
+// plotly.newPlot(prsDiv, plotData, layout);
+// })
+
+export {PRS}
 
