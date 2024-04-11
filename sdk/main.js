@@ -66,7 +66,7 @@ functions.filterUsers = async function(type, users) {
 }
 
 
-functions.get23 = async function(usersData) {
+functions.get23 = async function(usersData) { // todo: add the txts to local storage
     let arr23Txts = []
   //  console.log(",usersData.map(x=> x.phenotypes[Type II Diabetes])",usersData.map(x=> x.phenotypes["Type II Diabetes"]))//.phenotypes["Type II Diabetes"]))
     let urls = usersData.map( x => x["genotype.download_url"]).slice(128,150)
@@ -260,7 +260,7 @@ functions.getscoreFiles = async function(pgsIds) {
             scores.push(cachedData)
         } else if (cachedData == null) {
             console.log(i, "No cached data found for ", `${pgsIds[i]}`)
-            await functions.timeout(200); // pgs has 100 queries per minute limit
+            await functions.timeout(500); // pgs has 100 queries per minute limit
             let notCachedData =
                 await (fetch(url)).then(function (response) {
                     return response.json()

@@ -8,8 +8,7 @@ localforage.config({
         localforage.INDEXEDDB,
         localforage.LOCALSTORAGE,
         localforage.WEBSQL
-    ],
-    name: 'localforage'
+    ], name: 'localforage'
 });
 
 
@@ -196,10 +195,9 @@ snpPhenoDiv.on('plotly_click', async function (data) {
                 await functions.timeout(3000)
 
                 if (phenoData == null) {
-                    await functions.timeout(6000)
 
                     phenoData = await ( (await fetch(cors+url))).json()
-                    await functions.timeout(6000)
+                    await functions.timeout(3000)
                     singleUserAllPhenotypesTable.setItem(url, phenoData)
                 }
                // console.log(`getting ids for ${phenoLabel}`,row.id)
@@ -275,10 +273,7 @@ var layout = {
     width: 500,
     autosize: false,
    // title: `Counts of PGS entries across ${allTraitsDt.length} Categories`,
-     margin: {
-       b: 220
-    },
-
+    margin: {t:5, b: 200},
     yaxis: {
         title: {
             text: 'Category Counts',
@@ -322,12 +317,12 @@ let topBarTraitsDiv = document.getElementById("topBarTraits")
 let traitList = traitFiles.sort((a, b) => b.associated_pgs_ids.length - a.associated_pgs_ids.length)
 var layout = {
     autosize: false,
-    height: 700,
-    width: 8000,
+    // height: 700,
+     width: 8000,
    // title: `Counts of PGS entries across ${traitList.length} Traits`,
     margin: {
-       // t: 200,
-        b: 400
+        t: 10,
+        b: 250
     },
     yaxis: {
         title: {
@@ -413,66 +408,12 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
     }];
     plotly.newPlot('secondBarCategories', data, layout)
     functions.createButton("secondBarCategories","button1", `download ${pgsIds.length} pgs IDs`,pgsIds);
-    //
+    // betas button
     functions.createButton2("betasBarCategoriesButton","button1_2", `plot betas`);
 
-   // plot betas
-       // save texts for small models (<500 variants)
-       let pgsIds500 = scoreFiles.filter( x => x.variants_number <500).map(x=>x.id)
-       let txts = await Promise.all(pgsIds500.map(async x => (await sdk.loadScoreHm(x))))
-
-      output["myPgsTxts"]=txts
-      console.log(" output:", output)
-
-
-        document.getElementById('button1_2').addEventListener('click', function(event) {
-        let traces = {}
-        txts.map( x => {
-            let chr = x.cols.indexOf("hm_chr")
-            let pos = x.cols.indexOf("hm_pos")
-            let weight = x.cols.indexOf("effect_weight")
-            let obj = {};
-                x.dt.map( e=> obj[e[chr]+"_"+e[pos]] = e[weight])
-                traces[x.id] = obj
-            })
-        // output.pgs[`plot ${category} 500 var`] = traces
-        // console.log( "output.pgs",output.pgs)
-
-        let plotData=  Object.keys(traces).map( x =>{
-            let obj = {
-            "y": Object.values(traces[x]),
-            "x": Object.keys(traces[x]),
-            "type": 'bar',
-            "opacity": 0.65,
-            "name":x,
-            }
-            return obj
-        } )
-       // console.log( "plotData",plotData.map( x => x.y).flat())//.sort((a,b) => a.x - b.x))  
-        let betas = plotData.map( x => x.y).flat()  
-        var layout = {
-            "barmode": 'overlay', 
-            title: `betas for ${pgsIds500.length} "${category}" entries with < 500 variants`,
-            height: 1000,
-            //  width: (txts.length*170)/(0.2),
-            xaxis:{
-                title: {
-                    standoff: 5,
-                    text: "chromosome_position"},
-            },
-        margin: {l:5,b: 200 },
-            yaxis: {title: {
-                standoff: 10,
-                text: "beta"}, 
-                range: [betas.sort((a, b) => a - b)[0], betas.sort((a, b) => b - a)[0]]},
-            showlegend: true,
-            legend: {x: -0.09, y: 1}
-            }
-    plotly.newPlot('betasBarCategories', plotData,layout,{showSendToCloud: true});
-    
-    })
+    // plot betas
+    plotBetas(category, scoreFiles, 500, "betasBarCategories", "button1_2")
 })
-
 
 // pie chart of traits -----------------------------------
 topBarCategoriesDiv.on('plotly_click', async function (data) {
@@ -548,58 +489,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
         functions.createButton2("betasthirdBarCategoriesButton","button1_3", `plot betas`);
 
        // plot betas
-           // save texts for small models (<500 variants)
-           //let txts = []
-           let pgsIds500 = res.filter( x => x.variants_number <500).map(x=>x.id)
-           let txts =  await Promise.all(pgsIds500.map(async x => (await sdk.loadScoreHm(x))))
-           //pgsIds500.map(async x => txts.push((await sdk.loadScoreHm(x))) )
-           //output.pgs[`txts ${trait} 500 var`] = txts
-           output["myPgsTxts"] = txts.slice(0,40)
-            document.getElementById('button1_3').addEventListener('click', function(event) {
-            let traces = {}
-            txts.map( x => {
-                let chr = x.cols.indexOf("hm_chr")
-                let pos = x.cols.indexOf("hm_pos")
-                let weight = x.cols.indexOf("effect_weight")
-                let obj = {};
-                    x.dt.map( e=> obj[e[chr]+"_"+e[pos]] = e[weight])
-                    traces[x.id] = obj
-                })
-            output.pgs[`plot ${trait} 500 var`] = traces
-         //   console.log( "output.pgs",output.pgs)
-    
-            let plotData=  Object.keys(traces).map( x =>{
-                let obj = {
-                "y": Object.values(traces[x]),
-                "x": Object.keys(traces[x]),
-                "type": 'bar',
-                "opacity": 0.65,
-                "name":x,
-                }
-                return obj
-            } )
-           // console.log( "plotData",plotData.map( x => x.y).flat())//.sort((a,b) => a.x - b.x))  
-            let betas = plotData.map( x => x.y).flat()  
-            var layout = {
-                "barmode": 'overlay', 
-                title: `betas for ${pgsIds500.length} "${trait}" entries with < 500 variants`,
-                height: 1000,
-                //  width: (txts.length*170)/(0.2),
-                xaxis:{
-                    title: {
-                        standoff: 5,
-                        text: "chromosome_position"},
-                },
-            margin: {l:5,b: 200 },
-                yaxis: {title: {
-                    standoff: 10,
-                    text: "beta"}, 
-                    range: [betas.sort((a, b) => a - b)[0], betas.sort((a, b) => b - a)[0]]},
-                showlegend: true,
-                legend: {x: -0.09, y: 1.1}
-                }
-        plotly.newPlot('betasthirdBarCategories', plotData,layout,{showSendToCloud: true});
-        })
+       plotBetas(trait, res, 500, "betasthirdBarCategories", "button1_3")
     })
 })
 
@@ -646,17 +536,9 @@ topBarTraitsDiv.on('plotly_click', async function (data) {
             functions.createButton("secondBarTraitsButton","button3",`download ${scoreFiles.length} pgs IDs`, scoreFiles.map(x => x.id));
             functions.createButton2("betassecondBarTraitsButton","button3_2", `plot betas`);
 
-            // save texts for small models (<500 variants)
-           //let txts = []
-           let pgsIds500 = scoreFiles.filter( x => x.variants_number <500).map(x=>x.id)
-           let txts =  await Promise.all(pgsIds500.map(async x => (await sdk.loadScoreHm(x))))
-
-          // pgsIds500.map(async x => txts.push((await sdk.loadScoreHm(x))) )
-          // output.pgs[`txts ${trait} 500 var`] = txts
-          output["myPgsTxts"] = txts.slice(0,40)
-
-          let scoreFiles2 = (await functions.getscoreFiles(pgsIds500)).sort((a, b) => a.variants_number - b.variants_number)
-          plotBetas(trait, scoreFiles2, 500, "betassecondBarTraits", "button3_2")
+      
+          // plot betas
+          plotBetas(trait, scoreFiles, 500, "betassecondBarTraits", "button3_2")
         
     })
 
@@ -779,18 +661,18 @@ const plotBetas = async function (category, scoreFiles, var_num ,div, button) {
             //  width: (txts.length*170)/(0.2),
             xaxis: {
                 title: {
-                    standoff: 5,
+                    standoff: 30,
                     text: "chromosome_position"
                 },
             },
            
-            margin: {l:5,b: 200 },
+            margin: {l: 130,b: 200 },
             yaxis: {title: {
-                standoff: 95,
+                //standoff: 5,
                 text: "beta values"}, 
                 range: [betas.sort((a, b) => a - b)[0], betas.sort((a, b) => b - a)[0]]},
             showlegend: true,
-            legend: {x: -0.09, y: 1}
+            legend: {x: -0.5, y: 1}
             }
         plotly.newPlot(div, plotData, layout, {
             showSendToCloud: true
@@ -816,6 +698,4 @@ const plotBetas = async function (category, scoreFiles, var_num ,div, button) {
 	
 // },
 
-    export{output}
-
-
+export{output}
