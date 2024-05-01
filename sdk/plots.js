@@ -3,13 +3,12 @@ import {functions} from "./main.js"
 import {sdk} from "./sdk.js"
 import {PRS} from "./prs.js"
 import localforage from 'https://cdn.jsdelivr.net/npm/localforage@1.10.0/+esm'//'https://cdn.skypack.dev/localforage';
+
+
 localforage.config({
-    driver: [
-        localforage.INDEXEDDB,
+    driver: [localforage.INDEXEDDB,
         localforage.LOCALSTORAGE,
-        localforage.WEBSQL
-    ], name: 'localforage'
-});
+        localforage.WEBSQL ], name: 'localforage'});
 
 
 let singleUserAllPhenotypesTable = localforage.createInstance({name: "openSnpDb2",storeName: "singleUserAllPhenotypesTable"})
