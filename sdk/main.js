@@ -52,6 +52,9 @@ functions.filterUsers = async function(type, users) {
             // keep user with one or more 23andme files
             dt.genotypes.map(i => {
                 if (dt.genotypes.length > 0 && i.filetype == type) {
+                    // console.log("dt",dt)
+                    // console.log("i",i)
+
                     let innerObj = {};
                     innerObj["name"] = dt["name"];
                     innerObj["id"] = dt["id"];
@@ -69,7 +72,7 @@ functions.filterUsers = async function(type, users) {
 functions.get23 = async function(usersData) { // todo: add the txts to local storage
     let arr23Txts = []
   //  console.log(",usersData.map(x=> x.phenotypes[Type II Diabetes])",usersData.map(x=> x.phenotypes["Type II Diabetes"]))//.phenotypes["Type II Diabetes"]))
-    let urls = usersData.map( x => x["genotype.download_url"]).slice(128,150)
+    let urls = usersData.map( x => x["genotype.download_url"]).slice(10,20)
     console.log("# of users: ",urls.length)
     for (let i = 0; i < urls.length; i++) {
         let user = await openSnpDbUsers.getItem(urls[i]);
@@ -249,7 +252,8 @@ functions.getAllPgsIdsByCategory = async function(trait) {
 functions.timeout = (ms) => {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
-//------------------------------------
+//-----------------------------------
+// get score files using pgs ids list and subset those with less than 30 variants
 functions.getscoreFiles = async function(pgsIds) {
     var scores = []
     let i = 0

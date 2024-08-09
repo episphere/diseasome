@@ -70,9 +70,9 @@
 
     <!-- Tab links -->
     <div class="tab">
-        <button class="tablinks" onclick="openCity(event, 'PGS catalog')">PGS catalog</button>
-        <button class="tablinks" onclick="openCity(event, 'OpenSNP')">OpenSNP</button>
-        <button id = "prsButton" class="tablinks" onclick="openCity(event, 'PRS')">PRS</button>
+        <button class="tablinks" onclick="openCity(event, 'PGS catalog')">Explore the PGS catalog</button>
+        <button class="tablinks" onclick="openCity(event, 'OpenSNP')">Explore OpenSNP</button>
+        <button id = "prsButton" class="tablinks" onclick="openCity(event, 'PRS')">Calculate PRS</button>
     </div>
 <div id = "selection"></div>
 
@@ -200,6 +200,7 @@
     <!-- scripts----------------------------------------------->
     <script src="tabs.js"></script>
     <script type="module" src="sdk/prs.js"></script>
+    <script type="module" src="sdk/get23.js"></script>
     <script type="module" src="sdk/sdk.js"></script>
     <script type="module" src="sdk/main.js"></script>
     <script type="module" src="sdk/plots.js"></script>

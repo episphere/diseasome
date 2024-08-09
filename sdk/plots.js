@@ -27,11 +27,11 @@ const output = {pgs:[], snp:[]}
 
 // get openSNP users with genotype data
 let openSnpUsers = (await functions.getUsers())
-//console.log("openSnpUsers",openSnpUsers.slice(0,9))
+////console.log("openSnpUsers",openSnpUsers.slice(0,9))
 
 // define list of filetypes ("23andme", "ancestry", etc)
 let filetypes = await filetypesTable.getItem("filetypes");
-//console.log("filetypes",filetypes)
+////console.log("filetypes",filetypes)
 if(filetypes == null ){
     let filetypes = [...new Set(openSnpUsers.flatMap(x=>x.genotypes).map( x => x.filetype))] 
     filetypesTable.setItem("filetypes", filetypes)
@@ -49,7 +49,7 @@ if(filetypeCounts == null ){
     openSnpUsers2.map(  x => {
         filetypeCounts[x['genotype.filetype']] = (filetypeCounts[x['genotype.filetype']] || 0) + 1
 })    
-//console.log("filetypeCounts",filetypeCounts)
+////console.log("filetypeCounts",filetypeCounts)
  filetypeCountsTable.setItem("filetypeCounts", filetypeCounts)
 }
 
@@ -90,13 +90,14 @@ var dt = [{
     }
 }]
 plotly.newPlot(snpDiv, dt, layout);
+
 // download button for opensnp data---------------------------------
 snpDiv.on('plotly_click', async function (data) {
     let snpLabel = data.points[0].label
-    console.log("snp type selected:",snpLabel)
+    //console.log("snp type selected:",snpLabel)
     let results = await functions.filterUsers(snpLabel, openSnpUsers)
     output.snp = results
-    console.log("output",output)
+    //console.log("output snpDiv",output)
     
         // add download button for pgsIds
         functions.createButton("snp","snpButton", `download ${results.length} "${snpLabel}" users`, results);
@@ -161,11 +162,13 @@ var dt = [{
 plotly.newPlot(snpPhenoDiv, dt, layout);
 
 snpPhenoDiv.on('plotly_click', async function (data) {
+    //console.log("data:",data)
 
     let phenoLabel = data.points[0].label
     let phenoData = phenotypes.filter( x => x.characteristic == phenoLabel)
     let phenoId = phenoData[0].id
-    console.log("phenotype selected:",phenoId,phenoLabel)
+    output.userPhenotype = phenoLabel
+    //console.log("phenotype selected:",phenoId,phenoLabel)
 
    let  phenotypeUrl = `https://opensnp.org/phenotypes/json/variations/${phenoId}.json`
 
@@ -175,13 +178,14 @@ snpPhenoDiv.on('plotly_click', async function (data) {
           //.sort((a, b) => b.number_of_users - a.number_of_users)
              phenotypeUsersTable.setItem(phenotypeUrl, users)
      }
-     console.log("users:",users)
+     //console.log("users:",users)
 
     let userIds = users.users.map( x => x.user_id)
 
     // get users with phenotype data (even those without genotype data)
     var phenotypeUsers = openSnpUsers.filter(({id}) => userIds.includes(id));
-    console.log("# of users with this phenotype = :",phenotypeUsers.length)
+    //console.log("# of users with this phenotype = :",phenotypeUsers.length)
+    //console.log("phenotypeUsers:",phenotypeUsers)
 
   // retreive phenotype information for each user by filetype
     let usersPheno = await Promise.all(filetypes.map(async function (type){
@@ -189,21 +193,29 @@ snpPhenoDiv.on('plotly_click', async function (data) {
                 // filter users with genotype data, with 1 or more genotype files (ie. 3 23andme files)
         let filteredUsers2 = await Promise.all(
                             (await functions.filterUsers(type, phenotypeUsers)).map( async (row,i)  => {
+                // console.log(' type, phenotypeUsers',type, phenotypeUsers)
+                // console.log(' filterUsers row,i',row,i)
+                                
 
                 let url = `https://opensnp.org/phenotypes/json/${row.id}.json`
+                // console.log("url",url)
+
                 let phenoData = await singleUserAllPhenotypesTable.getItem(url); // check for users in localstorage////.phenotypes
                 await functions.timeout(3000)
 
                 if (phenoData == null) {
 
                     phenoData = await ( (await fetch(cors+url))).json()
+                    // console.log("phenoData",phenoData)
+
                     await functions.timeout(3000)
                     singleUserAllPhenotypesTable.setItem(url, phenoData)
                 }
-               // console.log(`getting ids for ${phenoLabel}`,row.id)
+               // //console.log(`getting ids for ${phenoLabel}`,row.id)
                 row["phenotypes"] = await phenoData.phenotypes
                 return row
         }))
+        //console.log("filteredUsers2:",filteredUsers2)
 
         obj[type] = filteredUsers2
 
@@ -232,23 +244,27 @@ snpPhenoDiv.on('plotly_click', async function (data) {
     document.getElementById("snpPhenoPie").on('plotly_click', async function (data2) {
         let type = data2.points[0].label
         let usersData = Object.values(usersPheno.filter(x=>Object.keys(x)==type)[0])[0]
-       console.log("usersData: ",usersData)
+        //console.log("type: ",type)
+       
+        console.log("usersData: ",usersData)
+
         output.snp[`${phenoLabel}`]= [{"userInfo":usersData}]
-        console.log("output.snp",output.snp)
+        //console.log("output.snp",output.snp)
         functions.createButton("snpPhenoPieButton","button0", `download ${usersData.length} users`,usersData);
 
     // get 23 and me texts from urls
-    let snpTxts = await functions.get23(usersData)//)snpUrls)
+    let snpTxts = await functions.get23(usersData.slice(20,40))//)snpUrls)
+    //console.log("snpTxts:",snpTxts)
 
     // qc: remove 23txts with older chips
-   // console.log("snpTxts",snpTxts)
+   // //console.log("snpTxts",snpTxts)
 
-  //  console.log("snpTxts",snpTxts.map(x=> x.openSnp.phenotypes["Type II Diabetes"]))
-    //   console.log("arr23Txts",arr23Txts.map(x=> x.openSnp.phenotypes['Type II Diabetes']))
+  //  //console.log("snpTxts",snpTxts.map(x=> x.openSnp.phenotypes["Type II Diabetes"]))
+    //   //console.log("arr23Txts",arr23Txts.map(x=> x.openSnp.phenotypes['Type II Diabetes']))
     let snpTxts2 = snpTxts.filter(x=> x.meta.split(/\r?\n|\r|\n/g)[0].slice(-4) > 2010)
 
-    // console.log("snpTxts:",snpTxts2)
-    // console.log("snpTxts phenotypes:",snpTxts2.map(x=> x.openSnp.phenotypes["Type II Diabetes"]))
+    // //console.log("snpTxts:",snpTxts2)
+    // //console.log("snpTxts phenotypes:",snpTxts2.map(x=> x.openSnp.phenotypes["Type II Diabetes"]))
 
     //output.snp[`${phenoLabel}`].push({"userTxts":snpTxts})
     output["my23"] = snpTxts2
@@ -263,7 +279,7 @@ const traits = Array.from(new Set(traitFiles.flatMap(x => x["trait_categories"])
 traits.map(x => functions.getAllPgsIdsByCategory(x))
 
 
-// top bar plot of PGS entries by category--------------------------------------------------------------------------------
+// first bar plot of PGS entries by category--------------------------------------------------------------------------------
 let allTraitsDt = (await functions.traitsData(traits)).sort(function (a, b) {
     return b.count - a.count
 });
@@ -369,13 +385,13 @@ plotly.newPlot(topBarTraitsDiv, dt, layout);
 // bar chart of variant sizes after click-----------------------------------------
 topBarCategoriesDiv.on('plotly_click', async function (data) {
     let category = data.points[0].label
-    console.log("Category selected:",category)
+    //console.log("Category selected:",category)
 
     let pgsIds =  (await (functions.getAllPgsIdsByCategory(category))).sort()
     let scoreFiles = (await functions.getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
     output.pgs.scoreFiles = scoreFiles
     output.pgs.id = category
-
+//console.log("output category",output)
     var obj2 = {};
     scoreFiles.forEach(function (item) {
         obj2[item.trait_reported] ? obj2[item.trait_reported]++ : obj2[item.trait_reported] = 1;
@@ -452,12 +468,12 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
     // bar chart of variant size by trait from pie selection------------------------
     document.getElementById("pgsPie").on('plotly_click', async function (data2) {
         let trait = data2.points[0].label
-        console.log("Subcategory selected:",trait)
+        //console.log("Subcategory selected:",trait)
         let res = scoreFiles.filter(x => x.trait_reported === trait).sort((a, b) => a.variants_number - b.variants_number)
         output.pgs.scoreFiles = res
         output.pgs.id = trait
         // output.pgs[trait+" scorefiles"] = res
-        console.log(" output:", output)
+        //console.log(" output:", output)
         var data = [{
             x: res.map(x => x.variants_number),
             y: res.map(x => x.trait_reported.concat(" " + x.id)),
@@ -499,11 +515,11 @@ topBarTraitsDiv.on('plotly_click', async function (data) {
     spinner.style.display = "block";
 
     let trait = data.points[0].label
-    console.log("Trait selected:",trait)
+    //console.log("Trait selected:",trait)
     let pgsIds = traitFiles.filter(tfile => tfile.label == trait)[0].associated_pgs_ids
     let scoreFiles = (await functions.getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
     // output.pgs[trait+" scorefiles"] - scoreFiles
-    // console.log(" output.pgs", output.pgs)
+    // //console.log(" output.pgs", output.pgs)
 
     var layout = {
         autosize: true,
@@ -547,20 +563,21 @@ document.getElementById("selection").data = output
 
 document.getElementById('prsButton').addEventListener('click', async function(event) {
     let data = {}
-    data["PGS"] =  output["myPgsTxts"].filter(x => x.qc == "true")
-   console.log('output:', output)
-    data["my23"] = output["my23"]
- 
+    data.PGS =  Object.values(output["myPgsTxts"])[0].slice(0,10)//.filter(x => x.qc == "true")
+
+   //console.log('output:', output)
+    data.my23 = output["my23"].slice(0,10)
+    //console.log("data",data)
+
     let prsDt = PRS.calc(data)
     data["PRS"] = await prsDt
-    //console.log("data",data )
 
-    // Plot PRS --------------------------------------------------------------------
+// plot PRS --------------------------------------------------------------------
 let prsDiv = document.getElementById("prsDiv")
 var layout = {
     showlegend: true,
     autosize: false,
-    height: 9800, 
+    height: 900, 
     width: 800,
    title: `PRS scores`,
     yaxis: {
@@ -569,10 +586,9 @@ var layout = {
     },
     xaxis:{
         title: {
-            text: "openSNP users"},
+            text: "Users"},
     },
-    margin: {b: 440 },
-
+    margin: {b: 440 }
 }
 
 // reverse look up the PRS matrix to fill the traces
@@ -580,7 +596,7 @@ let traces = {}
 data.PGS.map( (x,i) => {
     let arr = []
     let idx = i
-//    //    let snpTxts2 = snpTxts.filter(x=> x.meta.split(/\r?\n|\r|\n/g)[0].slice(-4) > 2010)
+// let snpTxts2 = snpTxts.filter(x=> x.meta.split(/\r?\n|\r|\n/g)[0].slice(-4) > 2010)
 
     data.my23.map( y => {
         arr.push( data.PRS[idx])
@@ -588,23 +604,23 @@ data.PGS.map( (x,i) => {
         })
         traces[data.PRS[i].pgsId] = arr
     })
-   // console.log("traces",traces)
-
+   //console.log("traces",traces)
 
 let plotData=  Object.keys(traces).map( (x, i) =>{
-  
     let obj = {
-    "y": traces[x].map( x => x.PRS),
-    "x": traces[x].map( x => {
-        let monthDay = x.my23meta.split(/\r?\n|\r|\n/g)[0].slice(-20,-14)
-        let year =  x.my23meta.split(/\r?\n|\r|\n/g)[0].slice(-4)
-        let phenotypeVariation = x.openSnp.phenotypes["Type II Diabetes"]["variation"]
-        let xlabel = phenotypeVariation + "_" + x.openSnp.name + "_" +  "ID" +  "_" +  x.my23Id  + "_" +  year + "_" + monthDay
-    return xlabel     
-    }),
+    y: traces[x].map( x => x.PRS),
+    x: traces[x].map( x => {
+
+            let monthDay = x.my23meta.split(/\r?\n|\r|\n/g)[0].slice(-20,-14)
+            let year =  x.my23meta.split(/\r?\n|\r|\n/g)[0].slice(-4)
+            let phenotypeVariation = x.openSnp.phenotypes[output.userPhenotype]["variation"]
+            let xlabel = phenotypeVariation + "_" + x.openSnp.name + "_" +  "ID" +  "_" +  x.my23Id  + "_" +  year + "_" + monthDay
+            return xlabel     
+            }), 
     mode: 'lines+markers',
-    "opacity": 0.80,
-    "name": x + "_var#_" + data.PGS[i].meta.variants_number,
+    opacity: 0.80,
+    hoverinfo:"y",
+    name: x + ": "+ data.PGS[i].meta.variants_number + " variants",
     }
     return obj
 } )
@@ -612,9 +628,7 @@ let plotData=  Object.keys(traces).map( (x, i) =>{
 plotly.newPlot(prsDiv, plotData, layout);
 })
 
-
-
-//plot betas function
+//plot pgs catalog betas function and filter by variant number
 const plotBetas = async function (category, scoreFiles, var_num ,div, button) {
     document.getElementById(button).addEventListener('click', async function (event) {
 
@@ -628,7 +642,7 @@ const plotBetas = async function (category, scoreFiles, var_num ,div, button) {
         let obj = {}
         obj[category + " texts"] = txts
         output["myPgsTxts"] = obj
-        console.log('output',output)
+        //console.log('output',output)
 
         // get variants and betas for each PGS entry
         let data = txts.reduce(function (acc, pgs) {
