@@ -253,7 +253,7 @@ snpPhenoDiv.on('plotly_click', async function (data) {
         functions.createButton("snpPhenoPieButton","button0", `download ${usersData.length} users`,usersData);
 
     // get 23 and me texts from urls
-    let snpTxts = await functions.get23(usersData.slice(20,40))//)snpUrls)
+    let snpTxts = await functions.get23(usersData.slice(20,33))//)snpUrls)
     //console.log("snpTxts:",snpTxts)
 
     // qc: remove 23txts with older chips
@@ -261,7 +261,7 @@ snpPhenoDiv.on('plotly_click', async function (data) {
 
   //  //console.log("snpTxts",snpTxts.map(x=> x.openSnp.phenotypes["Type II Diabetes"]))
     //   //console.log("arr23Txts",arr23Txts.map(x=> x.openSnp.phenotypes['Type II Diabetes']))
-    let snpTxts2 = snpTxts.filter(x=> x.meta.split(/\r?\n|\r|\n/g)[0].slice(-4) > 2010)
+    let snpTxts2 = snpTxts.filter(x=> x.meta.split(/\r?\n|\r|\n/g)[0].slice(-4) > 2011)
 
     // //console.log("snpTxts:",snpTxts2)
     // //console.log("snpTxts phenotypes:",snpTxts2.map(x=> x.openSnp.phenotypes["Type II Diabetes"]))
