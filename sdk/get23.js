@@ -38,7 +38,7 @@ get23.getAllUsers = async function () {
     return dt
 }
 
-get23.getTxts = async function (table,usersData) {
+get23.getTxts = async function (usersData) {
     console.log("getTxts function")
     // clearTableUsingKeyLength(table,maxKeys)
     let arr = []
@@ -48,10 +48,10 @@ get23.getTxts = async function (table,usersData) {
     // let storageList = await table.keys()
     // console.log("storageList.filter(x => urls.includes(x)",storageList.filter(x => urls.includes(x)))
 
-    storage.clearTableButKeepKeyList(table, urls)
+    storage.clearTableButKeepKeyList(userTxts, urls)
 
     for (let i = 0; i < urls.length; i++) {
-        let parsedUser2 = await table.getItem(urls[i]);
+        let parsedUser2 = await userTxts.getItem(urls[i]);
         console.log("processing user #", i)
 
         if (parsedUser2 == null) {
@@ -64,7 +64,7 @@ get23.getTxts = async function (table,usersData) {
 
             // console.log("parsedUser",parsedUser)
             arr.push(parsedUser)
-            table.setItem(urls[i], parsedUser);
+            userTxts.setItem(urls[i], parsedUser);
         } else {
             // console.log(i,"parsedUser2 NOT null");
             arr.push(parsedUser2)
@@ -126,7 +126,7 @@ get23.getUsersByType = async function (type, users) {
 
 
 // get users with a specific phenotype, filter users with 23andme data 
-get23.getUsersByPhenotypeId = async function (phenoId,table,keysLen) {
+get23.getUsersByPhenotypeId = async function (phenoId,keysLen) {
     console.log("---------------------------")
     console.log("running... get23.getUsersByPhenotypeId function")
     console.log("phenotype id:", phenoId)
@@ -148,7 +148,7 @@ get23.getUsersByPhenotypeId = async function (phenoId,table,keysLen) {
         console.log("Warning: user txts for phenotypeID", phenoId, "> 6. First 6 files used.")
     }
     // get 23 and me texts from urls using getTxts function
-    let snpTxts = await get23.getTxts(table,cleanUsers,keysLen,maxKeys)
+    let snpTxts = await get23.getTxts(cleanUsers,keysLen,maxKeys)
 
     console.log("User txts for phenotypeID", phenoId, ": ", snpTxts)
     return snpTxts
@@ -181,7 +181,7 @@ const id = 3
 const keysLen = 9
 const maxKeys = 14
 // const storageSize = 1.3
-const td2Users = await get23.getUsersByPhenotypeId(id,userTxts,keysLen)
+const td2Users = await get23.getUsersByPhenotypeId(id,keysLen)
 const name = await get23.getPhenotypeNameFromId(id)
 const phenotypes = (await get23.getUserPhenotypes()).sort((a, b) => a.id - b.id)
 console.log("phenotypes",phenotypes)

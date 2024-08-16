@@ -1,6 +1,22 @@
 import {getPgs} from "./getPgs.js"
 import {get23} from "./get23.js"
 
+let userTxts = localforage.createInstance({
+    name: "userTxts",
+    storeName: "userTxts"
+})
+
+
+import localforage from 'https://cdn.skypack.dev/localforage';
+
+localforage.config({
+    driver: [
+        localforage.INDEXEDDB,
+        localforage.LOCALSTORAGE,
+        localforage.WEBSQL
+    ],
+    name: 'localforage'
+}); 
 
 const ui = async function(targetDiv = document.body) {
     console.log("ui-----------------------------")
@@ -51,7 +67,7 @@ const ui = async function(targetDiv = document.body) {
     const keysLen = 9
     const maxKeys = 14
     // const storageSize = 1.3
-    const userTxts = await get23.getUsersByPhenotypeId(id,userTxts,keysLen)
+    const userTxts = await get23.getUsersByPhenotypeId(id,keysLen)
     const name = await get23.getPhenotypeNameFromId(id)
     const phenotypes = (await get23.getUserPhenotypes()).sort((a, b) => a.id - b.id)
     console.log("phenotypes",phenotypes)
@@ -73,8 +89,8 @@ const ui = async function(targetDiv = document.body) {
       // Create options and add them to the dropdown
       dt.user.phenotypes.map(x=> {
           const op = new Option();
-          op.value = x;
-          op.text = x;
+          op.value = x.characteristic;
+          op.text = x.characteristic;
           dropdown2.options.add(op)
   })
       // Add the dropdown to the div
