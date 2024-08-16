@@ -83,7 +83,7 @@ const ui = async function(targetDiv = document.body) {
     targetDiv.appendChild(div2)
     div2.id = 'userData'
     div2.innerHTML = `
-    <p>Select a user Category:</p>`
+    <br><p>Select a user Category:</p>`
       // Create the dropdown (select) element
       const dropdown2 = document.createElement("select");
       // Create options and add them to the dropdown
