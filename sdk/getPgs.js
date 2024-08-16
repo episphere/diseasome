@@ -1,4 +1,6 @@
+// import { fetchAll2 } from "./getpgs2";
 import {storage} from "./storage.js"
+// import {ui} from "./ui.js"
 
 let getPgs = {}
 
@@ -14,17 +16,21 @@ localforage.config({
 });
 
 getPgs.traitFiles = async function(){
-    console.log("running getPgs.traitFiles function-------------------")
+    console.log("---------------------------")
+    console.log("running getPgs.traitFiles function")
     const traitFiles =(await storage.fetchAll("traitFiles",'https://www.pgscatalog.org/rest/trait/all')).flatMap(x => x)
     return traitFiles
 }
 
+
 getPgs.idsFromCategory = async function(category) {
-    console.log("running getPgs.idsFromCategory function-------------------")
+    console.log("---------------------------")
+    console.log("running getPgs.idsFromCategory function")
 
     let arr = []
     let pgsIds = []
     // get trait files that match selected category from drop down
+    const traitFiles = await getPgs.traitFiles()
     traitFiles.map(tfile => {
         if (category.includes(tfile["trait_categories"][0])) {
             arr.push(tfile)
@@ -43,7 +49,8 @@ const timeout = (ms) => {
 
 // get score files using pgs ids list and subset those with less than 30 variants
 getPgs.scoreFiles = async function(pgsIds) {
-    console.log("running getPgs.scoreFiles function-------------------")
+    console.log("---------------------------")
+    console.log("running getPgs.scoreFiles function")
     const scoreFiles = localforage.createInstance({
         name: "scoreFiles",
         storeName: "scoreFiles"
@@ -75,14 +82,72 @@ getPgs.scoreFiles = async function(pgsIds) {
     return scores
 }
 
-const category = "Cancer"
+
+getPgs.categories = async function(){
+    const categories = Array.from(new Set((await getPgs.traitFiles()).flatMap(x => x["trait_categories"])
+.sort().filter(e => e.length).map(JSON.stringify)), JSON.parse)
+return categories
+}
+getPgs.traits = async function(){
+    const arr = []
+    Array.from(new Set((await getPgs.traitFiles()).flatMap(x => {const obj = {}; obj[x["id"]] = x["label"]; arr.push(obj)})))
+//.sort().filter(e => e.length).map(JSON.stringify)), JSON.parse)
+return arr
+}
 
 
-const traitFiles = await getPgs.traitFiles()
+// get pgsids for all 17 traits ------------------------------------------------
+getPgs.traitsData = async function(traits) {
+    const traitsData = localforage.createInstance({
+        name: "traitsData",
+        storeName: "traitsData"
+    })
+    let dt
+    if ((await traitsData.getItem("traitsData")) === null) {
 
-let pgsIds =  (await (getPgs.idsFromCategory(category))).sort().slice(0,6)
-console.log("pgsIds",pgsIds)
-let scoreFiles = (await getPgs.scoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
-console.log("scoreFiles",scoreFiles)
+        dt = traits.map(trait => {
+            let traitFilesArr = []
+            let pgsIds = []
 
-export{getPgs}
+            traitFiles.map(tfile => {
+                if (trait.includes(tfile["trait_categories"][0])) {
+                    traitFilesArr.push(tfile)
+                }
+            })
+            if (traitFilesArr.length != 0) {
+                pgsIds.push(traitFilesArr.flatMap(x => x.associated_pgs_ids).sort().filter((v, i) => traitFilesArr.flatMap(x => x.associated_pgs_ids).sort().indexOf(v) == i))
+            }
+            let pgsIds2 = pgsIds.flatMap(x => x)
+
+            let obj = {}
+            obj["trait"] = trait
+            obj["count"] = pgsIds2.length
+            obj["pgsIds"] = pgsIds2
+            obj["traitFiles"] = traitFilesArr
+            return obj
+        })
+        traitsData.setItem("traitsData", dt)
+
+    } else if (await traitsData.getItem("traitsData") != null) {
+        dt = await traitsData.getItem("traitsData")
+    }
+    return dt
+}
+
+console.log("storage?????",storage)
+
+// ui("prsDiv")
+// console.log("-----------------------------------")
+
+// const category = "Cancer"
+// console.log("PGS Category:",category)
+// const traits = await getPgs.traits()
+// console.log("traits",traits)
+// const traitFiles = await getPgs.traitFiles()
+
+// let pgsIds =  (await (getPgs.idsFromCategory(category))).sort().slice(0,6)
+// console.log("pgsIds",pgsIds)
+// let scoreFiles = (await getPgs.scoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
+// console.log("scoreFiles",scoreFiles)
+
+export {getPgs}

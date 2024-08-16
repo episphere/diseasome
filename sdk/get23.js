@@ -128,7 +128,7 @@ get23.getUsersByType = async function (type, users) {
 // get users with a specific phenotype, filter users with 23andme data 
 get23.getUsersByPhenotypeId = async function (phenoId,table,keysLen) {
     console.log("---------------------------")
-    console.log("running... getUsersByPhenotypeId function")
+    console.log("running... get23.getUsersByPhenotypeId function")
     console.log("phenotype id:", phenoId)
 
     let allUsers = await  get23.getAllUsers()
@@ -169,7 +169,7 @@ get23.getUserPhenotypes = async function () {
 
 get23.getPhenotypeNameFromId = async function (id) {
     console.log("---------------------------")
-    console.log("running... getPhenotypeNameFromId function")
+    console.log("running... get23.getPhenotypeNameFromId function")
     const dt = await get23.getUserPhenotypes()
     // console.log("dt",dt)
     const name = dt.filter(x => x.id == id)[0].characteristic
