@@ -25,6 +25,11 @@ let pgsCategories = localforage.createInstance({
     storeName: "pgsCategories"
 })
 
+
+let userPhenotypes = localforage.createInstance({
+    name: "userPhenotypes",
+    storeName: "userPhenotypes"
+})
 console.log("ui.js")
 // await getPgs.traitFiles()
 
@@ -47,18 +52,20 @@ const ui = async function(targetDiv ) {
     //console.log("PGS CATALOG-----------------------------------")
     const dt = {}
     const category = "Cancer"
-    //console.log("PGS Category:",category)
-    // const categories = await getPgs.categories3()
+  // we need to define pgs categories and user phenotypes functions in the UI or it's slow to load from another page
     let categories
      categories = await pgsCategories.getItem("categories")
+     console.log("categories",categories)
     if (categories == null){
-        console.log("categories == null",categories == null)
+        console.log("categories == null")
         const cors = `https://corsproxy.io/?`
         const url  = "https://www.pgscatalog.org/rest/trait_category/all"  
-        const categories =  (await fetch(cors + url))//.sort()
+        categories =  (await fetch(cors + url)).json().results.sort()
         pgsCategories.setItem("categories",categories)
+        console.log("categories",await categories)
+
     }
-    console.log("ui categories",categories)
+    console.log("ui categories",await categories)
     // const traits = await getPgs.traits()
     //console.log("traits",traits)
     // const traitFiles = await getPgs.traitFiles()
@@ -69,7 +76,7 @@ const ui = async function(targetDiv ) {
 
     dt.pgs = {}
 
-    dt.pgs.categories = categories.results
+    dt.pgs.categories = await categories.results
     // dt.pgs.traits = traits
 
     console.log(" Object.keys(dt.pgs.categories)", dt.pgs.categories)
@@ -87,6 +94,18 @@ const ui = async function(targetDiv ) {
 
     //console.log("USERS----------------------------------")
 
+    let phenotypes
+    phenotypes = await userPhenotypes.getItem('https://opensnp.org/phenotypes.json'
+);
+
+    if (phenotypes == null) {
+        console.log("allPhenotypes == null",phenotypes == null)
+
+        const url = 'https://opensnp.org/phenotypes.json'
+        const cors = `https://corsproxy.io/?`
+        const allPhenotypes = (await (await fetch(cors + url)).json()).sort((a, b) => b.number_of_users - a.number_of_users)
+        userPhenotypes.setItem(url, phenotypes);
+    }
 //     const id = 3
 //     const keysLen = 9
 //     const maxKeys = 14
@@ -103,22 +122,24 @@ const ui = async function(targetDiv ) {
 //     dt.user.txts = userTxts
 //     div.data = dt
 // // user drop down list
-//     let div2 = document.createElement('div')
-//     targetDiv.appendChild(div2)
-//     div2.id = 'userData'
-//     div2.innerHTML = `
-//     <br><p>Select a user Category:</p>`
-//       // Create the dropdown (select) element
-//       const dropdown2 = document.createElement("select");
-//       // Create options and add them to the dropdown
-//       dt.user.phenotypes.map(x=> {
-//           const op = new Option();
-//           op.value = x.characteristic;
-//           op.text = x.characteristic;
-//           dropdown2.options.add(op)
-//   })
-//       // Add the dropdown to the div
-//       div2.appendChild(dropdown2);
+    let div2 = document.createElement('div')
+    targetDiv.appendChild(div2)
+    div2.id = 'userData'
+    div2.innerHTML = `
+    <br><p>Select a user Category:</p>`
+      // Create the dropdown (select) element
+      const dropdown2 = document.createElement("select");
+      // Create options and add them to the dropdown
+    //   dt.user.phenotypes.map(x=> {
+        phenotypes.map(x=> {
+
+          const op = new Option();
+          op.value = x.characteristic;
+          op.text = x.characteristic;
+          dropdown2.options.add(op)
+  })
+      // Add the dropdown to the div
+      div2.appendChild(dropdown2);
 }
 
 ui("prsDiv")
