@@ -49,7 +49,8 @@ const ui = async function(targetDiv ) {
     const category = "Cancer"
     //console.log("PGS Category:",category)
     // const categories = await getPgs.categories3()
-    const categories = await pgsCategories.getItem("categories")
+    let categories
+     categories = await pgsCategories.getItem("categories")
     if (categories == null){
         console.log("categories == null",categories == null)
         const cors = `https://corsproxy.io/?`
