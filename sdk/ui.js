@@ -50,7 +50,13 @@ const ui = async function(targetDiv ) {
     //console.log("PGS Category:",category)
     // const categories = await getPgs.categories3()
     const categories = await pgsCategories.getItem("categories")
-
+    if (categories == null){
+        console.log("categories == null",categories == null)
+        const cors = `https://corsproxy.io/?`
+        const url  = "https://www.pgscatalog.org/rest/trait_category/all"  
+        const categories =  (await fetch(cors + url))//.sort()
+        pgsCategories.setItem("categories",categories)
+    }
     console.log("ui categories",categories)
     // const traits = await getPgs.traits()
     //console.log("traits",traits)
@@ -61,6 +67,7 @@ const ui = async function(targetDiv ) {
 
 
     dt.pgs = {}
+
     dt.pgs.categories = categories.results
     // dt.pgs.traits = traits
 
