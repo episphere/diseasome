@@ -39,34 +39,34 @@ get23.getAllUsers = async function () {
 }
 
 get23.getTxts = async function (usersData) {
-    console.log("getTxts function")
+    //console.log("getTxts function")
     // clearTableUsingKeyLength(table,maxKeys)
     let arr = []
     let  urls= usersData.map(x => x["genotype.download_url"])
 
     //remove old txts if table is full
     // let storageList = await table.keys()
-    // console.log("storageList.filter(x => urls.includes(x)",storageList.filter(x => urls.includes(x)))
+    // //console.log("storageList.filter(x => urls.includes(x)",storageList.filter(x => urls.includes(x)))
 
     storage.clearTableButKeepKeyList(userTxts, urls)
 
     for (let i = 0; i < urls.length; i++) {
         let parsedUser2 = await userTxts.getItem(urls[i]);
-        console.log("processing user #", i)
+        //console.log("processing user #", i)
 
         if (parsedUser2 == null) {
-            // console.log("i, parsedUser2 == null")
+            // //console.log("i, parsedUser2 == null")
             let url2 = 'https://corsproxy.io/?' + urls[i]
-            console.log("urls[i]",urls[i])
+            //console.log("urls[i]",urls[i])
             const user = (await (await fetch(url2)).text())
-            // console.log("useruser",user)
+            // //console.log("useruser",user)
             let parsedUser = (await get23.parseTxts(user, usersData[i]))
 
-            // console.log("parsedUser",parsedUser)
+            // //console.log("parsedUser",parsedUser)
             arr.push(parsedUser)
             userTxts.setItem(urls[i], parsedUser);
         } else {
-            // console.log(i,"parsedUser2 NOT null");
+            // //console.log(i,"parsedUser2 NOT null");
             arr.push(parsedUser2)
         }
     }
@@ -127,9 +127,9 @@ get23.getUsersByType = async function (type, users) {
 
 // get users with a specific phenotype, filter users with 23andme data 
 get23.getUsersByPhenotypeId = async function (phenoId,keysLen) {
-    console.log("---------------------------")
-    console.log("running... get23.getUsersByPhenotypeId function")
-    console.log("phenotype id:", phenoId)
+    //console.log("---------------------------")
+    //console.log("running... get23.getUsersByPhenotypeId function")
+    //console.log("phenotype id:", phenoId)
 
     let allUsers = await  get23.getAllUsers()
     const cors = `https://corsproxy.io/?`
@@ -145,12 +145,12 @@ get23.getUsersByPhenotypeId = async function (phenoId,keysLen) {
         cleanUsers = await get23.getUsersByType("23andme", userIds2)
     } else {
         cleanUsers = (await get23.getUsersByType("23andme", userIds2.slice(4,15))).slice(0,6)
-        console.log("Warning: user txts for phenotypeID", phenoId, "> 6. First 6 files used.")
+        //console.log("Warning: user txts for phenotypeID", phenoId, "> 6. First 6 files used.")
     }
     // get 23 and me texts from urls using getTxts function
     let snpTxts = await get23.getTxts(cleanUsers,keysLen,maxKeys)
 
-    console.log("User txts for phenotypeID", phenoId, ": ", snpTxts)
+    //console.log("User txts for phenotypeID", phenoId, ": ", snpTxts)
     return snpTxts
 }
 
@@ -163,17 +163,17 @@ get23.getUserPhenotypes = async function () {
         const allPhenotypes = (await (await fetch(cors + allPhenotypesUrl)).json()).sort((a, b) => b.number_of_users - a.number_of_users)
         userPhenotypes.setItem(allPhenotypesUrl, allPhenotypes);
     }
-    // console.log(allPhenotypes.length," phenotypes found ",allPhenotypes)
+    // //console.log(allPhenotypes.length," phenotypes found ",allPhenotypes)
     return allPhenotypes
 }
 
 get23.getPhenotypeNameFromId = async function (id) {
-    console.log("---------------------------")
-    console.log("running... get23.getPhenotypeNameFromId function")
+    //console.log("---------------------------")
+    //console.log("running... get23.getPhenotypeNameFromId function")
     const dt = await get23.getUserPhenotypes()
-    // console.log("dt",dt)
+    // //console.log("dt",dt)
     const name = dt.filter(x => x.id == id)[0].characteristic
-    console.log("Phenotype id", id, "corresponds to:", name)
+    //console.log("Phenotype id", id, "corresponds to:", name)
     return name
 }
 
@@ -184,7 +184,7 @@ const maxKeys = 14
 const td2Users = await get23.getUsersByPhenotypeId(id,keysLen)
 const name = await get23.getPhenotypeNameFromId(id)
 const phenotypes = (await get23.getUserPhenotypes()).sort((a, b) => a.id - b.id)
-console.log("phenotypes",phenotypes)
+//console.log("phenotypes",phenotypes)
 // const userTableSize = await getLocalForageTableSize(userTxts)
 
 export {get23}

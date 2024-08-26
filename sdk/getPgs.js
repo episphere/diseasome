@@ -15,22 +15,39 @@ localforage.config({
     name: 'localforage'
 });
 
+let traitFiles = localforage.createInstance({
+    name: "traitFiles",
+    storeName: "traitFiles"
+})
+let pgsCategories = localforage.createInstance({
+    name: "pgsCategories",
+    storeName: "pgsCategories"
+})
 getPgs.traitFiles = async function(){
-    console.log("---------------------------")
-    console.log("running getPgs.traitFiles function")
-    const traitFiles =(await storage.fetchAll("traitFiles",'https://www.pgscatalog.org/rest/trait/all')).flatMap(x => x)
-    return traitFiles
+    //console.log("---------------------------")
+    //console.log("running getPgs.traitFiles function")
+    let keys = await traitFiles.keys()
+    let tf =  (await Promise.all(keys.flatMap(async key => {return traitFiles.getItem(key)}))).flatMap(x=>x)
+    //console.log("tf",tf)
+
+    if(tf == undefined){
+        //console.log("tf == undefined",tf == undefined)
+    tf =(await storage.fetchAll("traitFiles",'https://www.pgscatalog.org/rest/trait/all')).flatMap(x => x)
+    }
+    return tf
 }
 
 
 getPgs.idsFromCategory = async function(category) {
-    console.log("---------------------------")
-    console.log("running getPgs.idsFromCategory function")
+    //console.log("---------------------------")
+    //console.log("running getPgs.idsFromCategory function")
 
     let arr = []
     let pgsIds = []
     // get trait files that match selected category from drop down
     const traitFiles = await getPgs.traitFiles()
+    //console.log("traitFiles",traitFiles)
+
     traitFiles.map(tfile => {
         if (category.includes(tfile["trait_categories"][0])) {
             arr.push(tfile)
@@ -49,45 +66,35 @@ const timeout = (ms) => {
 
 // get score files using pgs ids list and subset those with less than 30 variants
 getPgs.scoreFiles = async function(pgsIds) {
-    console.log("---------------------------")
-    console.log("running getPgs.scoreFiles function")
+    //console.log("---------------------------")
+    //console.log("running getPgs.scoreFiles function")
     const scoreFiles = localforage.createInstance({
         name: "scoreFiles",
         storeName: "scoreFiles"
     })
     var scores = []
-    let i = 0
-    while (i < pgsIds.length) {
-        let url = `https://www.pgscatalog.org/rest/score/${pgsIds[i]}`
-        let cachedData = await scoreFiles.getItem(url);
-        if (cachedData !== null) {
-            scores.push(cachedData)
-        } else if (cachedData == null) {
-            console.log(i, "No cached data found for ", `${pgsIds[i]}`)
-            await timeout(500); // pgs has 100 queries per minute limit
-            let notCachedData =
-                await (fetch(url)).then(function (response) {
-                    return response.json()
-                })
-                .then(function (response) {
-                    return response
-                }).catch(function (ex) {
-                    console.log("There has been an error: ", ex)
-                })
-                scoreFiles.setItem(url, notCachedData);
-            scores.push(notCachedData)
-        }
-        i += 1
-    }
+    storage.saveData(scores,`https://www.pgscatalog.org/rest/score/`,pgsIds)
     return scores
 }
 
 
-getPgs.categories = async function(){
-    const categories = Array.from(new Set((await getPgs.traitFiles()).flatMap(x => x["trait_categories"])
-.sort().filter(e => e.length).map(JSON.stringify)), JSON.parse)
-return categories
+
+
+// check if data is in storage, if not save (await getPgs.traitFiles())
+getPgs.categories3 = async function(){
+    const categories = await pgsCategories.getItem("categories")
+    if (categories == null){
+        const cors = `https://corsproxy.io/?`
+        const url  = "https://www.pgscatalog.org/rest/trait_category/all"  
+        const categories =  (await fetch(cors + url))//.sort()
+        pgsCategories.setItem("categories",categories)
+    }
+    //console.log("categories",categories)
+    return categories
 }
+await getPgs.categories3()
+
+
 getPgs.traits = async function(){
     const arr = []
     Array.from(new Set((await getPgs.traitFiles()).flatMap(x => {const obj = {}; obj[x["id"]] = x["label"]; arr.push(obj)})))
@@ -133,21 +140,20 @@ getPgs.traitsData = async function(traits) {
     }
     return dt
 }
-
-console.log("storage?????",storage)
+////console.log("storage?????",storage)
 
 // ui("prsDiv")
-// console.log("-----------------------------------")
+// ////console.log("-----------------------------------")
 
 // const category = "Cancer"
-// console.log("PGS Category:",category)
+// ////console.log("PGS Category:",category)
 // const traits = await getPgs.traits()
-// console.log("traits",traits)
+// ////console.log("traits",traits)
 // const traitFiles = await getPgs.traitFiles()
 
 // let pgsIds =  (await (getPgs.idsFromCategory(category))).sort().slice(0,6)
-// console.log("pgsIds",pgsIds)
+// ////console.log("pgsIds",pgsIds)
 // let scoreFiles = (await getPgs.scoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
-// console.log("scoreFiles",scoreFiles)
+// ////console.log("scoreFiles",scoreFiles)
 
 export {getPgs}

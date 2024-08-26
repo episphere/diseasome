@@ -63,13 +63,13 @@ storage.clearTableUsingKeyLength = function(table,maxKeys){
 }
 // delete half irrelevant keys, but not the keys in keep keyList
 storage.clearTableButKeepKeyList = async function (table, keepKeys) {
-    console.log("table keys:",await table.keys())
-    console.log("keepKeys",keepKeys)
+    // console.log("table keys:",await table.keys())
+    // console.log("keepKeys",keepKeys)
     const notKeepKeys  = (await table.keys()).filter(x => !keepKeys.includes(x))
     const deleteKeyList = notKeepKeys.slice(0, Math.ceil(notKeepKeys.length / 2))
 
-    console.log("deleteKeyList",deleteKeyList)
-    deleteKeyList.map(x => userTxts.removeItem(x))
+    // console.log("deleteKeyList",deleteKeyList)
+    deleteKeyList.map(x => table.removeItem(x))
 }
 
 // estimate the size of localForage data
@@ -91,6 +91,40 @@ storage.getLocalForageTableSize = async function (tableName) {
 
 storage.bytesToGB = function (bytes) {
     return bytes / Math.pow(1024, 3);
+}
+
+// check if data is in storage, if not save
+storage.saveData = async function(table,url, items){
+let i = 0
+let arr = []
+while (i < items.length) {
+    let url2 = `${items[i]}`
+    let cachedData = await scoreFiles.getItem(url+url2);
+    if (cachedData !== null) {
+        table.push(cachedData)
+    } else if (cachedData == null) {
+        console.log(i, "No cached data found for ", url2)
+        await timeout(500); // pgs has 100 queries per minute limit
+        let notCachedData =
+            await (fetch(url+url2)).then(function (response) {
+                return response.json()
+            })
+            .then(function (response) {
+                return response
+            }).catch(function (ex) {
+                console.log("There has been an error: ", ex)
+            })
+            table.setItem(url, notCachedData);
+            arr.push(notCachedData)
+        }
+        i += 1
+    }
+return arr
+}
+
+
+const timeout = (ms) => {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 export {storage}
