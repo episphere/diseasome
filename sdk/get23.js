@@ -76,7 +76,6 @@ get23.getTxts = async function (usersData) {
 
 // create 23andme obj and data 
 get23.parseTxts = async function (txt, usersData) {
-
     let obj = {}
     let rows = txt.split(/[\r\n]+/g)
     obj.txt = txt
@@ -102,6 +101,7 @@ get23.parseTxts = async function (txt, usersData) {
     })
     return obj
 }
+
 // filter users without 23andme data (type = "23andme")
 get23.getUsersByType = async function (type, users) {
     let arr = []
