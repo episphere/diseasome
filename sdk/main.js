@@ -156,6 +156,7 @@ functions.createButton2 = function(parent,buttonId, buttonTxt) {
 
 // get all data from API without limits--------------------------------------------
 functions.fetchAll2 = async function(url, maxPolls = null) {
+    console.log('fetchAll2',url)
     var spinner = document.getElementById("spinner");
     spinner.style.display = "block";
     const allResults = []
@@ -283,7 +284,7 @@ functions.getscoreFiles = async function(pgsIds) {
 }
 
 
-const traitFiles = (await functions.fetchAll2('https://www.pgscatalog.org/rest/trait/all')).flatMap(x => x)
+// const traitFiles = (await functions.fetchAll2('https://www.pgscatalog.org/rest/trait/all')).flatMap(x => x)
 
 export {
     functions

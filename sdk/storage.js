@@ -44,6 +44,8 @@ storage.fetchAll = async function(newTable,url, maxPolls = null) {
             break
         }
     }
+    console.log("allResults",allResults)
+
     return allResults
 }
 
@@ -105,20 +107,21 @@ while (i < items.length) {
     } else if (cachedData == null) {
         console.log(i, "No cached data found for ", url2)
         await timeout(500); // pgs has 100 queries per minute limit
-        let notCachedData =
-            await (fetch(url+url2)).then(function (response) {
-                return response.json()
-            })
-            .then(function (response) {
-                return response
-            }).catch(function (ex) {
-                console.log("There has been an error: ", ex)
-            })
+        let notCachedData =  await (fetch(url+url2))
+            // .then(function (response) {
+            //     return response.json()
+            // })
+            // .then(function (response) {
+            //     return response
+            // }).catch(function (ex) {
+            //     console.log("There has been an error: ", ex)
+            // })
             table.setItem(url, notCachedData);
             arr.push(notCachedData)
         }
         i += 1
     }
+    console.log("arr",arr)
 return arr
 }
 

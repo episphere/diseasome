@@ -10,6 +10,10 @@ localforage.config({
         localforage.WEBSQL
     ], name: 'localforage'
 });
+let traitFilesTable = localforage.createInstance({
+    name: "traitFilesTable",
+    storeName: "traitFilesTable"
+})
 
 
 let singleUserAllPhenotypesTable = localforage.createInstance({name: "openSnpDb2",storeName: "singleUserAllPhenotypesTable"})
@@ -273,16 +277,21 @@ snpPhenoDiv.on('plotly_click', async function (data) {
 
 
 // PGS ////////////////////////////////////////////////////////////////////////////////////////////////////
-const traitFiles = (await functions.fetchAll2('https://www.pgscatalog.org/rest/trait/all')).flatMap(x => x)
-const traits = Array.from(new Set(traitFiles.flatMap(x => x["trait_categories"])
-    .sort().filter(e => e.length).map(JSON.stringify)), JSON.parse)
-traits.map(x => functions.getAllPgsIdsByCategory(x))
+let traitFiles 
+if (await traitFilesTable.getItem("traitFiles")==null){
+    console.log(traitFilesTable.getItem("traitFiles"))
+    traitFiles = (await functions.fetchAll2('https://www.pgscatalog.org/rest/trait/all')).flatMap(x => x)   
+    }else{
+        traitFiles = await traitFilesTable.getItem("traitFiles")
+        // console.log("traitFiles",traitFiles)
+    }
+
+const traits = Array.from(new Set((await traitFiles).flatMap(x => x["trait_categories"]).filter(e => e.length).map(JSON.stringify)), JSON.parse).sort()
+// traits.map(x => functions.getAllPgsIdsByCategory(x))
 
 
 // first bar plot of PGS entries by category--------------------------------------------------------------------------------
-let allTraitsDt = (await functions.traitsData(traits)).sort(function (a, b) {
-    return b.count - a.count
-});
+let allTraitsDt = (await functions.traitsData(traits)).sort(function (a, b) { return b.count - a.count});
 let topBarCategoriesDiv = document.getElementById("topBarCategories")
 var layout = {
     height: 500,
@@ -330,7 +339,7 @@ plotly.newPlot(topBarCategoriesDiv, dt, layout);
 // top bar plot of PGS entries by category--------------------------------------------------------------------------------
 
 let topBarTraitsDiv = document.getElementById("topBarTraits")
-let traitList = traitFiles.sort((a, b) => b.associated_pgs_ids.length - a.associated_pgs_ids.length)
+let traitList = (await traitFiles).sort((a, b) => b.associated_pgs_ids.length - a.associated_pgs_ids.length)
 var layout = {
     autosize: false,
     // height: 700,
@@ -358,8 +367,8 @@ var layout = {
 }
 
 var dt = [{
-    x: traitFiles.map(x => x.label),
-    y: traitFiles.map(x => x.associated_pgs_ids.length),
+    x: (await traitFiles).map(x => x.label),
+    y: (await traitFiles).map(x => x.associated_pgs_ids.length),
     type: 'bar',
     //orientation: 'h',
     marker: {

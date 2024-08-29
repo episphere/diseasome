@@ -39,23 +39,23 @@ get23.getAllUsers = async function () {
 }
 
 get23.getTxts = async function (usersData) {
-    //console.log("getTxts function")
+    console.log("getTxts function running, even retreiving from storage is slow.")
     // clearTableUsingKeyLength(table,maxKeys)
     let arr = []
-    let  urls= usersData.map(x => x["genotype.download_url"])
+    let urls = usersData.map(x => x["genotype.download_url"])
 
     //remove old txts if table is full
     // let storageList = await table.keys()
     // //console.log("storageList.filter(x => urls.includes(x)",storageList.filter(x => urls.includes(x)))
-
     storage.clearTableButKeepKeyList(userTxts, urls)
 
     for (let i = 0; i < urls.length; i++) {
         let parsedUser2 = await userTxts.getItem(urls[i]);
-        //console.log("processing user #", i)
+        console.log("processing user #", i)
+        // console.log("parsedUser2", parsedUser2)
 
         if (parsedUser2 == null) {
-            // //console.log("i, parsedUser2 == null")
+            console.log("i, parsedUser2 == null")
             let url2 = 'https://corsproxy.io/?' + urls[i]
             //console.log("urls[i]",urls[i])
             const user = (await (await fetch(url2)).text())
@@ -66,7 +66,7 @@ get23.getTxts = async function (usersData) {
             arr.push(parsedUser)
             userTxts.setItem(urls[i], parsedUser);
         } else {
-            // //console.log(i,"parsedUser2 NOT null");
+            console.log(i,"parsedUser2 NOT null");
             arr.push(parsedUser2)
         }
     }
@@ -177,13 +177,13 @@ get23.getPhenotypeNameFromId = async function (id) {
     return name
 }
 
-const id = 3
-const keysLen = 9
-const maxKeys = 14
-// const storageSize = 1.3
-const td2Users = await get23.getUsersByPhenotypeId(id,keysLen)
-const name = await get23.getPhenotypeNameFromId(id)
-const phenotypes = (await get23.getUserPhenotypes()).sort((a, b) => a.id - b.id)
+// const id = 3
+// const keysLen = 9
+// const maxKeys = 14
+// // const storageSize = 1.3
+// const td2Users = await get23.getUsersByPhenotypeId(id,keysLen)
+// const name = await get23.getPhenotypeNameFromId(id)
+// const phenotypes = (await get23.getUserPhenotypes()).sort((a, b) => a.id - b.id)
 //console.log("phenotypes",phenotypes)
 // const userTableSize = await getLocalForageTableSize(userTxts)
 

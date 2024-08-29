@@ -1,6 +1,7 @@
 // import { fetchAll2 } from "./getpgs2";
 import {storage} from "./storage.js"
 // import {ui} from "./ui.js"
+import pako from 'https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.esm.mjs'
 
 let getPgs = {}
 
@@ -14,6 +15,11 @@ localforage.config({
     ],
     name: 'localforage'
 });
+
+let pgsTxts = localforage.createInstance({
+    name: "pgsTxts",
+    storeName: "pgsTxts",
+})
 
 let traitFiles = localforage.createInstance({
     name: "traitFiles",
@@ -58,6 +64,7 @@ getPgs.idsFromCategory = async function(category) {
     }
     return pgsIds.flatMap(x => x)
 }
+
 
 
 const timeout = (ms) => {
@@ -155,5 +162,141 @@ getPgs.traitsData = async function(traits) {
 // ////console.log("pgsIds",pgsIds)
 // let scoreFiles = (await getPgs.scoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
 // ////console.log("scoreFiles",scoreFiles)
+// PGS ///////////////////////////////////////////////////////////////////////////////
+// getPgs.getscoreFiles = async function (pgsIds) {
+//     var scores = []
+//     let i = 0
+//     while (i < pgsIds.length) {
+//         console.log("pgsIds[i]",pgsIds.length,pgsIds[i])
+//         let url = `https://www.pgscatalog.org/rest/score/${pgsIds[i]}`
+//         await timeout(150); // pgs has 100 queries per minute limit
+//         let data =
+//             await (fetch(url)).then(function (response) {
+//                 return response.json()
+//             })
+//             .then(function (response) {
+//                 return response
+//             }).catch(function (ex) {
+//                 console.log("There has been an error: ", ex)
+//             })
+//         scores.push(data)    
+//         i += 1
+//     }
+//     return scores
+// }
+
+
+//console.log("pgs",await getscoreFiles(["PGS002130"]))
+
+getPgs.loadScoreHm = async function(entry, build = 37, range) {
+    let txt = ""
+    let dt
+    dt = await pgsTxts.getItem(entry); // check for users in localstorage
+    if (entry == null){
+         txt = "no pgs entry provided"
+        return txt
+    } else if (dt == null){
+        console.log("pgs txt file not found in storage",dt)
+
+        txt = ""
+        entry = "PGS000000".slice(0, -entry.length) + entry
+        // https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/PGS000004/ScoringFiles/Harmonized/PGS000004_hmPOS_GRCh37.txt.gz
+        const url = `https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/${entry}/ScoringFiles/Harmonized/${entry}_hmPOS_GRCh${build}.txt.gz` //
+        if (range) {
+            if (typeof (range) == 'number') {
+                range = [0, range]
+            }
+            txt = pako.inflate(await (await fetch(url, {
+                headers: {
+                    'content-type': 'multipart/byteranges',
+                    'range': `bytes=${range.join('-')}`,
+                }
+            })).arrayBuffer(), {
+                to: 'string'
+            })
+        } else {
+            txt = pako.inflate(await (await fetch(url)).arrayBuffer(), {
+                to: 'string'
+            })
+        }
+        // Check if PGS catalog FTP site is down-----------------------
+        let response
+        response = await fetch(url) // testing url 'https://httpbin.org/status/429'
+        if (response?.ok) {
+            ////console.log('Use the response here!');
+        } else {
+            txt = `:( Error loading PGS file. HTTP Response Code: ${response?.status}`
+            document.getElementById('pgsTextArea').value = txt
+        }
+        txt = await getPgs.parsePGS(entry, txt)
+        pgsTxts.setItem(entry, txt)
+} else if (dt != null){
+    console.log("pgs txt file found in storage")
+    txt = dt
+    }
+
+    return txt
+}
+
+// create PGS obj and data --------------------------
+getPgs.parsePGS = async function(id, txt) {
+    let obj = {
+        id: id
+    }
+    obj.txt = txt
+    let rows = obj.txt.split(/[\r\n]/g)
+    let metaL = rows.filter(r => (r[0] == '#')).length
+    obj.meta = {
+        txt: rows.slice(0, metaL)
+    }
+    obj.cols = rows[metaL].split(/\t/g)
+
+    obj.dt = rows.slice(metaL + 1).map(r => r.split(/\t/g))
+    if (obj.dt.slice(-1).length == 1) {
+        obj.dt.pop(-1)
+    }
+
+    // check betas here and added QC
+    let betaIdx = obj.cols.indexOf('effect_weight')
+    let betas = obj.dt.map( x => x[betaIdx])
+    let qc1= betas.some(el => el < -0.00002) // false, if no beta is less than 0
+    let qc2 = betas.some(el => el < 10 ) // false, if beta is greater than 10
+    obj.qc = "true"//qcText
+    // console.log("id",  id)
+    // console.log("!qc1",  !qc1)
+    // console.log("!qc2",  !qc2)
+
+    if(!qc1 || !qc2){
+           obj.qc = "false"//failed both qc1 and qc2
+        }
+            
+
+    // parse numerical types
+    const indInt = [obj.cols.indexOf('chr_position'), obj.cols.indexOf('hm_pos')]
+    const indFloat = [obj.cols.indexOf('effect_weight'), obj.cols.indexOf('allelefrequency_effect')]
+    const indBol = [obj.cols.indexOf('hm_match_chr'), obj.cols.indexOf('hm_match_pos')]
+
+    // /* this is the efficient way to do it, but for large files it has memory issues
+    obj.dt = obj.dt.map(r => {
+        // for each data row
+        indFloat.forEach(ind => {
+            r[ind] = parseFloat(r[ind])
+        })
+        indInt.forEach(ind => {
+            r[ind] = parseInt(r[ind])
+        })
+        indBol.forEach(ind => {
+            r[ind] = (r[11] == 'True') ? true : false
+        })
+        return r
+    })
+    // parse metadata
+    obj.meta.txt.filter(r => (r[1] != '#')).forEach(aa => {
+        aa = aa.slice(1).split('=')
+        obj.meta[aa[0]] = aa[1]
+    })
+    return obj
+}
+
 
 export {getPgs}
