@@ -152,11 +152,11 @@ const ui = async function (targetDiv) {
     let data = {}
     data.PGS =  dt.pgs.txts
     data.my23 = dt.users.txts.filter(x=> x.qc == true)//x.year > "2011" & 
-    console.log("data",dt.users.txts.filter(x=>  x.qc == true))
+    console.log("input data: ",data)
 
-    let prsDt = PRS.calc(data)
+    let prsDt = await PRS.calc(data)
     // if prs qc failes for one user, remove the connected pgs entry
-    console.log("prsDt", prsDt)
+    console.log("results: ",  prsDt)
 
 }
 

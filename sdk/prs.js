@@ -106,7 +106,7 @@ PRS.Match2  = function (data){
 
 PRS.calc = async function(matrix){
     let arr =[]
-    const badIds = ["anyId"]
+    const badIds = []
     // todo remove qc from match2 function
     // todo remove users with old chips
     for (let i=0; i<matrix.my23.length; i++){
@@ -126,15 +126,15 @@ PRS.calc = async function(matrix){
             }
         }
     }
-    console.log("badIds",badIds)
-    console.log("matrix.PGS",matrix.PGS)
-    console.log("matrix.my23",matrix.my23)
+    console.log("pgs entries that do not create a valid PRS:",badIds)
+    // console.log("matrix.PGS",matrix.PGS)
+    // console.log("matrix.my23",matrix.my23)
     // if prs qc fails for one user, remove the connected pgs entry
     const obj = {}
     obj.users = matrix.my23
     obj.pgs = matrix.PGS.filter(x=>!badIds.includes(x.id))
     obj.prs =  arr.filter(x=> !badIds.includes(x.pgsId))
-    console.log("arr",arr)
+    // console.log("arr",arr)
     return obj
 }
 // data object defined here ---
