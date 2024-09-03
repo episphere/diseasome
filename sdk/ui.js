@@ -134,8 +134,8 @@ const ui = async function (targetDiv) {
     console.log("dt.users", dt.users)
 
     dt.pgs = {}
-
-    let pgsIds = (await (getPgs.idsFromCategory(category))).sort().slice(3,6)
+// TODO filter ids by variant number using get scoreFIles
+    let pgsIds = (await (getPgs.idsFromCategory(category))).sort().slice(5,7)
     console.log("pgsIds", pgsIds)
     let pgsTxts = await Promise.all( pgsIds.map(async x => {
         let res = await getPgs.loadScoreHm(x)
@@ -155,8 +155,8 @@ const ui = async function (targetDiv) {
     console.log("data",dt.users.txts.filter(x=>  x.qc == true))
 
     let prsDt = PRS.calc(data)
-    dt.prs = await prsDt
-    console.log("dt", dt)
+    // if prs qc failes for one user, remove the connected pgs entry
+    console.log("prsDt", prsDt)
 
 }
 
@@ -202,7 +202,7 @@ const getUsersByPhenotypeId = async function (phenoId, keysLen, maxKeys) {
         id
     }) => userIds.includes(id));
     let cleanUsers
-    let maxUsers = 8
+    let maxUsers = 3
     if (userIds2.length < maxUsers) {
         cleanUsers =  getUsersByType("23andme", userIds2)
     } else {
