@@ -21,9 +21,9 @@ let pgsTxts = localforage.createInstance({
     storeName: "pgsTxts",
 })
 
-let traitFiles = localforage.createInstance({
-    name: "traitFiles",
-    storeName: "traitFiles"
+let traitFilesTable = localforage.createInstance({
+    name: "traitFilesTable",
+    storeName: "traitFilesTable"
 })
 let pgsCategories = localforage.createInstance({
     name: "pgsCategories",
@@ -32,13 +32,13 @@ let pgsCategories = localforage.createInstance({
 getPgs.traitFiles = async function(){
     //console.log("---------------------------")
     //console.log("running getPgs.traitFiles function")
-    let keys = await traitFiles.keys()
-    let tf =  (await Promise.all(keys.flatMap(async key => {return traitFiles.getItem(key)}))).flatMap(x=>x)
+    let keys = await traitFilesTable.keys()
+    let tf =  (await Promise.all(keys.flatMap(async key => {return traitFilesTable.getItem(key)}))).flatMap(x=>x)
     //console.log("tf",tf)
 
     if(tf == undefined){
         //console.log("tf == undefined",tf == undefined)
-    tf =(await storage.fetchAll("traitFiles",'https://www.pgscatalog.org/rest/trait/all')).flatMap(x => x)
+    tf =(await storage.fetchAll("traitFilesTable",'https://www.pgscatalog.org/rest/trait/all')).flatMap(x => x)
     }
     return tf
 }
@@ -47,12 +47,13 @@ getPgs.traitFiles = async function(){
 getPgs.idsFromCategory = async function(category) {
     //console.log("---------------------------")
     //console.log("running getPgs.idsFromCategory function")
-
     let arr = []
     let pgsIds = []
     // get trait files that match selected category from drop down
-    const traitFiles = await getPgs.traitFiles()
-    //console.log("traitFiles",traitFiles)
+    let traitFiles = await traitFilesTable.getItem("traitFiles")
+    if (traitFiles == null){
+        traitFiles = await getPgs.traitFiles()
+    }
 
     traitFiles.map(tfile => {
         if (category.includes(tfile["trait_categories"][0])) {
@@ -231,7 +232,7 @@ getPgs.loadScoreHm = async function(entry, build = 37, range) {
         txt = await getPgs.parsePGS(entry, txt)
         pgsTxts.setItem(entry, txt)
 } else if (dt != null){
-    console.log("pgs txt file found in storage")
+    console.log("pgs txt file for",entry,"found in storage")
     txt = dt
     }
 

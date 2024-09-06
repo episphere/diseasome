@@ -5,6 +5,7 @@ PRS.Match2  = function (data){
     let data2 = {}
     // define user id and pgs id in the final result
     data2.pgsId = data.pgs.id
+    console.log("data.my23.openSnp---",data.my23)
     data2.my23Id = data.my23.openSnp.id
     data2.my23meta = data.my23.meta
 
@@ -116,6 +117,7 @@ PRS.calc = async function(matrix){
         for(let j=0; j<matrix.PGS.length; j++){
             
             let input = { "pgs":matrix.PGS[j], "my23":matrix.my23[i]}
+            console.log("input",input)
 
             let res = PRS.Match2(input)
             if(res.QC==true  ){
@@ -126,13 +128,13 @@ PRS.calc = async function(matrix){
             }
         }
     }
-    console.log("pgs entries that do not create a valid PRS:",badIds)
-    // console.log("matrix.PGS",matrix.PGS)
-    // console.log("matrix.my23",matrix.my23)
+    const badIds2 = Array.from(new Set([...badIds]))
+    console.log("pgs entries that fail PRS (ie. no matches):",badIds2)
+
     // if prs qc fails for one user, remove the connected pgs entry
     const obj = {}
     obj.users = matrix.my23
-    obj.pgs = matrix.PGS.filter(x=>!badIds.includes(x.id))
+    obj.pgs = matrix.PGS.filter(x=>!badIds2.includes(x.id))
     obj.prs =  arr.filter(x=> !badIds.includes(x.pgsId))
     // console.log("arr",arr)
     return obj
