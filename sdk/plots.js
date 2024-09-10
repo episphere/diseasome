@@ -1,7 +1,9 @@
 import { plotly} from "../dependencies.js";
 import {functions} from "./main.js"
-import {sdk} from "./sdk.js"
 import {PRS} from "./prs.js"
+import {getPgs} from "./getPgs.js"
+import {get23} from "./get23.js"
+
 import localforage from 'https://cdn.jsdelivr.net/npm/localforage@1.10.0/+esm'//'https://cdn.skypack.dev/localforage';
 localforage.config({
     driver: [
@@ -30,7 +32,7 @@ const output = {pgs:[], snp:[]}
 //functions.removeLocalStorageValues('request', pgs)
 
 // get openSNP users with genotype data
-let openSnpUsers = (await functions.getUsers())
+let openSnpUsers = (await get23.getAllUsers())
 ////console.log("openSnpUsers",openSnpUsers.slice(0,9))
 
 // define list of filetypes ("23andme", "ancestry", etc)
@@ -275,15 +277,15 @@ snpPhenoDiv.on('plotly_click', async function (data) {
     })
 })
 
-
 // PGS ////////////////////////////////////////////////////////////////////////////////////////////////////
 let traitFiles 
 if (await traitFilesTable.getItem("traitFiles")==null){
-    console.log(traitFilesTable.getItem("traitFiles"))
+    // console.log(traitFilesTable.getItem("traitFiles"))
     traitFiles = (await functions.fetchAll2('https://www.pgscatalog.org/rest/trait/all')).flatMap(x => x)   
-    }else{
+    // console.log("plot.js traitFiles",traitFiles)
+}else{
         traitFiles = await traitFilesTable.getItem("traitFiles")
-        // console.log("traitFiles",traitFiles)
+        console.log("plot.js traitFiles",traitFiles)
     }
 
 const traits = Array.from(new Set((await traitFiles).flatMap(x => x["trait_categories"]).filter(e => e.length).map(JSON.stringify)), JSON.parse).sort()
@@ -396,7 +398,7 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
     let category = data.points[0].label
     //console.log("Category selected:",category)
 
-    let pgsIds =  (await (functions.getAllPgsIdsByCategory(category))).sort()
+    let pgsIds =  (await (getPgs.idsFromCategory(category))).sort()
     let scoreFiles = (await functions.getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
     output.pgs.scoreFiles = scoreFiles
     output.pgs.id = category
@@ -448,9 +450,9 @@ topBarCategoriesDiv.on('plotly_click', async function (data) {
     const newH = document.getElementById("pieHeader");
     newH.innerHTML = `Select a "${category}" trait below`
     newH.style = "color: rgb(6, 137, 231);"
-    let pgsIds = await functions.getAllPgsIdsByCategory(category)
+    let pgsIds = await getPgs.idsFromCategory(category)
 
-    let scoreFiles = (await functions.getscoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
+    let scoreFiles = (await getPgs.scoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
     var obj = {};
     scoreFiles.forEach(function (item) {
         obj[item.trait_reported] ? obj[item.trait_reported]++ : obj[item.trait_reported] = 1;
@@ -614,7 +616,6 @@ data.PGS.map( (x,i) => {
         traces[data.PRS[i].pgsId] = arr
     })
    //console.log("traces",traces)
-
 let plotData=  Object.keys(traces).map( (x, i) =>{
     let obj = {
     y: traces[x].map( x => x.PRS),
@@ -644,7 +645,7 @@ const plotBetas = async function (category, scoreFiles, var_num ,div, button) {
         // retreive texts for small models (<200 variants)
         let pgsIds = scoreFiles.filter(x => x.variants_number < var_num).map(x => x.id)
         let txts = await Promise.all(await pgsIds.map(async x => {
-            let res = await sdk.loadScoreHm(x)
+            let res = await getPgs.loadScoreHm(x)
             return res
         }))
 

@@ -3,48 +3,19 @@ import {get23} from "./get23.js"
 
 import {PRS} from "./prs.js"
 import localforage from 'https://cdn.skypack.dev/localforage';
-import {storage} from './storage.js'
-console.log("ui.js")
 
 
-let traitFilesTable = localforage.createInstance({
-    name: "traitFilesTable",
-    storeName: "traitFilesTable"
-})
-
-// localforage.config({
-//     driver: [
-//         localforage.INDEXEDDB,
-//         localforage.LOCALSTORAGE,
-//         localforage.WEBSQL
-//     ],
-//     name: 'localforage'
-// });
 let pgsCategories = localforage.createInstance({
     name: "pgsCategories",
     storeName: "pgsCategories"
 })
-
 
 let userPhenotypes = localforage.createInstance({
     name: "userPhenotypes",
     storeName: "userPhenotypes"
 })
 
-
-const getTraitFiles = async function () {
-    const tf = traitFilesTable.getItem("traitFiles")
-    // let tf =  (await Promise.all(keys.flatMap(async key => {return traitFiles.traitFilesTable(key)}))).flatMap(x=>x)
-
-    if (tf.length == 0) {
-        tf = (await storage.fetchAll("traitFiles", 'https://www.pgscatalog.org/rest/trait/all')).flatMap(x => x)
-        traitFilesTable.setItem("traitFiles", tf)
-    }
-    // console.log("tf", awaittf)
-    return tf
-}
-
-const traitFiles = getTraitFiles()
+// const traitFiles = getTraitFiles()
 
 const ui = async function (targetDiv) {
     targetDiv = document.getElementById(targetDiv)
@@ -119,11 +90,11 @@ const ui = async function (targetDiv) {
     dt.users.phenotypeLabel = phenotypeLabel
     dt.users.phenotypeId = phenotypeId
     dt.users.txts = userTxts
-    console.log("userTxts", userTxts)
-
+    // console.log("userTxts", userTxts)
     dt.pgs = {}
 // TODO filter ids by variant number using get scoreFIles
-    let pgsIds = (await (getPgs.idsFromCategory(category))).sort().slice(5,7)
+    let pgsIds = (await (getPgs.idsFromCategory(category))).sort().slice(5,10)
+    // console.log("pgsIds",pgsIds)
     let pgsTxts = await Promise.all( pgsIds.map(async x => {
         let res = await getPgs.loadScoreHm(x)
         return res
@@ -133,14 +104,11 @@ const ui = async function (targetDiv) {
     dt.pgs.ids = pgsIds
     dt.pgs.txts = pgsTxts
 
-    //calculate prs    
-    console.log("Calculating PRS scores!")
-
+    // create input matrix for prs.calc
     let data = {}
     data.PGS =  dt.pgs.txts
     data.my23 = dt.users.txts//x.year > "2011" & 
-    console.log("input data: ",data)
-
+    //calculate prs    
     let prsDt = await PRS.calc(data)
     prsDt.pgs.category = category
     // if prs qc failes for one user, remove the connected pgs entry

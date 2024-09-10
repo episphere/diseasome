@@ -44,10 +44,11 @@ get23.getAllUsers = async function () {
 }
 
 get23.getTxts = async function (usersData) {
+    console.log("--------------------------")
+    console.log("Retreiving OpenSnp users!")
     console.log("getTxts function running, even retreiving from storage is slow.")
     // clearTableUsingKeyLength(table,maxKeys)
     let arr = []
-
     let urls = (await usersData).map(x => x["genotype.download_url"])
 
     //remove old txts if table is full
@@ -69,7 +70,7 @@ get23.getTxts = async function (usersData) {
             arr.push(parsedUser)
             userTxts.setItem(urls[i], parsedUser);
         } else {
-            console.log("user",i," found in storage",parsedUser2);
+            console.log("user",i," found in storage");
             arr.push(parsedUser2)
         }
     }

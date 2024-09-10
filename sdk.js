@@ -1,7 +1,7 @@
 
-import { 
-    plot
-} from './sdk/allTraits.js' 
+// import { 
+//     plot
+// } from './sdk/allTraits.js' 
 
 // import { 
 //     pgs

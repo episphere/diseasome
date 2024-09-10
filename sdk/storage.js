@@ -101,27 +101,30 @@ let i = 0
 let arr = []
 while (i < items.length) {
     let url2 = `${items[i]}`
-    let cachedData = await scoreFiles.getItem(url+url2);
+    let cachedData = await table.getItem(url+url2);
+    console.log("cachedData found for:",url+url2)
+
     if (cachedData !== null) {
-        table.push(cachedData)
+        arr.push(cachedData)
     } else if (cachedData == null) {
         console.log(i, "No cached data found for ", url2)
         await timeout(500); // pgs has 100 queries per minute limit
         let notCachedData =  await (fetch(url+url2))
-            // .then(function (response) {
-            //     return response.json()
-            // })
-            // .then(function (response) {
-            //     return response
-            // }).catch(function (ex) {
-            //     console.log("There has been an error: ", ex)
-            // })
-            table.setItem(url, notCachedData);
+
+            .then(function (response) {
+                return response.json()
+            })
+            .then(function (response) {
+                return response
+            }).catch(function (ex) {
+                console.log("There has been an error: ", ex)
+            })
+            table.setItem(url+url2, notCachedData);
             arr.push(notCachedData)
         }
         i += 1
     }
-    console.log("arr",arr)
+    // console.log("saved data:", arr)
 return arr
 }
 

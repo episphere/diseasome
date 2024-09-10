@@ -1,11 +1,25 @@
+import localforage from 'https://cdn.skypack.dev/localforage';
 
+localforage.config({
+    driver: [
+        localforage.INDEXEDDB,
+        localforage.LOCALSTORAGE,
+        localforage.WEBSQL
+    ],
+    name: 'localforage'
+});
+
+let prsTable = localforage.createInstance({
+    name: "prsTable",
+    storeName: "prsTable",
+})
 
 let PRS = {}
 PRS.Match2  = function (data){
     let data2 = {}
     // define user id and pgs id in the final result
     data2.pgsId = data.pgs.id
-    console.log("data.my23.openSnp---",data.my23)
+    // console.log("data.my23.openSnp---",data.my23)
     data2.my23Id = data.my23.openSnp.id
     data2.my23meta = data.my23.meta
 
@@ -106,6 +120,10 @@ PRS.Match2  = function (data){
 // calculate prs for multiple pgs and users ----------------------------
 
 PRS.calc = async function(matrix){
+    console.log("------------------------")
+    console.log("Calculating PRS scores!")
+    console.log("input data 2:", matrix)
+
     let arr =[]
     const badIds = []
     // todo remove qc from match2 function
@@ -117,9 +135,16 @@ PRS.calc = async function(matrix){
         for(let j=0; j<matrix.PGS.length; j++){
             
             let input = { "pgs":matrix.PGS[j], "my23":matrix.my23[i]}
-            console.log("input",input)
-
-            let res = PRS.Match2(input)
+            // console.log("input",input)
+            // console.log("pgs:",matrix.PGS[j], "my23:",matrix.my23[i])
+            let label = matrix.PGS[j].id+","+matrix.my23[i].openSnp.id
+            let res = await prsTable.getItem(label)
+            // console.log("prsTable.getItem(lebel)",await prsTable.getItem(label))
+            // check if prs has already been caclulated for this person and pgs entry
+            if(await prsTable.getItem(label)==null){
+                res = PRS.Match2(input)
+                prsTable.setItem(label,res)
+            } 
             if(res.QC==true  ){
                 arr.push(res)
                 console.log("processing PGS model: ",matrix.PGS[j].id)

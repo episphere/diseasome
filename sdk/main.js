@@ -156,7 +156,7 @@ functions.createButton2 = function(parent,buttonId, buttonTxt) {
 
 // get all data from API without limits--------------------------------------------
 functions.fetchAll2 = async function(url, maxPolls = null) {
-    console.log('fetchAll2',url)
+    // console.log('fetchAll2',url)
     var spinner = document.getElementById("spinner");
     spinner.style.display = "block";
     const allResults = []
@@ -238,7 +238,7 @@ functions.getAllPgsIdsByCategory = async function(trait) {
     let traitFilesArr = []
     let pgsIds = []
     // get trait files that match selected trait from drop down
-    traitFiles.map(tfile => {
+    getPgs.traitFiles.map(tfile => {
         if (trait.includes(tfile["trait_categories"][0])) {
             traitFilesArr.push(tfile)
         }

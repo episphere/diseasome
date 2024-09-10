@@ -16,6 +16,11 @@ localforage.config({
     name: 'localforage'
 });
 
+const scoreFilesTable = localforage.createInstance({
+    name: "scoreFilesTable",
+    storeName: "scoreFilesTable"
+})
+
 let pgsTxts = localforage.createInstance({
     name: "pgsTxts",
     storeName: "pgsTxts",
@@ -34,9 +39,9 @@ getPgs.traitFiles = async function(){
     //console.log("running getPgs.traitFiles function")
     let keys = await traitFilesTable.keys()
     let tf =  (await Promise.all(keys.flatMap(async key => {return traitFilesTable.getItem(key)}))).flatMap(x=>x)
-    //console.log("tf",tf)
+    // console.log("tf",tf)
 
-    if(tf == undefined){
+    if(tf.length == 0){
         //console.log("tf == undefined",tf == undefined)
     tf =(await storage.fetchAll("traitFilesTable",'https://www.pgscatalog.org/rest/trait/all')).flatMap(x => x)
     }
@@ -63,6 +68,8 @@ getPgs.idsFromCategory = async function(category) {
     if (arr.length != 0) {
         pgsIds.push(arr.flatMap(x => x.associated_pgs_ids).sort().filter((v, i) => arr.flatMap(x => x.associated_pgs_ids).sort().indexOf(v) == i))
     }
+    console.log("-----------------------------")
+    console.log("PGS catalog trait category: ",category)
     return pgsIds.flatMap(x => x)
 }
 
@@ -74,19 +81,11 @@ const timeout = (ms) => {
 
 // get score files using pgs ids list and subset those with less than 30 variants
 getPgs.scoreFiles = async function(pgsIds) {
-    //console.log("---------------------------")
-    //console.log("running getPgs.scoreFiles function")
-    const scoreFiles = localforage.createInstance({
-        name: "scoreFiles",
-        storeName: "scoreFiles"
-    })
-    var scores = []
-    storage.saveData(scores,`https://www.pgscatalog.org/rest/score/`,pgsIds)
+
+    // var scores = await scoreFilesTable.getItem("scoreFiles")
+    let scores = storage.saveData(scoreFilesTable,`https://www.pgscatalog.org/rest/score/`,pgsIds)
     return scores
 }
-
-
-
 
 // check if data is in storage, if not save (await getPgs.traitFiles())
 getPgs.categories3 = async function(){
@@ -148,44 +147,6 @@ getPgs.traitsData = async function(traits) {
     }
     return dt
 }
-////console.log("storage?????",storage)
-
-// ui("prsDiv")
-// ////console.log("-----------------------------------")
-
-// const category = "Cancer"
-// ////console.log("PGS Category:",category)
-// const traits = await getPgs.traits()
-// ////console.log("traits",traits)
-// const traitFiles = await getPgs.traitFiles()
-
-// let pgsIds =  (await (getPgs.idsFromCategory(category))).sort().slice(0,6)
-// ////console.log("pgsIds",pgsIds)
-// let scoreFiles = (await getPgs.scoreFiles(pgsIds)).sort((a, b) => a.variants_number - b.variants_number)
-// ////console.log("scoreFiles",scoreFiles)
-// PGS ///////////////////////////////////////////////////////////////////////////////
-// getPgs.getscoreFiles = async function (pgsIds) {
-//     var scores = []
-//     let i = 0
-//     while (i < pgsIds.length) {
-//         console.log("pgsIds[i]",pgsIds.length,pgsIds[i])
-//         let url = `https://www.pgscatalog.org/rest/score/${pgsIds[i]}`
-//         await timeout(150); // pgs has 100 queries per minute limit
-//         let data =
-//             await (fetch(url)).then(function (response) {
-//                 return response.json()
-//             })
-//             .then(function (response) {
-//                 return response
-//             }).catch(function (ex) {
-//                 console.log("There has been an error: ", ex)
-//             })
-//         scores.push(data)    
-//         i += 1
-//     }
-//     return scores
-// }
-
 
 //console.log("pgs",await getscoreFiles(["PGS002130"]))
 
@@ -197,7 +158,7 @@ getPgs.loadScoreHm = async function(entry, build = 37, range) {
          txt = "no pgs entry provided"
         return txt
     } else if (dt == null){
-        console.log("pgs txt file not found in storage",dt)
+        console.log("PGS entry: ",entry," PGS txt file not found in storage",dt)
 
         txt = ""
         entry = "PGS000000".slice(0, -entry.length) + entry
