@@ -4,7 +4,8 @@ import {get23} from "./get23.js"
 import {PRS} from "./prs.js"
 import localforage from 'https://cdn.skypack.dev/localforage';
 
-
+// NOtes: I have to run the calc on QC passed users and pgs entries. Then, I run the calc
+// and filter the prs that did not have matches.
 let pgsCategories = localforage.createInstance({
     name: "pgsCategories",
     storeName: "pgsCategories"

@@ -212,7 +212,7 @@ get23.getPhenotypeIdFromName = async function (characteristic) {
     console.log("---------------------------")
     console.log("running... get23.getPhenotypeNameFromId function")
     const dt = await get23.getUserPhenotypes()
-    console.log("dt",dt)
+    // console.log("dt",dt)
     const id = dt.filter(x => x.characteristic == characteristic)[0].id
     console.log("Phenotype name", id, "corresponds to:", characteristic)
     return id

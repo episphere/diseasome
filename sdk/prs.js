@@ -16,11 +16,13 @@ let prsTable = localforage.createInstance({
 
 let PRS = {}
 PRS.Match2  = function (data){
+    // console.log("data.my23.openSnp---",data)
+
     let data2 = {}
     // define user id and pgs id in the final result
     data2.pgsId = data.pgs.id
     // console.log("data.my23.openSnp---",data.my23)
-    data2.my23Id = data.my23.openSnp.id
+    data2.my23Id = data.my23.openSnp["genotype.download_url"]
     data2.my23meta = data.my23.meta
 
     data2.openSnp = data.my23.openSnp
