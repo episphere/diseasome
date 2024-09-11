@@ -203,10 +203,19 @@ get23.getPhenotypeNameFromId = async function (id) {
     //console.log("---------------------------")
     //console.log("running... get23.getPhenotypeNameFromId function")
     const dt = await get23.getUserPhenotypes()
-    // //console.log("dt",dt)
+    console.log("dt",dt)
     const name = dt.filter(x => x.id == id)[0].characteristic
     //console.log("Phenotype id", id, "corresponds to:", name)
     return name
+}
+get23.getPhenotypeIdFromName = async function (characteristic) {
+    console.log("---------------------------")
+    console.log("running... get23.getPhenotypeNameFromId function")
+    const dt = await get23.getUserPhenotypes()
+    console.log("dt",dt)
+    const id = dt.filter(x => x.characteristic == characteristic)[0].id
+    console.log("Phenotype name", id, "corresponds to:", characteristic)
+    return id
 }
 
 // const id = 3
