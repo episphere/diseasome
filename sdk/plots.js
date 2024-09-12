@@ -572,71 +572,71 @@ topBarTraitsDiv.on('plotly_click', async function (data) {
 document.getElementById("selection").data = output
 
 
-document.getElementById('prsButton').addEventListener('click', async function(event) {
-    let data = {}
-    data.PGS =  Object.values(output["myPgsTxts"])[0].slice(0,10)//.filter(x => x.qc == "true")
+// document.getElementById('prsButton').addEventListener('click', async function(event) {
+//     let data = {}
+//     data.PGS =  Object.values(output["myPgsTxts"])[0].slice(0,10)//.filter(x => x.qc == "true")
 
-   //console.log('output:', output)
-    data.my23 = output["my23"].slice(0,10)
-    //console.log("data",data)
+//    //console.log('output:', output)
+//     data.my23 = output["my23"].slice(0,10)
+//     //console.log("data",data)
 
-    let prsDt = PRS.calc(data)
-    data["PRS"] = await prsDt
+//     let prsDt = PRS.calc(data)
+//     data["PRS"] = await prsDt
 
-// plot PRS --------------------------------------------------------------------
-let prsDiv = document.getElementById("prsDiv")
-var layout = {
-    showlegend: true,
-    autosize: false,
-    height: 900, 
-    width: 800,
-   title: `PRS scores`,
-    yaxis: {
-        title: {
-            text: "PRS"},
-    },
-    xaxis:{
-        title: {
-            text: "Users"},
-    },
-    margin: {b: 440 }
-}
+// // plot PRS --------------------------------------------------------------------
+// let prsDiv = document.getElementById("prsDiv")
+// var layout = {
+//     showlegend: true,
+//     autosize: false,
+//     height: 900, 
+//     width: 800,
+//    title: `PRS scores`,
+//     yaxis: {
+//         title: {
+//             text: "PRS"},
+//     },
+//     xaxis:{
+//         title: {
+//             text: "Users"},
+//     },
+//     margin: {b: 440 }
+// }
 
-// reverse look up the PRS matrix to fill the traces
-let traces = {}
-data.PGS.map( (x,i) => {
-    let arr = []
-    let idx = i
-// let snpTxts2 = snpTxts.filter(x=> x.meta.split(/\r?\n|\r|\n/g)[0].slice(-4) > 2010)
+// // reverse look up the PRS matrix to fill the traces
+// let traces = {}
+// data.PGS.map( (x,i) => {
+//     let arr = []
+//     let idx = i
+// // let snpTxts2 = snpTxts.filter(x=> x.meta.split(/\r?\n|\r|\n/g)[0].slice(-4) > 2010)
 
-    data.my23.map( y => {
-        arr.push( data.PRS[idx])
-        idx += data.PGS.length
-        })
-        traces[data.PRS[i].pgsId] = arr
-    })
-   //console.log("traces",traces)
-let plotData=  Object.keys(traces).map( (x, i) =>{
-    let obj = {
-    y: traces[x].map( x => x.PRS),
-    x: traces[x].map( x => {
+//     data.my23.map( y => {
+//         arr.push( data.PRS[idx])
+//         idx += data.PGS.length
+//         })
+//         traces[data.PRS[i].pgsId] = arr
+//     })
+//    //console.log("traces",traces)
+// let plotData=  Object.keys(traces).map( (x, i) =>{
+//     let obj = {
+//     y: traces[x].map( x => x.PRS),
+//     x: traces[x].map( x => {
 
-            let monthDay = x.my23meta.split(/\r?\n|\r|\n/g)[0].slice(-20,-14)
-            let year =  x.my23meta.split(/\r?\n|\r|\n/g)[0].slice(-4)
-            let phenotypeVariation = x.openSnp.phenotypes[output.userPhenotype]["variation"]
-            let xlabel = phenotypeVariation + "_" + x.openSnp.name + "_" +  "ID" +  "_" +  x.my23Id  + "_" +  year + "_" + monthDay
-            return xlabel     
-            }), 
-    mode: 'lines+markers',
-    opacity: 0.80,
-    hoverinfo:"y",
-    name: x + ": "+ data.PGS[i].meta.variants_number + " variants",
-    }
-    return obj
-} )
+//             let monthDay = x.my23meta.split(/\r?\n|\r|\n/g)[0].slice(-20,-14)
+//             let year =  x.my23meta.split(/\r?\n|\r|\n/g)[0].slice(-4)
+//             let phenotypeVariation = x.openSnp.phenotypes[output.userPhenotype]["variation"]
+//             let xlabel = phenotypeVariation + "_" + x.openSnp.name + "_" +  "ID" +  "_" +  x.my23Id  + "_" +  year + "_" + monthDay
+//             return xlabel     
+//             }), 
+//     mode: 'lines+markers',
+//     opacity: 0.80,
+//     hoverinfo:"y",
+//     name: x + ": "+ data.PGS[i].meta.variants_number + " variants",
+//     }
+//     return obj
+// } )
 
-plotly.newPlot(prsDiv, plotData, layout);
-})
+// plotly.newPlot(prsDiv, plotData, layout);
+// })
 
 //plot pgs catalog betas function and filter by variant number
 const plotBetas = async function (category, scoreFiles, var_num ,div, button) {
