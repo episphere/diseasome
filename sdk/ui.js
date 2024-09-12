@@ -18,16 +18,16 @@ let userPhenotypes = localforage.createInstance({
 
 // const traitFiles = getTraitFiles()
 
+// SELECT PGS CATEGORY
 const ui = async function (targetDiv) {
     targetDiv = document.getElementById(targetDiv)
 
-    let div = document.createElement('div')
-    targetDiv.appendChild(div)
-    div.id = 'pgsDiv'
-    div.innerHTML = `
+    let pgsDiv = document.createElement('div')
+    targetDiv.appendChild(pgsDiv)
+    pgsDiv.id = 'pgsDiv1'
+    pgsDiv.innerHTML = `
     <p>Select a PGS Category:</p>`
 
-    // DROPDOWN PGS entries /////////////////////
     const dt = {}
     // we need to define pgs categories and user phenotypes functions in the UI or it's slow to load from another page
     let categories
@@ -55,25 +55,9 @@ const ui = async function (targetDiv) {
     })
 
     // Add the dropdown to the div
-    div.appendChild(dropdown);
+    pgsDiv.appendChild(dropdown);
    
-    //TODO, make dropdown select onchange reversable
-    document.getElementById("pgsSelect").addEventListener("click", async (e) => {
-        dt.pgs = {}
-        const category = e.target.value
-        console.log("PGS category selected: ", e.target.value)
-        // TODO filter ids by variant number using get scoreFIles
-        let pgsIds = (await (getPgs.idsFromCategory(category))).sort().slice(5, 8)
-
-        console.log("pgsIds", pgsIds)
-        let pgsTxts = await Promise.all(pgsIds.map(async x => {
-        let res = await getPgs.loadScoreHm(x)
-         return res
-     }))
-        dt.pgs.category = category
-        dt.pgs.ids = pgsIds
-        dt.pgs.txts = pgsTxts
-    })
+  
     let phenotypes
     phenotypes = (await userPhenotypes.getItem('https://opensnp.org/phenotypes.json')).sort((a, b) => a.characteristic.localeCompare(b.characteristic))
     // console.log("phenotypes",phenotypes)
@@ -88,10 +72,10 @@ const ui = async function (targetDiv) {
     const storageSize = 1.3
 
     // user drop down list
-    let div2 = document.createElement('div')
-    targetDiv.appendChild(div2)
-    div2.id = 'userDiv'
-    div2.innerHTML = `
+    let UserDiv = document.createElement('div')
+    targetDiv.appendChild(UserDiv)
+    UserDiv.id = 'userDiv1'
+    UserDiv.innerHTML = `
     <br><p>Select a user Category:</p>`
     // Create the dropdown (select) element
     const dropdown2 = document.createElement("select");
@@ -109,51 +93,68 @@ const ui = async function (targetDiv) {
     })
     dt.users = {}
 
-    div2.appendChild(dropdown2);
-    div2.innerHTML += "<br>";
-    div2.appendChild(document.createElement("br"))
-    // DROPDOWN 23andme users ///////////////////////////////////////////////////////////
-    document.getElementById("userSelect").addEventListener("click", async (e) => {
-        console.log("user category selected: ", e.target.value)
+    UserDiv.appendChild(dropdown2);
+    UserDiv.innerHTML += "<br>";
+    UserDiv.appendChild(document.createElement("br"))
+    
 
-        const phenotypeLabel = e.target.value
+
+    var prsButton = document.createElement("button");
+    prsButton.id = "prsButton1"
+    prsButton.innerHTML = `Calculate`
+    UserDiv.appendChild(prsButton);
+
+
+    document.getElementById("prsButton1").addEventListener("click", async function(e) {
+        console.log("loading.......")
+
+        // DROPDOWN 23andme users ///////////////////////////////////////////////////////////
+    // document.getElementById("userSelect").addEventListener("click", async (e) => {
+        // console.log("user category selected: ", e.target.value)
+
+        const phenotypeLabel = document.getElementById("userSelect").value//e.target.value
         const phenotypeId = await get23.getPhenotypeIdFromName(phenotypeLabel)
         const userTxts = (await get23.getUsersByPhenotypeId(phenotypeId, keysLen, maxKeys)).filter(x => x.qc == true)
 
         dt.users.phenotypeLabel = phenotypeLabel
         dt.users.phenotypeId = phenotypeId
         dt.users.txts = userTxts
-})
+// })
 
+  //TODO, make dropdown select onchange reversable
+//   document.getElementById("pgsSelect").addEventListener("click", async (e) => {
+    dt.pgs = {}
+    const category =  document.getElementById("pgsSelect").value//e.target.value
+    console.log("PGS category selected: ", e.target.value)
+    // TODO filter ids by variant number using get scoreFIles
+    let pgsIds = (await (getPgs.idsFromCategory(category))).sort().slice(5, 8)
 
+    console.log("pgsIds", pgsIds)
+    let pgsTxts = await Promise.all(pgsIds.map(async x => {
+    let res = await getPgs.loadScoreHm(x)
+     return res
+ }))
+    dt.pgs.category = category
+    dt.pgs.ids = pgsIds
+    dt.pgs.txts = pgsTxts
+// })
 
-    var prsButton = document.createElement("button");
-    prsButton.id = "prsButton"
-    prsButton.innerHTML = `Calculate`
-    div2.appendChild(prsButton);
+        // create input matrix for prs.calc
+        let data = {}
+        data.PGS = dt.pgs.txts
+        data.my23 = dt.users.txts //x.year > "2011" & 
+        console.log("data", data)
 
-    //loading...spinner, your CSS as text
-    const styles = `
-    .loader-container {
-        width: 100%;
-        height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        position: fixed;
-        background: #000;
-        z-index: 1;
-    }`
-    var styleSheet = document.createElement("style")
-    styleSheet.textContent = styles
-    document.head.appendChild(styleSheet)
-    const loaderContainer = document.querySelector('.loader-container');
-    window.addEventListener('click', () => {
-        // ...
-        console.log("loading...")
-    });
-    window.addEventListener('load', () => {
-        loaderContainer.style.display = 'none';
+        //calculate prs    
+        let prsDt = await PRS.calc(data)
+        data.PRS = prsDt.prs
+
+    //     prsDt.pgs.category = category
+    //     // if prs qc failes for one user, remove the connected pgs entry
+        console.log("results: ", prsDt)
+    //  var plotDiv = document.createElement("div");
+    //  plotDiv.id = "plotDiv"
+    //     div2.appendChild(plotDiv);    
     });
 
     // document.getElementById("prsButton").addEventListener("click", async (e) => {
