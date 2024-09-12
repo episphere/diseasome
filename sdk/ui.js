@@ -1,15 +1,7 @@
-import {
-    getPgs
-} from "./getPgs.js"
-import {
-    get23
-} from "./get23.js"
-import {
-    plotly
-} from "../dependencies.js";
-import {
-    PRS
-} from "./prs.js"
+import {getPgs} from "./getPgs.js"
+import {get23} from "./get23.js"
+import {plotly} from "../dependencies.js";
+import {PRS} from "./prs.js"
 import localforage from 'https://cdn.skypack.dev/localforage';
 
 // NOtes: I have to run the calc on QC passed users and pgs entries. Then, I run the calc
@@ -35,13 +27,11 @@ const ui = async function (targetDiv) {
     div.innerHTML = `
     <p>Select a PGS Category:</p>`
 
-    // DROPDOWN PGS entries ///////////////////////////////////////////////////////////
+    // DROPDOWN PGS entries /////////////////////
     const dt = {}
-    // const category = "Cancer"
     // we need to define pgs categories and user phenotypes functions in the UI or it's slow to load from another page
     let categories
     categories = await pgsCategories.getItem("categories")
-    // console.log("categories", categories)
     if (categories == null) {
         console.log("categories == null")
         categories = (await fetch(`https://corsproxy.io/?https://www.pgscatalog.org/rest/trait_category/all`)).json().results.sort()
@@ -66,39 +56,24 @@ const ui = async function (targetDiv) {
 
     // Add the dropdown to the div
     div.appendChild(dropdown);
-
-    let category = "Cancer"
-    dt.pgs = {}
-    let pgsIds = (await (getPgs.idsFromCategory(category))).sort().slice(5, 8)
-
-    console.log("pgsIds", pgsIds)
-    let pgsTxts = await Promise.all(pgsIds.map(async x => {
-        let res = await getPgs.loadScoreHm(x)
-        return res
-    }))
-
-    dt.pgs.category = category
-    dt.pgs.ids = pgsIds
-    dt.pgs.txts = pgsTxts
+   
     //TODO, make dropdown select onchange reversable
-    document.getElementById("pgsSelect").addEventListener("change", async (e) => {
-        category = e.target.value
+    document.getElementById("pgsSelect").addEventListener("click", async (e) => {
+        dt.pgs = {}
+        const category = e.target.value
         console.log("PGS category selected: ", e.target.value)
         // TODO filter ids by variant number using get scoreFIles
         let pgsIds = (await (getPgs.idsFromCategory(category))).sort().slice(5, 8)
 
         console.log("pgsIds", pgsIds)
         let pgsTxts = await Promise.all(pgsIds.map(async x => {
-            let res = await getPgs.loadScoreHm(x)
-            return res
-        }))
-
+        let res = await getPgs.loadScoreHm(x)
+         return res
+     }))
         dt.pgs.category = category
         dt.pgs.ids = pgsIds
         dt.pgs.txts = pgsTxts
     })
-
-    // DROPDOWN 23andme users ///////////////////////////////////////////////////////////
     let phenotypes
     phenotypes = (await userPhenotypes.getItem('https://opensnp.org/phenotypes.json')).sort((a, b) => a.characteristic.localeCompare(b.characteristic))
     // console.log("phenotypes",phenotypes)
@@ -132,107 +107,145 @@ const ui = async function (targetDiv) {
         op.text = x.characteristic;
         dropdown2.options.add(op)
     })
-
     dt.users = {}
 
     div2.appendChild(dropdown2);
     div2.innerHTML += "<br>";
     div2.appendChild(document.createElement("br"))
+    // DROPDOWN 23andme users ///////////////////////////////////////////////////////////
+    document.getElementById("userSelect").addEventListener("click", async (e) => {
+        console.log("user category selected: ", e.target.value)
+
+        const phenotypeLabel = e.target.value
+        const phenotypeId = await get23.getPhenotypeIdFromName(phenotypeLabel)
+        const userTxts = (await get23.getUsersByPhenotypeId(phenotypeId, keysLen, maxKeys)).filter(x => x.qc == true)
+
+        dt.users.phenotypeLabel = phenotypeLabel
+        dt.users.phenotypeId = phenotypeId
+        dt.users.txts = userTxts
+})
+
+
 
     var prsButton = document.createElement("button");
     prsButton.id = "prsButton"
     prsButton.innerHTML = `Calculate`
     div2.appendChild(prsButton);
 
-    document.getElementById("prsButton").addEventListener("click", async (e) => {
-        console.log("User category selected: ", document.getElementById("userSelect").value)
-        const phenotypeLabel = document.getElementById("userSelect").value // e.target.value
-        const phenotypeId = await get23.getPhenotypeIdFromName(phenotypeLabel)
-        console.log("phenotypeId", phenotypeId)
-        const userTxts = (await get23.getUsersByPhenotypeId(phenotypeId, keysLen, maxKeys)).filter(x => x.qc == true)
-        console.log("userTxts", userTxts)
+    //loading...spinner, your CSS as text
+    const styles = `
+    .loader-container {
+        width: 100%;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: fixed;
+        background: #000;
+        z-index: 1;
+    }`
+    var styleSheet = document.createElement("style")
+    styleSheet.textContent = styles
+    document.head.appendChild(styleSheet)
+    const loaderContainer = document.querySelector('.loader-container');
+    window.addEventListener('click', () => {
+        // ...
+        console.log("loading...")
+    });
+    window.addEventListener('load', () => {
+        loaderContainer.style.display = 'none';
+    });
 
-        // dt.users.phenotypes = phenotypes
-        dt.users.phenotypeLabel = phenotypeLabel
-        dt.users.phenotypeId = phenotypeId
-        dt.users.txts = userTxts
+    // document.getElementById("prsButton").addEventListener("click", async (e) => {
+ 
+    //     console.log("User category selected: ", document.getElementById("userSelect").value)
+    //     const phenotypeLabel = document.getElementById("userSelect").value // e.target.value
+    //     const phenotypeId = await get23.getPhenotypeIdFromName(phenotypeLabel)
+    //     console.log("phenotypeId", phenotypeId)
+    //     const userTxts = (await get23.getUsersByPhenotypeId(phenotypeId, keysLen, maxKeys)).filter(x => x.qc == true)
+    //     console.log("userTxts", userTxts)
 
-        // TODO add onlcick button for prsc calculation
-        // SAVE PGS AND 23me DATA IN DT OBJ///////////////////////////
-        // create input matrix for prs.calc
-        let data = {}
-        data.PGS = dt.pgs.txts
-        data.my23 = dt.users.txts //x.year > "2011" & 
-        console.log("data", data)
+    //     // dt.users.phenotypes = phenotypes
+    //     dt.users.phenotypeLabel = phenotypeLabel
+    //     dt.users.phenotypeId = phenotypeId
+    //     dt.users.txts = userTxts
 
-        //calculate prs    
-        let prsDt = await PRS.calc(data)
-        data.PRS = prsDt.prs
+    //     // TODO add onlcick button for prsc calculation
+    //     // SAVE PGS AND 23me DATA IN DT OBJ///////////////////////////
+    //     // create input matrix for prs.calc
+    //     let data = {}
+    //     data.PGS = dt.pgs.txts
+    //     data.my23 = dt.users.txts //x.year > "2011" & 
+    //     console.log("data", data)
 
-        prsDt.pgs.category = category
-        // if prs qc failes for one user, remove the connected pgs entry
-        console.log("results: ", prsDt)
+    //     //calculate prs    
+    //     let prsDt = await PRS.calc(data)
+    //     data.PRS = prsDt.prs
 
-        // plot PRS --------------------------------------------------------------------
-        var prsDiv = document.createElement("div");
-        prsDiv.id = "prsDiv"
-        div2.appendChild(prsDiv);
+    //     prsDt.pgs.category = category
+    //     // if prs qc failes for one user, remove the connected pgs entry
+    //     console.log("results: ", prsDt)
 
-        var layout = {
-            showlegend: true,
-            autosize: false,
-            height: 900,
-            width: 800,
-            title: `PRS scores`,
-            yaxis: {
-                title: {
-                    text: "PRS"
-                },
-            },
-            xaxis: {
-                title: {
-                    text: "Users"
-                },
-            },
-            margin: {
-                b: 440
-            }
-        }
+    //     // plot PRS --------------------------------------------------------------------
+    //     var prsDiv = document.createElement("div");
+    //     prsDiv.id = "prsDiv"
+    //     div2.appendChild(prsDiv);
 
-        // reverse look up the PRS matrix to fill the traces
-        let traces = {}
-        data.PGS.map((x, i) => {
-            let arr = []
-            let idx = i
-            // let snpTxts2 = snpTxts.filter(x=> x.meta.split(/\r?\n|\r|\n/g)[0].slice(-4) > 2010)
+    //     var layout = {
+    //         showlegend: true,
+    //         autosize: false,
+    //         height: 900,
+    //         width: 800,
+    //         title: `PRS scores`,
+    //         yaxis: {
+    //             title: {
+    //                 text: "PRS"
+    //             },
+    //         },
+    //         xaxis: {
+    //             title: {
+    //                 text: "Users"
+    //             },
+    //         },
+    //         margin: {
+    //             b: 440
+    //         }
+    //     }
 
-            data.my23.map(y => {
-                arr.push(data.PRS[idx])
-                idx += data.PGS.length
-            })
-            traces[data.PRS[i].pgsId] = arr
-        })
-        //console.log("traces",traces)
-        let plotData = Object.keys(traces).map((x, i) => {
-            let obj = {
-                y: traces[x].map(x => x.PRS),
-                x: traces[x].map(x => {
-                    let monthDay = x.my23meta.split(/\r?\n|\r|\n/g)[0].slice(-20, -14)
-                    let year = x.my23meta.split(/\r?\n|\r|\n/g)[0].slice(-4)
-                    // TODO add variation to data
-                    let phenotypeVariation = x.openSnp.id //[output.userPhenotype]["variation"]
-                    let xlabel = phenotypeVariation + "_" + x.openSnp.name + "_" + "ID" + "_" + x.my23Id + "_" + year + "_" + monthDay
-                    return xlabel
-                }),
-                mode: 'lines+markers',
-                opacity: 0.80,
-                hoverinfo: "y",
-                name: x + ": " + data.PGS[i].meta.variants_number + " variants",
-            }
-            return obj
-        })
-        plotly.newPlot(prsDiv, plotData, layout);
-    })
+    //     // reverse look up the PRS matrix to fill the traces
+    //     let traces = {}
+    //     data.PGS.map((x, i) => {
+    //         let arr = []
+    //         let idx = i
+    //         // let snpTxts2 = snpTxts.filter(x=> x.meta.split(/\r?\n|\r|\n/g)[0].slice(-4) > 2010)
+
+    //         data.my23.map(y => {
+    //             arr.push(data.PRS[idx])
+    //             idx += data.PGS.length
+    //         })
+    //         traces[data.PRS[i].pgsId] = arr
+    //     })
+    //     //console.log("traces",traces)
+    //     let plotData = Object.keys(traces).map((x, i) => {
+    //         let obj = {
+    //             y: traces[x].map(x => x.PRS),
+    //             x: traces[x].map(x => {
+    //                 let monthDay = x.my23meta.split(/\r?\n|\r|\n/g)[0].slice(-20, -14)
+    //                 let year = x.my23meta.split(/\r?\n|\r|\n/g)[0].slice(-4)
+    //                 // TODO add variation to data
+    //                 let phenotypeVariation = x.openSnp.id //[output.userPhenotype]["variation"]
+    //                 let xlabel = phenotypeVariation + "_" + x.openSnp.name + "_" + "ID" + "_" + x.my23Id + "_" + year + "_" + monthDay
+    //                 return xlabel
+    //             }),
+    //             mode: 'lines+markers',
+    //             opacity: 0.80,
+    //             hoverinfo: "y",
+    //             name: x + ": " + data.PGS[i].meta.variants_number + " variants",
+    //         }
+    //         return obj
+    //     })
+    //     plotly.newPlot(prsDiv, plotData, layout);
+    // })
 
 }
 
