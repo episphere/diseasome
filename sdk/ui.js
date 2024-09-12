@@ -112,15 +112,15 @@ const ui = async function (targetDiv) {
     const dropdown2 = document.createElement("select");
     dropdown2.id = "userSelect"
     // Create options and add them to the dropdown
-    console.log("phenotypes",phenotypes)
+
     phenotypes.map(x => {
         const op = new Option();
-        if(x.characteristic == "ALS"){op.defaultSelected = "ALS"}
+        if(x.characteristic == "Cervical dysplasia / cancer"){op.defaultSelected = "Cervical dysplasia / cancer"}
         op.value = x.characteristic;
         op.text = x.characteristic;
         dropdown2.options.add(op)
     })
-    // add dropdown to the div
+
     dt.users = {}
 
     div2.appendChild(dropdown2);
