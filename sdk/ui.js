@@ -115,7 +115,11 @@ const ui = async function (targetDiv) {
 
     document.getElementById("prsButton1").addEventListener("click", async function (e) {
         console.log("loading.......")
+        var plotDiv = document.createElement("div");
+        plotDiv.id = "plotDiv"
+        plotDiv.innerHTML = "Loading..."
 
+        UserDiv.appendChild(plotDiv);  
         // DROPDOWN 23andme users ///////////////////////////////////////////////////////////
 
         const phenotypeLabel = document.getElementById("userSelect").value //e.target.value
@@ -155,9 +159,7 @@ const ui = async function (targetDiv) {
         //     prsDt.pgs.category = category
         //     // if prs qc failes for one user, remove the connected pgs entry
         console.log("results: ", prsDt)
-        //  var plotDiv = document.createElement("div");
-        //  plotDiv.id = "plotDiv"
-        //     div2.appendChild(plotDiv);    
+      
     });
 
     // document.getElementById("prsButton").addEventListener("click", async (e) => {
