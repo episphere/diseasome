@@ -178,7 +178,7 @@ get23.getUsersByPhenotypeId = async function (phenoId, keysLen, maxKeys) {
     if (userIds2.length < maxUsers) {
         cleanUsers =  get23.getUsersByType("23andme", userIds2)
     } else {
-        cleanUsers = await (get23.getUsersByType("23andme", userIds2.slice(6, 10)))//.slice(0,maxUsers)
+        cleanUsers = await (get23.getUsersByType("23andme", userIds2.slice(6, 12)))//.slice(0,maxUsers)
         console.log("Warning: user txts for phenotypeID", phenoId, "> 7. First 6 files used.")
     }
     // get 23 and me texts from urls using getTxts function
