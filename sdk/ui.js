@@ -1,7 +1,15 @@
-import {getPgs} from "./getPgs.js"
-import {get23} from "./get23.js"
-import {plotly} from "../dependencies.js";
-import {PRS} from "./prs.js"
+import {
+    getPgs
+} from "./getPgs.js"
+import {
+    get23
+} from "./get23.js"
+import {
+    plotly
+} from "../dependencies.js";
+import {
+    PRS
+} from "./prs.js"
 import localforage from 'https://cdn.skypack.dev/localforage';
 
 // NOtes: I have to run the calc on QC passed users and pgs entries. Then, I run the calc
@@ -56,8 +64,8 @@ const ui = async function (targetDiv) {
 
     // Add the dropdown to the div
     pgsDiv.appendChild(dropdown);
-   
-  
+
+
     let phenotypes
     phenotypes = (await userPhenotypes.getItem('https://opensnp.org/phenotypes.json')).sort((a, b) => a.characteristic.localeCompare(b.characteristic))
     // console.log("phenotypes",phenotypes)
@@ -96,7 +104,7 @@ const ui = async function (targetDiv) {
     UserDiv.appendChild(dropdown2);
     UserDiv.innerHTML += "<br>";
     UserDiv.appendChild(document.createElement("br"))
-    
+
 
 
     var prsButton = document.createElement("button");
@@ -105,39 +113,34 @@ const ui = async function (targetDiv) {
     UserDiv.appendChild(prsButton);
 
 
-    document.getElementById("prsButton1").addEventListener("click", async function(e) {
+    document.getElementById("prsButton1").addEventListener("click", async function (e) {
         console.log("loading.......")
 
         // DROPDOWN 23andme users ///////////////////////////////////////////////////////////
-    // document.getElementById("userSelect").addEventListener("click", async (e) => {
-        // console.log("user category selected: ", e.target.value)
 
-        const phenotypeLabel = document.getElementById("userSelect").value//e.target.value
+        const phenotypeLabel = document.getElementById("userSelect").value //e.target.value
         const phenotypeId = await get23.getPhenotypeIdFromName(phenotypeLabel)
         const userTxts = (await get23.getUsersByPhenotypeId(phenotypeId, keysLen, maxKeys)).filter(x => x.qc == true)
 
         dt.users.phenotypeLabel = phenotypeLabel
         dt.users.phenotypeId = phenotypeId
         dt.users.txts = userTxts
-// })
 
-  //TODO, make dropdown select onchange reversable
-//   document.getElementById("pgsSelect").addEventListener("click", async (e) => {
-    dt.pgs = {}
-    const category =  document.getElementById("pgsSelect").value//e.target.value
-    console.log("PGS category selected: ", e.target.value)
-    // TODO filter ids by variant number using get scoreFIles
-    let pgsIds = (await (getPgs.idsFromCategory(category))).sort().slice(5, 8)
+        //TODO, make dropdown select onchange reversable
+        dt.pgs = {}
+        const category = document.getElementById("pgsSelect").value
+        console.log("PGS category selected: ", e.target.value)
+        // TODO filter ids by variant number using get scoreFIles
+        let pgsIds = (await (getPgs.idsFromCategory(category))).sort().slice(5, 8)
 
-    console.log("pgsIds", pgsIds)
-    let pgsTxts = await Promise.all(pgsIds.map(async x => {
-    let res = await getPgs.loadScoreHm(x)
-     return res
- }))
-    dt.pgs.category = category
-    dt.pgs.ids = pgsIds
-    dt.pgs.txts = pgsTxts
-// })
+        console.log("pgsIds", pgsIds)
+        let pgsTxts = await Promise.all(pgsIds.map(async x => {
+            let res = await getPgs.loadScoreHm(x)
+            return res
+        }))
+        dt.pgs.category = category
+        dt.pgs.ids = pgsIds
+        dt.pgs.txts = pgsTxts
 
         // create input matrix for prs.calc
         let data = {}
@@ -149,16 +152,16 @@ const ui = async function (targetDiv) {
         let prsDt = await PRS.calc(data)
         data.PRS = prsDt.prs
 
-    //     prsDt.pgs.category = category
-    //     // if prs qc failes for one user, remove the connected pgs entry
+        //     prsDt.pgs.category = category
+        //     // if prs qc failes for one user, remove the connected pgs entry
         console.log("results: ", prsDt)
-    //  var plotDiv = document.createElement("div");
-    //  plotDiv.id = "plotDiv"
-    //     div2.appendChild(plotDiv);    
+        //  var plotDiv = document.createElement("div");
+        //  plotDiv.id = "plotDiv"
+        //     div2.appendChild(plotDiv);    
     });
 
     // document.getElementById("prsButton").addEventListener("click", async (e) => {
- 
+
     //     console.log("User category selected: ", document.getElementById("userSelect").value)
     //     const phenotypeLabel = document.getElementById("userSelect").value // e.target.value
     //     const phenotypeId = await get23.getPhenotypeIdFromName(phenotypeLabel)
