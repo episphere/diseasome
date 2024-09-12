@@ -159,7 +159,64 @@ const ui = async function (targetDiv) {
         //     prsDt.pgs.category = category
         //     // if prs qc failes for one user, remove the connected pgs entry
         console.log("results: ", prsDt)
+      // plot-------------------------------------------------
       
+        var layout = {
+            showlegend: true,
+            autosize: false,
+            height: 900,
+            width: 800,
+            title: `PRS scores`,
+            yaxis: {
+                title: {
+                    text: "PRS"
+                },
+            },
+            xaxis: {
+                title: {
+                    text: "Users"
+                },
+            },
+            margin: {
+                b: 440
+            }
+        }
+
+        // reverse look up the PRS matrix to fill the traces
+        let traces = {}
+        data.PGS.map((x, i) => {
+            let arr = []
+            let idx = i
+            // let snpTxts2 = snpTxts.filter(x=> x.meta.split(/\r?\n|\r|\n/g)[0].slice(-4) > 2010)
+
+            data.my23.map(y => {
+                arr.push(data.PRS[idx])
+                idx += data.PGS.length
+            })
+            traces[data.PRS[i].pgsId] = arr
+        })
+        //console.log("traces",traces)
+        let plotData = Object.keys(traces).map((x, i) => {
+            let obj = {
+                y: traces[x].map(x => x.PRS),
+                x: traces[x].map(x => {
+                    let monthDay = x.my23meta.split(/\r?\n|\r|\n/g)[0].slice(-20, -14)
+                    let year = x.my23meta.split(/\r?\n|\r|\n/g)[0].slice(-4)
+                    // TODO add variation to data
+                    let phenotypeVariation = x.openSnp.id //[output.userPhenotype]["variation"]
+                    let xlabel = phenotypeVariation + "_" + x.openSnp.name + "_" + "ID" + "_" + x.my23Id + "_" + year + "_" + monthDay
+                    return xlabel
+                }),
+                mode: 'lines+markers',
+                opacity: 0.80,
+                hoverinfo: "y",
+                name: x + ": " + data.PGS[i].meta.variants_number + " variants",
+            }
+            return obj
+        })
+        plotDiv.innerHTML=''
+        plotly.newPlot(plotDiv, plotData, layout);
+    // })
     });
 
     // document.getElementById("prsButton").addEventListener("click", async (e) => {
