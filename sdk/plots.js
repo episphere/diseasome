@@ -32,7 +32,7 @@ const output = {pgs:[], snp:[]}
 //functions.removeLocalStorageValues('request', pgs)
 
 // get openSNP users with genotype data
-let openSnpUsers = (await get23.getAllUsers())
+let openSnpUsers = (await get23.allUsers())
 ////console.log("openSnpUsers",openSnpUsers.slice(0,9))
 
 // define list of filetypes ("23andme", "ancestry", etc)

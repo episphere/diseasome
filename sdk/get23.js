@@ -30,7 +30,7 @@ let usersByPhenotype = localforage.createInstance({
 
 const get23 = {}
 // get all users with genotype data (23andMe, illumina, ancestry etc)
-get23.getAllUsers = async function () { 
+get23.allUsers = async function () { 
     const newLocal = 'usersFull';
     let dt
     dt = await openSnpDbUrls.getItem(newLocal); // check for users in localstorage
@@ -133,7 +133,7 @@ get23.getUsersByType = async function (type, users) {
 //     //console.log("---------------------------")
 //     //console.log("running... get23.getUsersByPhenotypeId function")
 //     //console.log("phenotype id:", phenoId)
-//     let allUsers = await  get23.getAllUsers()
+//     let allUsers = await  get23.allUsers()
 //     const cors = `https://corsproxy.io/?`
 //     let onePhenotypeUrl = `https://opensnp.org/phenotypes/json/variations/${phenoId}.json`
 //     let users = (await (await fetch(cors + onePhenotypeUrl)).json())
@@ -157,7 +157,7 @@ get23.getUsersByType = async function (type, users) {
 
 get23.getUsersByPhenotypeId = async function (phenoId, keysLen, maxKeys) {
 
-    let allUsers = await get23.getAllUsers()
+    let allUsers = await get23.allUsers()
     const cors = `https://corsproxy.io/?`
     let onePhenotypeUrl = `https://opensnp.org/phenotypes/json/variations/${phenoId}.json`
     let users = await usersByPhenotype.getItem("onePhenotypeUrl")
