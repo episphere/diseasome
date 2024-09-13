@@ -29,4 +29,4 @@
 // }
 
 import './dependencies.js'
-export * from '../dependencies.js'
+export * from './dependencies.js'
