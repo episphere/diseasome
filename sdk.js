@@ -16,7 +16,11 @@
 // localforage,
 // } from './dependencies.js'
 
-// export{
+import { 
+allUsers
+} from './get23.js'
+
+export{
 //     pgs,
 //    // clearCache,
 //     //endpointStore,
@@ -26,7 +30,6 @@
 //     plot,
 //     plotly,
 //     //ui
-// }
+allUsers
+}
 
-import './dependencies.js'
-export * from './dependencies.js'
