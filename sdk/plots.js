@@ -167,31 +167,30 @@ var dt = [{
 }]
 plotly.newPlot(snpPhenoDiv, dt, layout);
 
-snpPhenoDiv.on('plotly_click', async function (data) {
-    //console.log("data:",data)
 
+snpPhenoDiv.on('plotly_click', async function (data) {
     let phenoLabel = data.points[0].label
     let phenoData = phenotypes.filter( x => x.characteristic == phenoLabel)
     let phenoId = phenoData[0].id
     output.userPhenotype = phenoLabel
     //console.log("phenotype selected:",phenoId,phenoLabel)
 
-   let  phenotypeUrl = `https://opensnp.org/phenotypes/json/variations/${phenoId}.json`
-
-   let users = await phenotypeUsersTable.getItem(phenotypeUrl); // check for users in localstorage
+    let  phenotypeUrl = `https://opensnp.org/phenotypes/json/variations/${phenoId}.json`
+    // ALL USERS WITH ONE PHENOTYPE (T2D)
+    let users = await phenotypeUsersTable.getItem(phenotypeUrl); // check for users in localstorage
     if (users == null) {
         users = (await (await fetch(cors+phenotypeUrl)).json())
           //.sort((a, b) => b.number_of_users - a.number_of_users)
              phenotypeUsersTable.setItem(phenotypeUrl, users)
      }
-     //console.log("users:",users)
-
+     console.log("users:",users)
     let userIds = users.users.map( x => x.user_id)
 
-    // get users with phenotype data (even those without genotype data)
+    // ALL PHENOTYPES, WITH CORRESPONDING USERS (even those without genotype data)
     var phenotypeUsers = openSnpUsers.filter(({id}) => userIds.includes(id));
     //console.log("# of users with this phenotype = :",phenotypeUsers.length)
     //console.log("phenotypeUsers:",phenotypeUsers)
+    console.log("openSnpUsers:",openSnpUsers)
 
   // retreive phenotype information for each user by filetype
     let usersPheno = await Promise.all(filetypes.map(async function (type){
@@ -199,8 +198,8 @@ snpPhenoDiv.on('plotly_click', async function (data) {
                 // filter users with genotype data, with 1 or more genotype files (ie. 3 23andme files)
         let filteredUsers2 = await Promise.all(
                             (await functions.filterUsers(type, phenotypeUsers)).map( async (row,i)  => {
-                // console.log(' type, phenotypeUsers',type, phenotypeUsers)
-                // console.log(' filterUsers row,i',row,i)
+                console.log(' type, phenotypeUsers',type, phenotypeUsers)
+                console.log(' filterUsers row,i',row,i)
                                 
 
                 let url = `https://opensnp.org/phenotypes/json/${row.id}.json`

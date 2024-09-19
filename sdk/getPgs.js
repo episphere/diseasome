@@ -37,28 +37,26 @@ let pgsCategories = localforage.createInstance({
 getPgs.traitFiles = async function(){
     //console.log("---------------------------")
     //console.log("running getPgs.traitFiles function")
-    let keys = await traitFilesTable.keys()
-    let tf =  (await Promise.all(keys.flatMap(async key => {return traitFilesTable.getItem(key)}))).flatMap(x=>x)
-    // console.log("tf",tf)
-
-    if(tf.length == 0){
-        //console.log("tf == undefined",tf == undefined)
-    tf =(await storage.fetchAll("traitFilesTable",'https://www.pgscatalog.org/rest/trait/all')).flatMap(x => x)
-    }
+    
+    const tf =(await storage.fetchAll("traitFilesTable",'https://www.pgscatalog.org/rest/trait/all')).flatMap(x => x)
     return tf
 }
 
 
 getPgs.idsFromCategory = async function(category) {
-    //console.log("---------------------------")
-    //console.log("running getPgs.idsFromCategory function")
+    console.log("---------------------------")
+    console.log("running getPgs.idsFromCategory function")
     let arr = []
     let pgsIds = []
     // get trait files that match selected category from drop down
-    let traitFiles = await traitFilesTable.getItem("traitFiles")
+    // let traitFiles = await traitFilesTable.getItem("traitFiles")
+    let keys = await traitFilesTable.keys()
+    let traitFiles =  (await Promise.all(keys.flatMap(async key => {return traitFilesTable.getItem(key)}))).flatMap(x=>x)
+    console.log("traitFiles",traitFiles)
     if (traitFiles == null){
         traitFiles = await getPgs.traitFiles()
     }
+    console.log("traitFiles",traitFiles)
 
     traitFiles.map(tfile => {
         if (category.includes(tfile["trait_categories"][0])) {
@@ -73,8 +71,6 @@ getPgs.idsFromCategory = async function(category) {
     return pgsIds.flatMap(x => x)
 }
 
-
-
 const timeout = (ms) => {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -86,20 +82,6 @@ getPgs.scoreFiles = async function(pgsIds) {
     let scores = storage.saveData(scoreFilesTable,`https://www.pgscatalog.org/rest/score/`,pgsIds)
     return scores
 }
-
-// check if data is in storage, if not save (await getPgs.traitFiles())
-getPgs.categories3 = async function(){
-    const categories = await pgsCategories.getItem("categories")
-    if (categories == null){
-        const cors = `https://corsproxy.io/?`
-        const url  = "https://www.pgscatalog.org/rest/trait_category/all"  
-        const categories =  (await fetch(cors + url))//.sort()
-        pgsCategories.setItem("categories",categories)
-    }
-    //console.log("categories",categories)
-    return categories
-}
-await getPgs.categories3()
 
 
 getPgs.traits = async function(){

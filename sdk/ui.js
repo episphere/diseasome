@@ -24,8 +24,8 @@ let userPhenotypes = localforage.createInstance({
     storeName: "userPhenotypes"
 })
 
-// const traitFiles = getTraitFiles()
-
+const traits  = await getPgs.traits()
+console.log("traits",traits)
 // SELECT PGS CATEGORY
 const ui = async function (targetDiv) {
     targetDiv = document.getElementById(targetDiv)
@@ -64,7 +64,6 @@ const ui = async function (targetDiv) {
 
     // Add the dropdown to the div
     pgsDiv.appendChild(dropdown);
-
 
     let phenotypes
     phenotypes = (await userPhenotypes.getItem('https://opensnp.org/phenotypes.json')).sort((a, b) => a.characteristic.localeCompare(b.characteristic))
@@ -124,7 +123,8 @@ const ui = async function (targetDiv) {
 
         const phenotypeLabel = document.getElementById("userSelect").value //e.target.value
         const phenotypeId = await get23.getPhenotypeIdFromName(phenotypeLabel)
-        const userTxts = (await get23.getUsersByPhenotypeId(phenotypeId, keysLen, maxKeys)).filter(x => x.qc == true)
+        const userTxts = (await get23.userTxtsByPhenotypeId(phenotypeId, keysLen, maxKeys)).filter(x => x.qc == true)
+        console.log("await get23.userTxtsByPhenotypeId: ", phenotypeLabel, userTxts)
 
         dt.users.phenotypeLabel = phenotypeLabel
         dt.users.phenotypeId = phenotypeId
@@ -146,19 +146,12 @@ const ui = async function (targetDiv) {
         dt.pgs.ids = pgsIds
         dt.pgs.txts = pgsTxts
 
-        // create input matrix for prs.calc
-        let data = {}
-        data.PGS = dt.pgs.txts
-        data.my23 = dt.users.txts //x.year > "2011" & 
-        console.log("data", data)
-
         //calculate prs    
-        let prsDt = await PRS.calc(data)
-        data.PRS = prsDt.prs
-
-        //     prsDt.pgs.category = category
-        //     // if prs qc failes for one user, remove the connected pgs entry
+        let prsDt = await PRS.calc(dt)
+        dt.prs=prsDt
         console.log("results: ", prsDt)
+        console.log("dt: ", dt)
+
       // plot-------------------------------------------------
       
         var layout = {
@@ -167,50 +160,44 @@ const ui = async function (targetDiv) {
             height: 900,
             width: 800,
             title: `PRS scores`,
-            yaxis: {
-                title: {
-                    text: "PRS"
-                },
-            },
-            xaxis: {
-                title: {
-                    text: "Users"
-                },
-            },
-            margin: {
-                b: 440
-            }
+            yaxis: {  title: { text: "PRS" },  },
+            xaxis: {  title: { text: "Users"}, },
+            margin: {  b: 440 }
         }
 
         // reverse look up the PRS matrix to fill the traces
         let traces = {}
-        data.PGS.map((x, i) => {
-            let arr = []
+
+        dt.pgs.txts.map((x, i) => {
+
+            console.log("i",i)
             let idx = i
+
+            let arr = []
             // let snpTxts2 = snpTxts.filter(x=> x.meta.split(/\r?\n|\r|\n/g)[0].slice(-4) > 2010)
 
-            data.my23.map(y => {
-                arr.push(data.PRS[idx])
-                idx += data.PGS.length
+            dt.users.txts.map(y => {
+                arr.push(dt.prs[idx])
+                idx += dt.pgs.txts.length
+                console.log("idx",idx)
+
             })
-            traces[data.PRS[i].pgsId] = arr
+            traces[dt.pgs.txts[i].id] = arr
         })
-        //console.log("traces",traces)
+        console.log("traces",traces)
         let plotData = Object.keys(traces).map((x, i) => {
             let obj = {
                 y: traces[x].map(x => x.PRS),
                 x: traces[x].map(x => {
-                    let monthDay = x.my23meta.split(/\r?\n|\r|\n/g)[0].slice(-20, -14)
-                    let year = x.my23meta.split(/\r?\n|\r|\n/g)[0].slice(-4)
-                    // TODO add variation to data
-                    let phenotypeVariation = x.openSnp.id //[output.userPhenotype]["variation"]
-                    let xlabel = phenotypeVariation + "_" + x.openSnp.name + "_" + "ID" + "_" + x.my23Id + "_" + year + "_" + monthDay
+                    let monthDay = x.users.meta.split(/\r?\n|\r|\n/g)[0].slice(-20, -14)
+                    let year = x.users.meta.split(/\r?\n|\r|\n/g)[0].slice(-4)
+                    let xlabel = x.users.openSnp.variation +" , name: " + x.users.openSnp.name + " , Date: "  + monthDay +" "+ year
                     return xlabel
                 }),
                 mode: 'lines+markers',
                 opacity: 0.80,
                 hoverinfo: "y",
-                name: x + ": " + data.PGS[i].meta.variants_number + " variants",
+                name: x + ": " + dt.pgs.txts[i].meta.variants_number + " variants",
             }
             return obj
         })
@@ -225,7 +212,7 @@ const ui = async function (targetDiv) {
     //     const phenotypeLabel = document.getElementById("userSelect").value // e.target.value
     //     const phenotypeId = await get23.getPhenotypeIdFromName(phenotypeLabel)
     //     console.log("phenotypeId", phenotypeId)
-    //     const userTxts = (await get23.getUsersByPhenotypeId(phenotypeId, keysLen, maxKeys)).filter(x => x.qc == true)
+    //     const userTxts = (await get23.userTxtsByPhenotypeId(phenotypeId, keysLen, maxKeys)).filter(x => x.qc == true)
     //     console.log("userTxts", userTxts)
 
     //     // dt.users.phenotypes = phenotypes
