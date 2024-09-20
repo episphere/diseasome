@@ -79,7 +79,7 @@ const timeout = (ms) => {
 getPgs.scoreFiles = async function(pgsIds) {
 
     // var scores = await scoreFilesTable.getItem("scoreFiles")
-    let scores = storage.saveData(scoreFilesTable,`https://www.pgscatalog.org/rest/score/`,pgsIds)
+    let scores = storage.saveData(scoreFilesTable,`https://www.pgscatalog.org/rest/score/`,[pgsIds])
     return scores
 }
 
@@ -99,6 +99,7 @@ getPgs.traitsData = async function(traits) {
         storeName: "traitsData"
     })
     let dt
+    let traitFiles = getPgs.traitFiles()
     if ((await traitsData.getItem("traitsData")) === null) {
 
         dt = traits.map(trait => {
@@ -131,18 +132,24 @@ getPgs.traitsData = async function(traits) {
 }
 
 //console.log("pgs",await getscoreFiles(["PGS002130"]))
-
+// get pgs text file filtered by variants number
 getPgs.loadScoreHm = async function(entry, build = 37, range) {
-    let txt = ""
+    const scoreFiles = await getPgs.scoreFiles(entry)
+    console.log("entry, scoreFiles",entry, scoreFiles)
+    const variants_number = scoreFiles[0].variants_number
+    console.log("variants_number",variants_number)
+
+    let txt
     let dt
     dt = await pgsTxts.getItem(entry); // check for users in localstorage
+    if(variants_number<500){
+        // console.log("variants_number<500",variants_number)
     if (entry == null){
-         txt = "no pgs entry provided"
-        return txt
+        console.log("no pgs entry provided")
+        // return txt
     } else if (dt == null){
         console.log("PGS entry: ",entry," PGS txt file not found in storage",dt)
 
-        txt = ""
         entry = "PGS000000".slice(0, -entry.length) + entry
         // https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/PGS000004/ScoringFiles/Harmonized/PGS000004_hmPOS_GRCh37.txt.gz
         const url = `https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/${entry}/ScoringFiles/Harmonized/${entry}_hmPOS_GRCh${build}.txt.gz` //
@@ -169,17 +176,22 @@ getPgs.loadScoreHm = async function(entry, build = 37, range) {
         if (response?.ok) {
             ////console.log('Use the response here!');
         } else {
-            txt = `:( Error loading PGS file. HTTP Response Code: ${response?.status}`
+            // txt = `:( Error loading PGS file. HTTP Response Code: ${response?.status}`
+            console.log(':( Error loading PGS file. HTTP Response Code: ${response?.status}')
             document.getElementById('pgsTextArea').value = txt
         }
         txt = await getPgs.parsePGS(entry, txt)
         pgsTxts.setItem(entry, txt)
-} else if (dt != null){
-    console.log("pgs txt file for",entry,"found in storage")
-    txt = dt
+
+    } else if (dt != null){
+        console.log("pgs txt file for",entry,"found in storage",dt)
+        txt = dt
+    }else{ 
+        console.log(`pgs file too large: ${variants_number} variants`)
     }
 
-    return txt
+}
+return txt
 }
 
 // create PGS obj and data --------------------------

@@ -254,7 +254,7 @@ get23.userTxtsByPhenotypeId = async function (phenoId, keysLen, maxKeys) {
     if (combined.length < maxUsers) {
         cleanUsers =  get23.usersByFileType("23andme", combined)
     } else {
-        cleanUsers = await (get23.usersByFileType("23andme", combined.slice(7, 15)))//.slice(0,maxUsers)
+        cleanUsers = await (get23.usersByFileType("23andme", combined.slice(7, 19)))//.slice(0,maxUsers)
         //console.log("Warning: user txts for phenotypeID", phenoId, "> 7. First 6 files used.")
         console.log("cleanUsers",cleanUsers)
     }

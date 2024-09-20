@@ -105,7 +105,6 @@ PRS.Match2 = function (data) {
         data2.QC = true
         data2.QCtext = ''
     }
-
     return data2
 }
 
@@ -114,8 +113,6 @@ PRS.Match2 = function (data) {
 PRS.calc = async function (matrix) {
     console.log("------------------------")
     console.log("Calculating PRS scores!")
-    console.log("matrix input data 2:", matrix)
-
     let arr = []
     const badIds = []
     // todo remove qc from match2 function
@@ -123,6 +120,7 @@ PRS.calc = async function (matrix) {
     for (let i = 0; i < matrix.users.txts.length; i++) {
         console.log("---------------------------")
         console.log("processing user #...", i)
+        console.log("matrix", matrix)
 
         for (let j = 0; j < matrix.pgs.txts.length; j++) {
 

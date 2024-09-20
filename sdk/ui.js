@@ -134,16 +134,17 @@ const ui = async function (targetDiv) {
         dt.pgs = {}
         const category = document.getElementById("pgsSelect").value
         console.log("PGS category selected: ", e.target.value)
-        // TODO filter ids by variant number using get scoreFIles
-        let pgsIds = (await (getPgs.idsFromCategory(category))).sort().slice(5, 8)
+        // TODO slice the pgs entries that are <500
+        let pgsIds = (await (getPgs.idsFromCategory(category))).sort().slice(5, 12)
 
         console.log("pgsIds", pgsIds)
-        let pgsTxts = await Promise.all(pgsIds.map(async x => {
+        let pgsTxts = (await Promise.all(pgsIds.map(async x => {
             let res = await getPgs.loadScoreHm(x)
             return res
-        }))
+        }))).filter(item => item);
+        console.log("pgsTxts", pgsTxts)
+
         dt.pgs.category = category
-        dt.pgs.ids = pgsIds
         dt.pgs.txts = pgsTxts
 
         //calculate prs    
@@ -191,7 +192,7 @@ const ui = async function (targetDiv) {
                 x: traces[x].map(x => {
                     let monthDay = x.users.meta.split(/\r?\n|\r|\n/g)[0].slice(-20, -14)
                     let year = x.users.meta.split(/\r?\n|\r|\n/g)[0].slice(-4)
-                    let xlabel = x.users.openSnp.variation +" , name: " + x.users.openSnp.name + " , Date: "  + monthDay +" "+ year
+                    let xlabel = x.users.openSnp.variation +", name: " + x.users.openSnp.name + " , Date: "  + monthDay +" "+ year
                     return xlabel
                 }),
                 mode: 'lines+markers',
