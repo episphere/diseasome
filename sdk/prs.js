@@ -136,7 +136,10 @@ PRS.calc = async function (matrix) {
             // console.log("input",input)
             // console.log("pgs:",matrix.pgs[j], "my23:",matrix.users[i])
             let label = matrix.pgs.txts[j].id + "," + matrix.users.txts[i].openSnp.id
+           console.log()
             let res = await prsTable.getItem(label)
+            // console.log("label, res:",label,res)
+
             // console.log("res", res)
             // check if prs has already been caclulated for this person and pgs entry
             if (await prsTable.getItem(label) == null) {
@@ -157,10 +160,12 @@ PRS.calc = async function (matrix) {
 
     // if prs qc fails for one user, remove the connected pgs entry
     const obj = {}
-    obj.users = matrix.users
+    obj.users = matrix.users//.openSnp
     // obj.pgs = matrix.pgs.txts.filter(x=>!badIds2.includes(x.id))
     obj.prs = arr //.filter(x=> !badIds.includes(x.pgsId))
-    console.log("arr", arr)
+    //TODO: remove user and pgs txts from prsTable, takes double the storage space.
+    // instead save only the prs info and pull from the table to consoel.log entire results
+    // console.log("arr", arr)
     return arr
 }
 // data object defined here ---

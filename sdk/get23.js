@@ -47,7 +47,7 @@ get23.allUsers = async function () {
 get23.getTxts = async function (usersData) {
     console.log("--------------------------")
     console.log("Retreiving OpenSnp users!")
-    console.log("getTxts function running, even retreiving from storage is slow.")
+    console.log("retrieving 23andme files from storage is still slow.")
     // clearTableUsingKeyLength(table,maxKeys)
     let arr = []
     let urls = (await usersData).map(x => x["genotype.download_url"])
@@ -59,10 +59,10 @@ get23.getTxts = async function (usersData) {
 
     for (let i = 0; i < urls.length; i++) {
         let parsedUser2 = await userTxts.getItem(urls[i]);
-        console.log("processing user #", i)
+        // console.log("processing user #", i)
 
         if (parsedUser2 == null) {
-            console.log("user",i," NOT found in storage")
+            console.log("processing user",i,": NOT found in storage")
             let url2 = 'https://corsproxy.io/?' + urls[i]
             const user = (await (await fetch(url2)).text())
             let parsedUser = (await get23.parseTxts(user, usersData[i]))
@@ -71,7 +71,7 @@ get23.getTxts = async function (usersData) {
             arr.push(parsedUser)
             userTxts.setItem(urls[i], parsedUser);
         } else {
-            console.log("user",i," found in storage");
+            console.log("processing user",i,": found in storage");
             arr.push(parsedUser2)
         }
     }
@@ -114,7 +114,7 @@ get23.parseTxts = async function (txt, usersData) {
 // filter users without 23andme data (type = "23andme")
 get23.usersByFileType = async function (type, users) {
     let arr = []
-    console.log("usersByFileType,users----,",users)
+    // console.log("usersByFileType,users----,",users)
     users.filter(row => row.genotypes.length > 0).map(dt => {
 
         // keep user with one or more 23andme files
@@ -146,10 +146,10 @@ get23.usersInfoOnePhenotype = async function (phenoId){
     let onePhenotypeUrl = `https://opensnp.org/phenotypes/json/variations/${phenoId}.json`
     let users = (await (await fetch(cors + onePhenotypeUrl)).json())
     let userIds = users.users.map(x => x.user_id)
-    console.log("users",users)
+    // console.log("users",users)
 //     // get user info with phenotype data (even those without genotype data)
     const users2 = allUsers.filter(({id}) => userIds.includes(id));
-    console.log("users2",users2)
+    // console.log("users2",users2)
 
 //     let cleanUsers
 //     if (userIds2.length < 6) {
@@ -217,16 +217,16 @@ get23.usersInfoOnePhenotype(50)
 
 // todo: remove pgs database
 get23.userTxtsByPhenotypeId = async function (phenoId, keysLen, maxKeys) {
-    console.log("userTxtsByPhenotypeId ------------------------------" )
+    // console.log("userTxtsByPhenotypeId ------------------------------" )
 
     let allUsers = await get23.allUsers()
-    console.log("allUsers",allUsers)
+    // console.log("allUsers",allUsers)
     const cors = `https://corsproxy.io/?`
     let onePhenotypeUrl = `https://opensnp.org/phenotypes/json/variations/${phenoId}.json`
 
     // get users with selected phenotype
     let users = await usersByPhenotype.getItem(onePhenotypeUrl)
-    console.log("users ",users )
+    // console.log("users ",users )
 
     if (users == null){
 
@@ -240,14 +240,14 @@ get23.userTxtsByPhenotypeId = async function (phenoId, keysLen, maxKeys) {
 
     // get user info
     const users2 = allUsers.filter(({id}) => usersIds.includes(id));
-    console.log("users2 ",users2 )
+    // console.log("users2 ",users2 )
 
     // add variation inof and remove "n/a"'s
     let combined = users2.map(item => ({ ...item,
         variation: (users.users.filter(f => f.user_id == item.id).map(x => x.variation)).toString(),//&& f.variation != "N/a"&& f.variation != "N/A"&& f.variation.length!= 0
         trait: users.characteristic
       })).filter(x=> x.variation !== "N/a" && x.variation !== "N/A")
-      console.log("combined ",combined,combined.map(x=>x.variation!=="N/a") )
+    //   console.log("combined ",combined,combined.map(x=>x.variation!=="N/a") )
 
 
     let cleanUsers
@@ -255,13 +255,13 @@ get23.userTxtsByPhenotypeId = async function (phenoId, keysLen, maxKeys) {
     if (combined.length < maxUsers) {
         cleanUsers =  get23.usersByFileType("23andme", combined)
     } else {
-        cleanUsers = await (get23.usersByFileType("23andme", combined.slice(9, 22)))//.slice(0,maxUsers)
+        cleanUsers = await (get23.usersByFileType("23andme", combined.slice(9, 20)))//.slice(0,maxUsers)
         //console.log("Warning: user txts for phenotypeID", phenoId, "> 7. First 6 files used.")
-        console.log("cleanUsers",cleanUsers)
+        // console.log("cleanUsers",cleanUsers)
     }
     // get 23 and me texts from urls using getTxts function
     let snpTxts = await get23.getTxts(cleanUsers, keysLen, maxKeys)
-    console.log("snpTxts",snpTxts)
+    // console.log("snpTxts",snpTxts)
 
     return snpTxts
 }
@@ -293,7 +293,7 @@ get23.getPhenotypeIdFromName = async function (characteristic) {
     const dt = await get23.getUserPhenotypes()
     // console.log("dt",dt)
     const id = dt.filter(x => x.characteristic == characteristic)[0].id
-    console.log("Phenotype name", id, "corresponds to:", characteristic)
+    console.log("PGS Catalog Phenotype id", id, "corresponds to:", characteristic)
     return id
 }
 

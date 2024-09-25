@@ -37,11 +37,16 @@ let pgsCategories = localforage.createInstance({
 getPgs.traitFiles = async function(){
     //console.log("---------------------------")
     //console.log("running getPgs.traitFiles function")
-    
-    const tf =(await storage.fetchAll("traitFilesTable",'https://www.pgscatalog.org/rest/trait/all')).flatMap(x => x)
-    return tf
+    let keys = await traitFilesTable.keys()
+    let traitFiles =  (await Promise.all(keys.flatMap(async key => {return traitFilesTable.getItem(key)}))).flatMap(x=>x)
+    if (traitFiles==null){
+        traitFiles =(await storage.fetchAll("traitFilesTable",'https://www.pgscatalog.org/rest/trait/all')).flatMap(x => x)
+        }
+    return traitFiles
+
 }
 
+const traitFiles = await getPgs.traitFiles()
 
 getPgs.idsFromCategory = async function(category) {
     console.log("---------------------------")
@@ -50,14 +55,12 @@ getPgs.idsFromCategory = async function(category) {
     let pgsIds = []
     // get trait files that match selected category from drop down
     // let traitFiles = await traitFilesTable.getItem("traitFiles")
-    let keys = await traitFilesTable.keys()
-    let traitFiles =  (await Promise.all(keys.flatMap(async key => {return traitFilesTable.getItem(key)}))).flatMap(x=>x)
-    console.log("traitFiles",traitFiles)
-    if (traitFiles == null){
-        traitFiles = await getPgs.traitFiles()
-    }
-    console.log("traitFiles",traitFiles)
-
+    // let keys = await traitFilesTable.keys()
+    // // let traitFiles =  (await Promise.all(keys.flatMap(async key => {return traitFilesTable.getItem(key)}))).flatMap(x=>x)
+    // // console.log("traitFiles",traitFiles)
+    // if (traitFiles == null){
+    //     traitFiles = await getPgs.traitFiles()
+    // }
     traitFiles.map(tfile => {
         if (category.includes(tfile["trait_categories"][0])) {
             arr.push(tfile)
@@ -77,7 +80,6 @@ const timeout = (ms) => {
 
 // get score files using pgs ids list and subset those with less than 30 variants
 getPgs.scoreFiles = async function(pgsIds) {
-
     // var scores = await scoreFilesTable.getItem("scoreFiles")
     let scores = storage.saveData(scoreFilesTable,`https://www.pgscatalog.org/rest/score/`,[pgsIds])
     return scores
@@ -86,7 +88,7 @@ getPgs.scoreFiles = async function(pgsIds) {
 
 getPgs.traits = async function(){
     const arr = []
-    Array.from(new Set((await getPgs.traitFiles()).flatMap(x => {const obj = {}; obj[x["id"]] = x["label"]; arr.push(obj)})))
+    Array.from(new Set((traitFiles).flatMap(x => {const obj = {}; obj[x["id"]] = x["label"]; arr.push(obj)})))
 //.sort().filter(e => e.length).map(JSON.stringify)), JSON.parse)
 return arr
 }
@@ -99,7 +101,7 @@ getPgs.traitsData = async function(traits) {
         storeName: "traitsData"
     })
     let dt
-    let traitFiles = getPgs.traitFiles()
+    // let traitFiles = getPgs.traitFiles()
     if ((await traitsData.getItem("traitsData")) === null) {
 
         dt = traits.map(trait => {
@@ -135,9 +137,9 @@ getPgs.traitsData = async function(traits) {
 // get pgs text file filtered by variants number
 getPgs.loadScoreHm = async function(entry, build = 37, range) {
     const scoreFiles = await getPgs.scoreFiles(entry)
-    console.log("entry, scoreFiles",entry, scoreFiles)
+    console.log("scoreFile for ",entry, scoreFiles)
     const variants_number = scoreFiles[0].variants_number
-    console.log("variants_number",variants_number)
+    console.log("Number of variants:",variants_number)
 
     let txt
     let dt
@@ -184,7 +186,7 @@ getPgs.loadScoreHm = async function(entry, build = 37, range) {
         pgsTxts.setItem(entry, txt)
 
     } else if (dt != null){
-        console.log("pgs txt file for",entry,"found in storage",dt)
+        console.log("pgs txt file for",entry,"found in storage")
         txt = dt
     }else{ 
         console.log(`pgs file too large: ${variants_number} variants`)

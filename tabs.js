@@ -1,6 +1,6 @@
 
 
-function openCity(evt, openTab, subTab) {
+function openTab(evt, openTab, subTab) {
     var i, tabcontent, tablinks;
     tabcontent = document.getElementsByClassName("tabcontent");
     for (i = 0; i < tabcontent.length; i++) {

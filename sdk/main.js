@@ -1,4 +1,5 @@
 import localforage from 'https://cdn.skypack.dev/localforage';
+import {getPgs} from "./getPgs.js"
 
 localforage.config({
     driver: [
@@ -202,6 +203,8 @@ functions.removeLocalStorageValues = async function(target, dbName) {
 
 // get pgsids for all 17 traits ------------------------------------------------
 functions.traitsData = async function(traits) {
+    const traitFiles = await getPgs.traitFiles()
+// console.log("traitFiles",traitFiles)
     let dt
     if ((await pgs.getItem("traitsData")) === null) {
 

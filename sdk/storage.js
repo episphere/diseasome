@@ -20,7 +20,11 @@ storage.fetchAll = async function(newTable,url, maxPolls = null) {
         storeName: newTable
     })
     const allResults = []
+//     let cachedData = await newTable.getItem(url);
+// console.log("newTable,cachedData",newTable,cachedData)
     const counts = (await (await (fetch(url))).json())
+    console.log("counts,",counts)
+
     if (maxPolls == null) maxPolls = Infinity
 
     // loop throught the pgs catalog API to get all files using "offset"
@@ -44,7 +48,7 @@ storage.fetchAll = async function(newTable,url, maxPolls = null) {
             break
         }
     }
-    console.log("allResults",allResults)
+    // console.log("allResults",allResults)
 
     return allResults
 }

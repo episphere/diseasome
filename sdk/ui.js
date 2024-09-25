@@ -24,11 +24,17 @@ let userPhenotypes = localforage.createInstance({
     storeName: "userPhenotypes"
 })
 
-const traits  = await getPgs.traits()
-console.log("traits",traits)
+// document.getElementById("prsButton").addEventListener("click", async function (e) {
+//     console.log("loading ui.js")
+// })
+const traits = await getPgs.traits()
+// console.log("traits",traits)
 // SELECT PGS CATEGORY
 const ui = async function (targetDiv) {
+
     targetDiv = document.getElementById(targetDiv)
+
+
 
     let pgsDiv = document.createElement('div')
     targetDiv.appendChild(pgsDiv)
@@ -118,7 +124,7 @@ const ui = async function (targetDiv) {
         plotDiv.id = "plotDiv"
         plotDiv.innerHTML = "Loading..."
 
-        UserDiv.appendChild(plotDiv);  
+        UserDiv.appendChild(plotDiv);
         // DROPDOWN 23andme users ///////////////////////////////////////////////////////////
 
         const phenotypeLabel = document.getElementById("userSelect").value //e.target.value
@@ -149,29 +155,38 @@ const ui = async function (targetDiv) {
 
         //calculate prs    
         let prsDt = await PRS.calc(dt)
-        dt.prs=prsDt
+        dt.prs = prsDt
         console.log("results: ", prsDt)
         console.log("dt: ", dt)
 
-      // plot-------------------------------------------------
-      
+        // plot-------------------------------------------------
+
         var layout = {
             showlegend: true,
             autosize: false,
             height: 900,
             width: 800,
             title: `PRS scores`,
-            yaxis: {  title: { text: "PRS" },  },
-            xaxis: {  title: { text: "Users"}, },
-            margin: {  b: 440 }
+            yaxis: {
+                title: {
+                    text: "PRS"
+                },
+            },
+            xaxis: {
+                title: {
+                    text: "Users"
+                },
+            },
+            margin: {
+                b: 440
+            }
         }
 
         // reverse look up the PRS matrix to fill the traces
         let traces = {}
 
         dt.pgs.txts.map((x, i) => {
-
-            console.log("i",i)
+            // console.log("i",i)
             let idx = i
 
             let arr = []
@@ -180,19 +195,18 @@ const ui = async function (targetDiv) {
             dt.users.txts.map(y => {
                 arr.push(dt.prs[idx])
                 idx += dt.pgs.txts.length
-                console.log("idx",idx)
-
+                // console.log("idx",idx)
             })
             traces[dt.pgs.txts[i].id] = arr
         })
-        console.log("traces",traces)
+        // console.log("traces", traces)
         let plotData = Object.keys(traces).map((x, i) => {
             let obj = {
                 y: traces[x].map(x => x.PRS),
                 x: traces[x].map(x => {
                     let monthDay = x.users.meta.split(/\r?\n|\r|\n/g)[0].slice(-20, -14)
                     let year = x.users.meta.split(/\r?\n|\r|\n/g)[0].slice(-4)
-                    let xlabel = x.users.openSnp.variation +", name: " + x.users.openSnp.name + " , Date: "  + monthDay +" "+ year
+                    let xlabel = x.users.openSnp.variation + ", name: " + x.users.openSnp.name + " , Date: " + monthDay + " " + year
                     return xlabel
                 }),
                 mode: 'lines+markers',
@@ -202,9 +216,9 @@ const ui = async function (targetDiv) {
             }
             return obj
         })
-        plotDiv.innerHTML=''
+        plotDiv.innerHTML = ''
         plotly.newPlot(plotDiv, plotData, layout);
-    // })
+        // })
     });
 
     // document.getElementById("prsButton").addEventListener("click", async (e) => {

@@ -17,7 +17,7 @@ let traitFilesTable = localforage.createInstance({
     storeName: "traitFilesTable"
 })
 
-
+const traitFiles = getPgs.traitFiles()
 let singleUserAllPhenotypesTable = localforage.createInstance({name: "openSnpDb2",storeName: "singleUserAllPhenotypesTable"})
 let phenotypesTable = localforage.createInstance({name: "openSnpDb",storeName: "phenotypesTable"})
 let phenotypeUsersTable = localforage.createInstance({name: "openSnpDb",storeName: "phenotypesTable"})
@@ -277,15 +277,7 @@ snpPhenoDiv.on('plotly_click', async function (data) {
 })
 
 // PGS ////////////////////////////////////////////////////////////////////////////////////////////////////
-let traitFiles 
-if (await traitFilesTable.getItem("traitFiles")==null){
-    // console.log(traitFilesTable.getItem("traitFiles"))
-    traitFiles = (await functions.fetchAll2('https://www.pgscatalog.org/rest/trait/all')).flatMap(x => x)   
-    // console.log("plot.js traitFiles",traitFiles)
-}else{
-        traitFiles = await traitFilesTable.getItem("traitFiles")
-        console.log("plot.js traitFiles",traitFiles)
-    }
+
 
 const traits = Array.from(new Set((await traitFiles).flatMap(x => x["trait_categories"]).filter(e => e.length).map(JSON.stringify)), JSON.parse).sort()
 // traits.map(x => functions.getAllPgsIdsByCategory(x))
