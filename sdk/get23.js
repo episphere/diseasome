@@ -215,7 +215,7 @@ get23.usersInfoOnePhenotype = async function (phenoId){
    
 get23.usersInfoOnePhenotype(50)
 
-
+// todo: remove pgs database
 get23.userTxtsByPhenotypeId = async function (phenoId, keysLen, maxKeys) {
     console.log("userTxtsByPhenotypeId ------------------------------" )
 
@@ -242,11 +242,12 @@ get23.userTxtsByPhenotypeId = async function (phenoId, keysLen, maxKeys) {
     const users2 = allUsers.filter(({id}) => usersIds.includes(id));
     console.log("users2 ",users2 )
 
+    // add variation inof and remove "n/a"'s
     let combined = users2.map(item => ({ ...item,
-        variation: (users.users.filter(f => f.user_id == item.id).map(x => x.variation)).toString(),
+        variation: (users.users.filter(f => f.user_id == item.id).map(x => x.variation)).toString(),//&& f.variation != "N/a"&& f.variation != "N/A"&& f.variation.length!= 0
         trait: users.characteristic
-      }));
-      console.log("combined ",combined )
+      })).filter(x=> x.variation !== "N/a" && x.variation !== "N/A")
+      console.log("combined ",combined,combined.map(x=>x.variation!=="N/a") )
 
 
     let cleanUsers
@@ -254,7 +255,7 @@ get23.userTxtsByPhenotypeId = async function (phenoId, keysLen, maxKeys) {
     if (combined.length < maxUsers) {
         cleanUsers =  get23.usersByFileType("23andme", combined)
     } else {
-        cleanUsers = await (get23.usersByFileType("23andme", combined.slice(7, 19)))//.slice(0,maxUsers)
+        cleanUsers = await (get23.usersByFileType("23andme", combined.slice(9, 22)))//.slice(0,maxUsers)
         //console.log("Warning: user txts for phenotypeID", phenoId, "> 7. First 6 files used.")
         console.log("cleanUsers",cleanUsers)
     }

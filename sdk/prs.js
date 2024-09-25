@@ -76,12 +76,17 @@ PRS.Match2 = function (data) {
             if (L) {
                 L = L.length
                 calcRiskScore[i] = L * pi[ind_effect_weight]
+                // console.log("calcRiskScore[i]",calcRiskScore[i])
+
                 alleles[i] = L
             }
         }
     })
     data2.alleles = alleles
     data2.calcRiskScore = calcRiskScore
+    // console.log("(calcRiskScore.reduce((a, b) => a + b)",calcRiskScore.reduce((a, b) => a + b))
+    // console.log("Math.exp(calcRiskScore.reduce((a, b) => a + b))",Math.exp(calcRiskScore.reduce((a, b) => a + b)))
+
     let weight_idx = data.pgs.cols.indexOf('effect_weight')
     let weights = data.pgs.dt.map(row => row[weight_idx])
     // warning: no matches found!
@@ -120,7 +125,7 @@ PRS.calc = async function (matrix) {
     for (let i = 0; i < matrix.users.txts.length; i++) {
         console.log("---------------------------")
         console.log("processing user #...", i)
-        console.log("matrix", matrix)
+        // console.log("matrix", matrix)
 
         for (let j = 0; j < matrix.pgs.txts.length; j++) {
 

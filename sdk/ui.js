@@ -135,7 +135,7 @@ const ui = async function (targetDiv) {
         const category = document.getElementById("pgsSelect").value
         console.log("PGS category selected: ", e.target.value)
         // TODO slice the pgs entries that are <500
-        let pgsIds = (await (getPgs.idsFromCategory(category))).sort().slice(5, 12)
+        let pgsIds = (await (getPgs.idsFromCategory(category))).sort().slice(1, 9)
 
         console.log("pgsIds", pgsIds)
         let pgsTxts = (await Promise.all(pgsIds.map(async x => {
