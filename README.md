@@ -36,7 +36,7 @@ Toolkit functionalities
 
 ```js
 // ESM direct import (browser)
-const sdk = await import("https://lorenasandoval88.github.io/polygenic_risk_scores/dist/sdk.mjs");
+const sdk = await import("https://episphere.github.io/polygenic_risk_scores/dist/sdk.mjs");
 // or via npm: import { fetchAllScores, fetchTraits, getTxts } from "polygenic_risk_scores";
 ```
 
@@ -44,7 +44,7 @@ const sdk = await import("https://lorenasandoval88.github.io/polygenic_risk_scor
 
 ```js
 // ESM direct import (Node/Cloud Run)
-const sdk = await import("https://lorenasandoval88.github.io/polygenic_risk_scores/dist/cloud_sdk.mjs");
+const sdk = await import("https://episphere.github.io/polygenic_risk_scores/dist/cloud_sdk.mjs");
 // or via npm: import { fetchAllScores, ... } from "polygenic_risk_scores/cloud_sdk.mjs";
 ```
 
