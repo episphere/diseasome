@@ -54,19 +54,25 @@ const sdk = await import("https://episphere.github.io/polygenic_risk_scores/dist
 
 ```
 polygenic_risk_scores/
-â”œâ”€â”€ src/
-â”‚   â”œâ”€â”€ app/           # Browser app entry and UI wiring
-â”‚   â”œâ”€â”€ sdk/           # Reusable SDK modules (PGP, PGS, PRS)
-â”‚   â””â”€â”€ css/           # App styles
-â”œâ”€â”€ data/              # Local 23andMe-compatible genome files
-â”œâ”€â”€ dist/              # Rollup build outputs
-â”‚   â”œâ”€â”€ sdk.mjs        # Browser SDK
-â”‚   â””â”€â”€ cloud_sdk.mjs  # Node-safe SDK
-â”œâ”€â”€ sdk.js             # Public SDK entrypoint
-â”œâ”€â”€ index.html         # Web interface
-â”œâ”€â”€ rollup.config.js   # Build configuration
-â”œâ”€â”€ package.json       # Project dependencies and scripts
-â””â”€â”€ README.md          # Documentation
+diseasome/
+├── src/
+│   ├── app/           # Browser app entry and UI wiring (one module per tab)
+│   ├── sdk/           # Reusable SDK modules (PGP, PGS, PRS, clustering)
+│   ├── cloud/         # Cloud Run service (Dockerfile + Express entry)
+│   └── css/           # App styles
+├── data/              # Local 23andMe-compatible genome and PGS files
+├── colab_notebooks/   # Supporting analysis notebooks
+├── dist/              # Rollup build outputs
+│   ├── sdk.mjs        # Browser SDK
+│   ├── cloud_sdk.mjs  # Node-safe SDK
+│   ├── app.mjs        # Bundled web app
+│   └── chunks/        # Lazy-loaded app chunks
+├── sdk.js             # Public SDK entrypoint
+├── dependencies.js    # Shared third-party imports
+├── index.html         # Web interface
+├── rollup.config.js   # Build configuration
+├── package.json       # Project dependencies and scripts
+└── README.md          # Documentation
 ```
 
 | Directory/File       | Purpose                                                  |
