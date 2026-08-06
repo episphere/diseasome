@@ -1,8 +1,7 @@
-﻿
-# Diseasome SDK
+﻿# Diseasome SDK
 
 We present the Diseasome SDK, a JavaScript library and web application for computing polygenic risk scores from consumer genotype data (23andMe) and PGS Catalog score models. The SDK operates in both browser and Node.js environments, supporting programmatic use by developers and interactive exploration by end users.
-live at: https://lorenasandoval88.github.io/diseasome/
+live at: https://episphere.github.io/diseasome/
 
 
 
