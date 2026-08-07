@@ -710,6 +710,8 @@ function makeTableSortable(table) {
 		if (!th.dataset.label) th.dataset.label = th.textContent.trim();
 		th.style.cursor = "pointer";
 		th.style.userSelect = "none";
+		// Neutral sort indicator to match the other tabs' tables.
+		th.textContent = th.dataset.label + " ⇅";
 		th.addEventListener("click", () => {
 			state.dir = state.idx === i ? -state.dir : 1;
 			state.idx = i;
@@ -723,7 +725,7 @@ function makeTableSortable(table) {
 				return c * state.dir;
 			});
 			rows.forEach((r) => tbody.appendChild(r));
-			ths.forEach((h) => { h.textContent = h.dataset.label; });
+			ths.forEach((h) => { h.textContent = h.dataset.label + " ⇅"; });
 			th.textContent = th.dataset.label + (state.dir === 1 ? " ▲" : " ▼");
 		});
 	});
