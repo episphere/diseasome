@@ -661,3 +661,12 @@ input[type=submit] {
 #pgsSelectTabsContent {
   background-color: #f1f3f5 !important;
 }
+/* Calculate PRS tab: three steps with distinct tinted backgrounds */
+.prs-section {
+  padding: 1rem 1.25rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+}
+.prs-section-gray  { background-color: #f1f3f5; }
+.prs-section-blue  { background-color: #e7f1ff; }
+.prs-section-green { background-color: #e6f4ea; }

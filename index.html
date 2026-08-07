@@ -317,6 +317,7 @@
                     </h3>
                     <hr class="my-3" />
 
+                    <div class="prs-section prs-section-gray">
                     <h5 class="prs-step-header d-inline">1.) Select Risk Models</h5>
                     <button class="btn btn-outline-secondary btn-sm ms-2" style="font-size: 0.7rem; padding: 2px 6px;"
                         onclick="clearPGSCache().then(n => alert('Cleared ' + n + ' PGS cache item(s)')).catch(e => alert('Error: ' + e.message))">Clear
@@ -327,8 +328,9 @@
                     <button id="loadExampleScoresBtn" class="btn btn-primary btn-sm mt-2">Load Example
                         Scores</button>
                     <div id="prsScoresAction"></div>
-                    <hr class="my-3" />
+                    </div>
 
+                    <div class="prs-section prs-section-blue">
                     <h5 class="prs-step-header d-inline">2.) Select Genomic Data</h5>
                     <button class="btn btn-outline-secondary btn-sm ms-2" style="font-size: 0.7rem; padding: 2px 6px;"
                         onclick="clearGenomeCache().then(n => alert('Cleared ' + n + ' genome cache item(s)')).catch(e => alert('Error: ' + e.message))">Clear
@@ -339,8 +341,9 @@
                     <button id="loadExampleUsersBtn" class="btn btn-primary btn-sm mt-2">Load Example
                         Users</button>
                     <div id="prsUsersAction"></div>
-                    <hr class="my-3" />
+                    </div>
 
+                    <div class="prs-section prs-section-green">
                     <!-- Calculate PRS Section -->
                     <h5 class="prs-step-header d-inline">3.) Calculate Polygenic Risk Scores</h5>
                     <button class="btn btn-outline-secondary btn-sm ms-2" style="font-size: 0.7rem; padding: 2px 6px;"
@@ -355,6 +358,7 @@
                     <!-- heatmap -->
                     <div id='container-id-1'>
                         <!-- <h1 class='wait_message'>Please wait ...</h1> -->
+                    </div>
                     </div>
 
                 </div>
