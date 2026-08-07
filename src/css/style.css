@@ -656,8 +656,8 @@ input[type=submit] {
 #pgsSelectTabs .nav-link:hover {
   text-decoration: underline;
 }
-/* Light-blue backdrop for the tab content panels */
+/* Light-gray backdrop for the tab content panels */
 #genomicLoadTabsContent,
 #pgsSelectTabsContent {
-  background-color: #d6e9f8 !important;
+  background-color: #f1f3f5 !important;
 }
