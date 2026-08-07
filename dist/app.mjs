@@ -30,14 +30,14 @@ let localDataModuleLoaded = false;
 // the tab functionality.
 async function ensurePgsModuleLoaded() {
     if (!pgsModuleLoaded) {
-        await import('./chunks/displayScores-BJhWlSGZ.mjs');
+        await import('./chunks/displayScores-XmjLxZJo.mjs');
         pgsModuleLoaded = true;
     }
 }
 
 async function ensureLocalDataModuleLoaded() {
     if (!localDataModuleLoaded) {
-        await import('./chunks/displayUsers-DhrEpX6R.mjs');
+        await import('./chunks/displayUsers-WTPW8V0Y.mjs');
         localDataModuleLoaded = true;
     }
 }
@@ -3795,6 +3795,42 @@ function truncCell(value) {
 	return `<span title="${escapeHtml(text)}">${escapeHtml(text.slice(0, MAX_CELL_CHARS))}…</span>`;
 }
 
+/*** Make an already-rendered table sortable by clicking any column header.
+ * Sorts the tbody rows in place based on each cell's text: numeric when both
+ * values parse as numbers, otherwise natural (locale, numeric-aware) string order.
+ * Clicking the same header toggles ascending/descending.
+ * @param {HTMLTableElement|null} table - The table element to enhance.
+ */
+function makeTableSortable(table) {
+	const thead = table?.tHead;
+	const tbody = table?.tBodies?.[0];
+	const headRow = thead?.rows?.[0];
+	if (!headRow || !tbody) return;
+	const ths = Array.from(headRow.cells);
+	const state = { idx: -1, dir: 1 };
+	ths.forEach((th, i) => {
+		if (!th.dataset.label) th.dataset.label = th.textContent.trim();
+		th.style.cursor = "pointer";
+		th.style.userSelect = "none";
+		th.addEventListener("click", () => {
+			state.dir = state.idx === i ? -state.dir : 1;
+			state.idx = i;
+			const val = (row) => (row.cells[i]?.textContent ?? "").trim();
+			const rows = Array.from(tbody.rows);
+			rows.sort((ra, rb) => {
+				const av = val(ra), bv = val(rb);
+				const an = Number(av.replace(/,/g, "")), bn = Number(bv.replace(/,/g, ""));
+				const numeric = av !== "" && bv !== "" && !Number.isNaN(an) && !Number.isNaN(bn);
+				const c = numeric ? (an - bn) : av.localeCompare(bv, undefined, { numeric: true, sensitivity: "base" });
+				return c * state.dir;
+			});
+			rows.forEach((r) => tbody.appendChild(r));
+			ths.forEach((h) => { h.textContent = h.dataset.label; });
+			th.textContent = th.dataset.label + (state.dir === 1 ? " ▲" : " ▼");
+		});
+	});
+}
+
 /** Collect the values of all checked checkboxes matching a selector into a Set. */
 function getCheckedIds(selector) {
 	return new Set(Array.from(document.querySelectorAll(selector + ":checked")).map(cb => cb.value));
@@ -4755,6 +4791,8 @@ async function calculatePRS() {
 						<summary>Raw JSON</summary>
 						<pre class="small">${JSON.stringify(prsResults, null, 2)}</pre>
 					</details>`;
+				// Enable click-to-sort on every column of the risk scores results table.
+				makeTableSortable(resultsDiv.querySelector("table"));
 			} else {
 				resultsDiv.innerHTML = `<p class="text-muted">PRS calculation completed. Check console for details.</p>`;
 			}
