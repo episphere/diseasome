@@ -640,3 +640,24 @@ input[type=submit] {
   border: 2px solid white;
   box-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
+
+/* ===== Load-option tabs (Tab 1 Genomic Data & Tab 2 PGS Catalog) ===== */
+/* More breathing room between Upload / Browse / Examples / Load by ID tabs */
+#genomicLoadTabs .nav-item,
+#pgsSelectTabs .nav-item {
+  margin-right: 1.25rem;
+}
+#genomicLoadTabs .nav-item:last-child,
+#pgsSelectTabs .nav-item:last-child {
+  margin-right: 0;
+}
+/* Underline the tab label on hover */
+#genomicLoadTabs .nav-link:hover,
+#pgsSelectTabs .nav-link:hover {
+  text-decoration: underline;
+}
+/* Light-blue backdrop for the tab content panels */
+#genomicLoadTabsContent,
+#pgsSelectTabsContent {
+  background-color: #d6e9f8 !important;
+}
