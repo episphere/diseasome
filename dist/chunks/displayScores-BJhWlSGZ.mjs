@@ -1,6 +1,8 @@
-import { fetchAllScores, fetchSomeScores, getScoresPerTrait, getScoresPerCategory, fetchTraits, getPgsTxt } from "../sdk/pgsSdk.js";
-import { get23Txt } from "../sdk/pgpSdk.js";
-import localforage from "localforage";
+import { fetchTraits, fetchAllScores, getScoresPerTrait, getScoresPerCategory, getPgsTxt, fetchSomeScores } from 'https://lorenasandoval88.github.io/pgs_catalog_sdk/dist/sdk.mjs';
+import { get23Txt } from 'https://lorenasandoval88.github.io/personal_genomes_project_sdk/dist/sdk.mjs';
+import { l as localforage } from '../app.mjs';
+import 'https://lorenasandoval88.github.io/clustjs/dist/sdk.mjs';
+import 'https://esm.run/@mlc-ai/web-llm';
 
 // Persistent reference to the PGS selection status bar so it can be relocated
 // below the search box on every re-render (innerHTML resets would detach it).
@@ -410,10 +412,10 @@ function getSelectionScores() {
 /** Render the score table for the current category/trait/variant selection. */
 function renderPgsFromSelection() {
 	const scores = getSelectionScores();
-	const catLabel = selectedCategories.size
+	selectedCategories.size
 		? `${selectedCategories.size} categor${selectedCategories.size === 1 ? "y" : "ies"}`
 		: "All categories";
-	const traitLabel = selectedTraits.size ? ` · ${selectedTraits.size} trait(s)` : "";
+	selectedTraits.size ? ` · ${selectedTraits.size} trait(s)` : "";
 	const title = `PGS Catalog Scoring Files - ${scores.length} of ${totalAvailableScores}`;
 	const key = sanitizeKey(`sel_${Array.from(selectedCategories).join("_")}_${Array.from(selectedTraits).join("_")}`) || "sel";
 	renderPgsTable(scores, "scoresDiv", title, key);
@@ -548,7 +550,6 @@ function renderPgsTable(scores, targetId, title, key) {
 
 	let currentPage = 1;
 	let searchQuery = "";
-	let sortState = { key: null, dir: "asc" }; // key: id|name|trait|variants|date
 	const selectedIds = selectedPgsIds; // Use module-level set
 
 	// Filter scores by the free-text search box (matches PGS ID, name, or trait)
@@ -565,32 +566,10 @@ function renderPgsTable(scores, targetId, title, key) {
 
 	const renderPage = () => {
 		const filtered = getFilteredScores();
-		// Sort a copy of the filtered list based on the current sortState.
-		const sortGetters = {
-			id: (s) => String(s?.id ?? "").toLowerCase(),
-			name: (s) => String(s?.name ?? "").toLowerCase(),
-			trait: (s) => String(s?.trait_reported ?? "").toLowerCase(),
-			variants: (s) => {
-				const n = Number(s?.variants_number);
-				return Number.isFinite(n) ? n : -Infinity;
-			},
-			date: (s) => String(s?.date_release ?? ""),
-		};
-		const cmp = (av, bv) => (typeof av === "number" && typeof bv === "number")
-			? (av === bv ? 0 : (av < bv ? -1 : 1))
-			: String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: "base" });
-		let sorted = filtered;
-		if (sortState.key && sortGetters[sortState.key]) {
-			const get = sortGetters[sortState.key];
-			const mult = sortState.dir === "asc" ? 1 : -1;
-			sorted = [...filtered].sort((a, b) => cmp(get(a), get(b)) * mult);
-		}
-		const sortArrow = (k) => (sortState.key === k ? (sortState.dir === "asc" ? " ▲" : " ▼") : " ⇅");
-		const sortAttrs = (k) => `class="sortable" data-sort="${k}" style="cursor:pointer;user-select:none;"`;
-		const totalPages = Math.max(1, Math.ceil(sorted.length / ROWS_PER_PAGE));
+		const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
 		currentPage = Math.min(Math.max(1, currentPage), totalPages);
 		const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
-		const pageScores = sorted.slice(startIndex, startIndex + ROWS_PER_PAGE);
+		const pageScores = filtered.slice(startIndex, startIndex + ROWS_PER_PAGE);
 
 		const rowsHtml = pageScores
 			.map((score, index) => {
@@ -625,6 +604,11 @@ function renderPgsTable(scores, targetId, title, key) {
 		scoresDiv.innerHTML = `
 			<div class="d-flex justify-content-between align-items-center my-2 flex-wrap gap-2">
 				<h5 class="mb-0">${escapeHtml(title)}</h5>
+				<div class="d-flex align-items-center gap-2 flex-wrap">
+					<label class="form-check-label me-2" for="selectAllPgs_${key}">Select all</label>
+					<input class="form-check-input" id="selectAllPgs_${key}" type="checkbox" ${filtered.length > 0 && selectedIds.size === filtered.length ? "checked" : ""} />
+					<button id="deselectAllPgs_${key}" class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;">Deselect all</button>
+				</div>
 			</div>
 			<div class="mb-2">
 				<input id="pgsSearch_${key}" type="search" class="form-control form-control-sm" style="max-width: 420px;" placeholder="Search by PGS ID, name, or trait…" value="${escapeHtml(searchQuery)}" />
@@ -632,9 +616,6 @@ function renderPgsTable(scores, targetId, title, key) {
 			<div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-2">
 				<div id="pgsStickyBarSlot_${key}" class="flex-grow-1"></div>
 				<div class="d-flex align-items-center gap-2 flex-wrap">
-					<label class="form-check-label me-2" for="selectAllPgs_${key}">Select all</label>
-					<input class="form-check-input" id="selectAllPgs_${key}" type="checkbox" ${filtered.length > 0 && selectedIds.size === filtered.length ? "checked" : ""} />
-					<button id="deselectAllPgs_${key}" class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;">Deselect all</button>
 					<button id="downloadJsonBtn_${key}" class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" title="Download the currently filtered list as JSON">Download JSON</button>
 					<button id="downloadCsvBtn_${key}" class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" title="Download the currently filtered list as CSV">Download CSV</button>
 				</div>
@@ -645,11 +626,11 @@ function renderPgsTable(scores, targetId, title, key) {
 						<tr>
 							<th>#</th>
 							<th>Select</th>
-							<th ${sortAttrs('id')}>PGS ID${sortArrow('id')}</th>
-							<th ${sortAttrs('name')}>Name${sortArrow('name')}</th>
-							<th ${sortAttrs('trait')}>Trait${sortArrow('trait')}</th>
-							<th ${sortAttrs('variants')}>Variants #${sortArrow('variants')}</th>
-							<th ${sortAttrs('date')}>Date${sortArrow('date')}</th>
+							<th>PGS ID</th>
+							<th>Name</th>
+							<th>Trait</th>
+							<th>Variants #</th>
+							<th>Date</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -713,21 +694,6 @@ function renderPgsTable(scores, targetId, title, key) {
 				if (again) { again.focus(); const v = again.value; again.value = ""; again.value = v; }
 			});
 		}
-
-		// Sortable column headers
-		scoresDiv.querySelectorAll("th.sortable").forEach((th) => {
-			th.addEventListener("click", () => {
-				const k = th.dataset.sort;
-				if (sortState.key === k) {
-					sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
-				} else {
-					sortState.key = k;
-					sortState.dir = "asc";
-				}
-				currentPage = 1;
-				renderPage();
-			});
-		});
 
 		if (deselectAllBtn) {
 			deselectAllBtn.addEventListener("click", () => {
@@ -877,7 +843,7 @@ function renderScores(value, type = "Trait") {
 		: `${type}: ${value} (${scores.length} scoring files)`;
 
 	renderPgsTable(scores, "scoresDiv", title, key);
-	renderActiveFilterChips(value, type);
+	renderActiveFilterChips();
 }
 
 /**
@@ -986,54 +952,6 @@ window.onPgsTraitChange = function onPgsTraitChange(selectedTrait) {
 	const title = `${match.id} - ${match.name ?? match.trait_reported ?? "PGS"}`;
 	renderPgsTable([match], "scoresDiv", title, sanitizeKey(pgsId));
 };
-
-
-// --- Helpers for dropdown management ---
-
-/** Default onchange handler for trait selection. */
-function setDefaultTraitOnChange(select) {
-	select.onchange = (e) => {
-		try { window.onPgsTraitChange(e.target.value); } catch (err) { console.error('onPgsTraitChange error', err); }
-	};
-}
-
-/** Build options HTML from a Map of name → scores[]. */
-function buildOptionsHtml(map, keys, allLabel, filteredCount) {
-	const allOption = `<option value="${ALL_VALUE}"> ${filteredCount} scoring files for all ${map.size} ${allLabel}</option>`;
-	const itemOptions = keys
-		.map((key) => {
-			const filtered = (map.get(key) ?? []).filter(passesVariantFilter);
-			return `<option value="${escapeHtml(key)}">${escapeHtml(key)} (${filtered.length})</option>`;
-		})
-		.join("");
-	return allOption + itemOptions;
-}
-
-/** Populate dropdown with traits and wire default handler. */
-function populateTraitDropdown(select) {
-	select.innerHTML = buildOptionsHtml(traitScoresMap, traits, "traits", getFilteredTraitScores().length);
-	select.value = ALL_VALUE;
-	renderScores(ALL_VALUE, "Trait");
-	setDefaultTraitOnChange(select);
-}
-
-/** Populate dropdown with categories and wire category handler. */
-function populateCategoryDropdown(select) {
-	select.innerHTML = buildOptionsHtml(categoryScoresMap, categories, "categories", getFilteredCategoryScores().length);
-	select.value = ALL_VALUE;
-	renderScores(ALL_VALUE, "Category");
-
-	select.onchange = (e) => {
-		const val = e.target.value;
-		if (!val) return;
-		if (val === ALL_VALUE) {
-			setDefaultTraitOnChange(select);
-			renderScores(ALL_VALUE, "Category");
-			return;
-		}
-		renderScores(val, "Category");
-	};
-}
 
 // --- Initialize category + trait filters ---
 
@@ -1691,3 +1609,4 @@ window.sdk = Object.assign(window.sdk ?? {}, {
 	fetchScoresTxts,
 	updatePrsScoresDisplay,
 });
+//# sourceMappingURL=displayScores-BJhWlSGZ.mjs.map

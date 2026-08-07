@@ -1,5 +1,9 @@
-import { get23Txt, parse23Txt, allUsersMetaDataByType_fast } from "../sdk/pgpSdk.js";
-import localforage from "localforage";
+import { allUsersMetaDataByType_fast, parse23Txt, get23Txt } from 'https://lorenasandoval88.github.io/personal_genomes_project_sdk/dist/sdk.mjs';
+import { l as localforage } from '../app.mjs';
+import 'https://lorenasandoval88.github.io/pgs_catalog_sdk/dist/sdk.mjs';
+import 'https://lorenasandoval88.github.io/clustjs/dist/sdk.mjs';
+import 'https://esm.run/@mlc-ai/web-llm';
+
 // console.log("displayUsers.js loaded")
 
 // Persistent reference to the selection status bar so it can be relocated below
@@ -497,7 +501,7 @@ function escapeHtml(value) {
  * @returns {string}
  */
 function sanitizeKey(value) {
-	return String(value ?? "")
+	return String(value)
 		.toLowerCase()
 		.replaceAll(/[^a-z0-9]+/g, "_")
 		.replaceAll(/^_+|_+$/g, "");
@@ -1043,6 +1047,8 @@ window.onParticipantsSizeChange = function onParticipantsSizeChange() {
  */
 window.onParticipantsModeChange = async function onParticipantsModeChange(mode) {
 	participantLoadMode = mode === 'json' ? 'json' : 'all';
+	// Reset sort state when leaving JSON mode
+	if (participantLoadMode !== 'json') sortState = { key: null, dir: 'asc' };
 	if (mode === 'json') {
 		if (!curatedJsonParticipants) {
 			showParticipantsLoadingOverlay(true, 20, 'Loading curated JSON list...');
@@ -1360,28 +1366,8 @@ function renderParticipantsTable(list, targetId, title, key) {
 	const expanded = new Set(); // participant ids whose file child-rows are shown
 
 	const renderPage = () => {
-		// Value getters for each sortable column. Numeric getters return numbers
-		// (missing values sort last as -Infinity); text getters return lowercased strings.
-		const primaryFile = (p) => (Array.isArray(p.files) && p.files.length ? p.files[0] : p);
+		// Sort a copy of the list based on the current sortState
 		const sortGetters = {
-			id: (p) => String(participantIdOf(p)).toLowerCase(),
-			name: (p) => {
-				const genoFilename = p.fileName ?? p.finalUrl ?? primaryFile(p)?.finalUrl ?? primaryFile(p)?.downloadUrl
-					?? p.genotypes?.[0]?.filename ?? p.downloadUrl ?? p.download_url;
-				return String(nameFromFilename(genoFilename) || p.name || '').toLowerCase();
-			},
-			age: (p) => {
-				const n = Number(p.age);
-				return Number.isFinite(n) ? n : -Infinity;
-			},
-			gender: (p) => String(p.gender ?? '').toLowerCase(),
-			race: (p) => String((Array.isArray(p.raceCategories) && p.raceCategories.length) ? p.raceCategories.join(', ') : (p.race || '')).toLowerCase(),
-			ethnicity: (p) => String((Array.isArray(p.ethnicityCategories) && p.ethnicityCategories.length) ? p.ethnicityCategories.join(', ') : (p.ethnicity || '')).toLowerCase(),
-			conditions: (p) => (Array.isArray(p.conditions) ? p.conditions.join(', ') : '').toLowerCase(),
-			valid: (p) => {
-				const v = primaryFile(p)?.valid23File ?? p.valid23File;
-				return v === true ? 1 : (v === false ? 0 : -1);
-			},
 			version: (p) => {
 				const v = extractVersion(p);
 				if (!v) return -Infinity;
@@ -1396,22 +1382,16 @@ function renderParticipantsTable(list, targetId, title, key) {
 				const n = Number(p.genomeBuildFiles?.[0]?.sizeMB ?? p.sizeMB);
 				return Number.isFinite(n) ? n : -Infinity;
 			},
-			filename: (p) => {
-				const src = primaryFile(p);
-				const gcsfilename = src.genomeBuildFiles?.[0]?.gcsfilename ?? src.gcsfilename ?? null;
-				return String(gcsfilename ?? src.innerFilename ?? src.filename ?? src.fileName ?? src.genotypes?.[0]?.filename ?? '').toLowerCase();
-			},
-			published: (p) => String(getPublishedDate(primaryFile(p)) ?? '').toLowerCase(),
 		};
-		// Compare two values: numeric when both are numbers, otherwise natural string order.
-		const cmp = (av, bv) => (typeof av === 'number' && typeof bv === 'number')
-			? (av === bv ? 0 : (av < bv ? -1 : 1))
-			: String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' });
 		let displayList = list;
-		if (sortState.key && sortGetters[sortState.key]) {
+		if (participantLoadMode === 'json' && sortState.key && sortGetters[sortState.key]) {
 			const get = sortGetters[sortState.key];
 			const mult = sortState.dir === 'asc' ? 1 : -1;
-			displayList = [...list].sort((a, b) => cmp(get(a), get(b)) * mult);
+			displayList = [...list].sort((a, b) => {
+				const av = get(a), bv = get(b);
+				if (av === bv) return 0;
+				return (av < bv ? -1 : 1) * mult;
+			});
 		}
 		// Apply free-text search (participant ID, name, age, race, ethnicity, or condition)
 		const q = searchQuery.trim().toLowerCase();
@@ -1427,11 +1407,11 @@ function renderParticipantsTable(list, targetId, title, key) {
 				return id.includes(q) || nm.includes(q) || age.includes(q) || race.includes(q) || ethnicity.includes(q) || conditions.includes(q);
 			});
 		}
-		const sortable = true;
-		const sortArrow = (k) => (sortState.key === k ? (sortState.dir === 'asc' ? ' ▲' : ' ▼') : ' ⇅');
-		const sortAttrs = (k) => `class="sortable" data-sort="${k}" style="cursor:pointer;user-select:none;"`;
-		// Right-aligned variant for numeric sortable columns (Age, Build, Size)
-		const sortAttrsEnd = (k) => `class="sortable text-end" data-sort="${k}" style="cursor:pointer;user-select:none;"`;
+		const sortable = participantLoadMode === 'json';
+		const sortArrow = (k) => !sortable ? '' : (sortState.key === k ? (sortState.dir === 'asc' ? ' ▲' : ' ▼') : ' ⇅');
+		const sortAttrs = (k) => sortable ? `class="sortable" data-sort="${k}" style="cursor:pointer;user-select:none;"` : '';
+		// Right-aligned variant for numeric sortable columns (Build, Size)
+		const sortAttrsEnd = (k) => sortable ? `class="sortable text-end" data-sort="${k}" style="cursor:pointer;user-select:none;"` : 'class="text-end"';
 
 		const totalPages = Math.max(1, Math.ceil(displayList.length / ROWS_PER_PAGE));
 		currentPage = Math.min(Math.max(1, currentPage), totalPages);
@@ -1623,6 +1603,11 @@ function renderParticipantsTable(list, targetId, title, key) {
 		container.innerHTML = `
 			<div class="d-flex justify-content-between align-items-center my-2 flex-wrap gap-2">
 				<h5 class="mb-0">${escapeHtml(title)}</h5>
+				<div class="d-flex align-items-center gap-2 flex-wrap">
+					<label class="form-check-label me-2" for="selectAllParticipants_${key}">Select all</label>
+					<input class="form-check-input" id="selectAllParticipants_${key}" type="checkbox" ${selectAllChecked ? 'checked' : ''} />
+					<button id="deselectAllParticipants_${key}" class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;">Deselect all</button>
+				</div>
 			</div>
 			<div class="mb-2">
 				<input id="participantSearch_${key}" type="search" class="form-control form-control-sm" style="max-width: 420px;" placeholder="Search by ID, name, age, race, ethnicity, or condition…" value="${escapeHtml(searchQuery)}" />
@@ -1630,9 +1615,6 @@ function renderParticipantsTable(list, targetId, title, key) {
 			<div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-2">
 				<div id="participantsStickyBarSlot_${key}" class="flex-grow-1"></div>
 				<div class="d-flex align-items-center gap-2 flex-wrap">
-					<label class="form-check-label me-2" for="selectAllParticipants_${key}">Select all</label>
-					<input class="form-check-input" id="selectAllParticipants_${key}" type="checkbox" ${selectAllChecked ? 'checked' : ''} />
-					<button id="deselectAllParticipants_${key}" class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;">Deselect all</button>
 					<button id="downloadJsonBtn_${key}" class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" title="Download the currently filtered list as JSON">Download JSON</button>
 					<button id="downloadCsvBtn_${key}" class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" title="Download the currently filtered list as CSV">Download CSV</button>
 				</div>
@@ -1644,19 +1626,19 @@ function renderParticipantsTable(list, targetId, title, key) {
 							<th style="width:32px;" class="text-center p-1">${hasMultiFile ? `<button type="button" id="expandAllFiles_${key}" class="btn btn-sm p-0 file-expander-all" aria-expanded="${allExpanded}" title="${allExpanded ? 'Collapse all files' : 'Expand all files'}" aria-label="${allExpanded ? 'Collapse all files' : 'Expand all files'}">${allExpanded ? '▾' : '▸'}</button>` : ''}</th>
 							<th>#</th>
 							<th>Select</th>
-							<th ${sortAttrs('id')}>Participant ID${sortArrow('id')}</th>
-							<th ${sortAttrs('name')}>Name${sortArrow('name')}</th>
-							<th ${sortAttrsEnd('age')}>Age${sortArrow('age')}</th>
-							<th ${sortAttrs('gender')}>Gender${sortArrow('gender')}</th>
-							<th ${sortAttrs('race')}>Race${sortArrow('race')}</th>
-							<th ${sortAttrs('ethnicity')}>Ethnicity${sortArrow('ethnicity')}</th>
-							<th class="sortable" data-sort="conditions" style="cursor:pointer;user-select:none;" title="Conditions reported in the PGP survey question &quot;Have you ever been diagnosed with one of the following conditions?&quot;">Conditions${sortArrow('conditions')}</th>
-							<th class="sortable" data-sort="valid" style="cursor:pointer;user-select:none;" title="File matched the 23andMe header signature">Valid 23andMe${sortArrow('valid')}</th>
+							<th>Participant ID</th>
+							<th>Name</th>
+							<th class="text-end">Age</th>
+							<th>Gender</th>
+							<th>Race</th>
+							<th>Ethnicity</th>
+							<th title="Conditions reported in the PGP survey question &quot;Have you ever been diagnosed with one of the following conditions?&quot;">Conditions</th>
+							<th title="File matched the 23andMe header signature">Valid 23andMe</th>
 							<th ${sortAttrs('version')}>Version${sortArrow('version')}</th>
 							<th ${sortAttrsEnd('build')}>Build${sortArrow('build')}</th>
 							<th ${sortAttrsEnd('size')}>Size (MB)${sortArrow('size')}</th>
-							<th class="sortable" data-sort="filename" style="cursor:pointer;user-select:none;max-width:180px;">Filename${sortArrow('filename')}</th>
-							<th ${sortAttrs('published')}>Published Date${sortArrow('published')}</th>
+							<th style="max-width:180px;">Filename</th>
+							<th>Published Date</th>
 							<th>Profile</th>
 							<th>Download URL</th>
 						</tr>
@@ -2272,3 +2254,4 @@ window.sdk = Object.assign(window.sdk ?? {}, {
 	onParticipantsModeChange: window.onParticipantsModeChange,
 	onPgsSelectionChange: window.onPgsSelectionChange,
 });
+//# sourceMappingURL=displayUsers-DhrEpX6R.mjs.map
