@@ -1,5 +1,8 @@
-import { fetchAllScores, fetchSomeScores, getScoresPerTrait, getScoresPerCategory, fetchTraits, getPgsTxt } from "../sdk/pgsSdk.js";
-import localforage from "localforage";
+import { fetchTraits, fetchAllScores, getScoresPerTrait, getScoresPerCategory, getPgsTxt, fetchSomeScores } from 'https://lorenasandoval88.github.io/pgs_catalog_sdk/dist/sdk.mjs';
+import { l as localforage } from '../app.mjs';
+import 'https://lorenasandoval88.github.io/personal_genomes_project_sdk/dist/sdk.mjs';
+import 'https://lorenasandoval88.github.io/clustjs/dist/sdk.mjs';
+import 'https://esm.run/@mlc-ai/web-llm';
 
 // Persistent reference to the PGS selection status bar so it can be relocated
 // below the search box on every re-render (innerHTML resets would detach it).
@@ -193,24 +196,21 @@ const ALL_VALUE = "__all_categories__";
 const ROWS_PER_PAGE = 50;
 const MAX_SELECTION = 10; // Max number of scores that can be selected at once for PRS calculation
 
-// --- 23andMe chip overlap filter state (precomputed data/overlap_0_100_v4/v5.json) ---
-// The reports score every candidate PGS model (overlap 0..1) for how well its
-// variants are covered by the v4 / v5 23andMe genotyping chips. We map PGS ID ->
+// --- 23andMe chip overlap filter state (precomputed data/overlap_v4/v5.json) ---
+// The reports list PGS models whose variants are well covered by the v4 / v5
+// 23andMe genotyping chips (overlap >= 0.8, <= 1000 variants). We map PGS ID ->
 // overlap fraction (0..1) so the browse table can show a "chip %" column and filter on it.
 const v4OverlapMap = new Map();
 const v5OverlapMap = new Map();
-// Independent v4 / v5 chip-overlap filters (each optional).
-let overlapV4Enabled = false;
-let overlapV5Enabled = false;
-let overlapV4Min = 80; // minimum v4 overlap percent (0..100) when enabled
-let overlapV5Min = 80; // minimum v5 overlap percent (0..100) when enabled
+let overlapChip = "any"; // 'any' | 'v4' | 'v5' | 'both' | 'either'
+let overlapMin = 80;      // minimum overlap percent (0..100) a model must meet
 
 /** Fetch and index the precomputed v4/v5 chip-overlap reports. */
 async function loadOverlapData() {
 	try {
 		const [v4, v5] = await Promise.all([
-			fetch("data/overlap_0_100_v4.json").then((r) => r.json()),
-			fetch("data/overlap_0_100_v5.json").then((r) => r.json()),
+			fetch("data/overlap_v4.json").then((r) => r.json()),
+			fetch("data/overlap_v5.json").then((r) => r.json()),
 		]);
 		for (const s of v4?.scores ?? []) {
 			if (s?.pgsId != null) v4OverlapMap.set(String(s.pgsId), Number(s.overlap) || 0);
@@ -300,18 +300,18 @@ function getOverlapPct(pgsId, chip) {
 	return v == null ? null : v * 100;
 }
 
-/** Check if a score passes the current 23andMe chip-overlap filters (v4/v5 independent). */
+/** Check if a score passes the current 23andMe chip-overlap filter. */
 function passesOverlapFilter(score) {
-	if (!overlapV4Enabled && !overlapV5Enabled) return true;
+	if (!overlapChip || overlapChip === "any") return true;
 	const id = String(score?.id ?? score?.score?.id ?? "");
-	if (overlapV4Enabled) {
-		const v4 = getOverlapPct(id, "v4");
-		if (v4 == null || v4 < overlapV4Min) return false;
-	}
-	if (overlapV5Enabled) {
-		const v5 = getOverlapPct(id, "v5");
-		if (v5 == null || v5 < overlapV5Min) return false;
-	}
+	const v4 = getOverlapPct(id, "v4");
+	const v5 = getOverlapPct(id, "v5");
+	const v4ok = v4 != null && v4 >= overlapMin;
+	const v5ok = v5 != null && v5 >= overlapMin;
+	if (overlapChip === "v4") return v4ok;
+	if (overlapChip === "v5") return v5ok;
+	if (overlapChip === "both") return v4ok && v5ok;
+	if (overlapChip === "either") return v4ok || v5ok;
 	return true;
 }
 
@@ -471,10 +471,10 @@ function getSelectionScores() {
 /** Render the score table for the current category/trait/variant selection. */
 function renderPgsFromSelection() {
 	const scores = getSelectionScores();
-	const catLabel = selectedCategories.size
+	selectedCategories.size
 		? `${selectedCategories.size} categor${selectedCategories.size === 1 ? "y" : "ies"}`
 		: "All categories";
-	const traitLabel = selectedTraits.size ? ` · ${selectedTraits.size} trait(s)` : "";
+	selectedTraits.size ? ` · ${selectedTraits.size} trait(s)` : "";
 	const title = `PGS Catalog Scoring Files - ${scores.length} of ${totalAvailableScores}`;
 	const key = sanitizeKey(`sel_${Array.from(selectedCategories).join("_")}_${Array.from(selectedTraits).join("_")}`) || "sel";
 	renderPgsTable(scores, "scoresDiv", title, key);
@@ -954,7 +954,7 @@ function renderScores(value, type = "Trait") {
 		: `${type}: ${value} (${scores.length} scoring files)`;
 
 	renderPgsTable(scores, "scoresDiv", title, key);
-	renderActiveFilterChips(value, type);
+	renderActiveFilterChips();
 }
 
 /**
@@ -978,11 +978,9 @@ function renderActiveFilterChips() {
 		chips.push({ label: `Variants: ${variantMin}–${variantMax}`, clear: "variants" });
 	}
 
-	if (overlapV4Enabled) {
-		chips.push({ label: `v4 chip ≥ ${overlapV4Min}%`, clear: "overlapV4" });
-	}
-	if (overlapV5Enabled) {
-		chips.push({ label: `v5 chip ≥ ${overlapV5Min}%`, clear: "overlapV5" });
+	if (overlapChip && overlapChip !== "any") {
+		const chipLabel = { v4: "v4", v5: "v5", both: "v4 & v5", either: "v4 or v5" }[overlapChip] ?? overlapChip;
+		chips.push({ label: `Chip overlap: ${chipLabel} ≥ ${overlapMin}%`, clear: "overlap" });
 	}
 
 	// Update the "N active" badge on the Filters toggle button.
@@ -1028,15 +1026,10 @@ function clearPgsFilter(which) {
 		variantMax = 1000;
 		if (typeof updateSliderLabels === "function") updateSliderLabels();
 	}
-	if (which === "overlapV4" || which === "all") {
-		overlapV4Enabled = false;
-		const cb = document.getElementById("pgsOverlapV4Check");
-		if (cb) cb.checked = false;
-	}
-	if (which === "overlapV5" || which === "all") {
-		overlapV5Enabled = false;
-		const cb = document.getElementById("pgsOverlapV5Check");
-		if (cb) cb.checked = false;
+	if (which === "overlap" || which === "all") {
+		overlapChip = "any";
+		const overlapSel = document.getElementById("pgsOverlapChipSelect");
+		if (overlapSel) overlapSel.value = "";
 	}
 	if (which === "all") {
 		selectedCategories.clear();
@@ -1080,54 +1073,6 @@ window.onPgsTraitChange = function onPgsTraitChange(selectedTrait) {
 	const title = `${match.id} - ${match.name ?? match.trait_reported ?? "PGS"}`;
 	renderPgsTable([match], "scoresDiv", title, sanitizeKey(pgsId));
 };
-
-
-// --- Helpers for dropdown management ---
-
-/** Default onchange handler for trait selection. */
-function setDefaultTraitOnChange(select) {
-	select.onchange = (e) => {
-		try { window.onPgsTraitChange(e.target.value); } catch (err) { console.error('onPgsTraitChange error', err); }
-	};
-}
-
-/** Build options HTML from a Map of name → scores[]. */
-function buildOptionsHtml(map, keys, allLabel, filteredCount) {
-	const allOption = `<option value="${ALL_VALUE}"> ${filteredCount} scoring files for all ${map.size} ${allLabel}</option>`;
-	const itemOptions = keys
-		.map((key) => {
-			const filtered = (map.get(key) ?? []).filter(passesFilters);
-			return `<option value="${escapeHtml(key)}">${escapeHtml(key)} (${filtered.length})</option>`;
-		})
-		.join("");
-	return allOption + itemOptions;
-}
-
-/** Populate dropdown with traits and wire default handler. */
-function populateTraitDropdown(select) {
-	select.innerHTML = buildOptionsHtml(traitScoresMap, traits, "traits", getFilteredTraitScores().length);
-	select.value = ALL_VALUE;
-	renderScores(ALL_VALUE, "Trait");
-	setDefaultTraitOnChange(select);
-}
-
-/** Populate dropdown with categories and wire category handler. */
-function populateCategoryDropdown(select) {
-	select.innerHTML = buildOptionsHtml(categoryScoresMap, categories, "categories", getFilteredCategoryScores().length);
-	select.value = ALL_VALUE;
-	renderScores(ALL_VALUE, "Category");
-
-	select.onchange = (e) => {
-		const val = e.target.value;
-		if (!val) return;
-		if (val === ALL_VALUE) {
-			setDefaultTraitOnChange(select);
-			renderScores(ALL_VALUE, "Category");
-			return;
-		}
-		renderScores(val, "Category");
-	};
-}
 
 // --- Initialize category + trait filters ---
 
@@ -1252,38 +1197,23 @@ if (variantMaxInput) {
 // Initialize progress bar on load
 updateSliderLabels();
 
-// --- 23andMe chip overlap filter controls (independent v4 / v5) ---
-const overlapV4Check = document.getElementById("pgsOverlapV4Check");
-const overlapV4MinInput = document.getElementById("pgsOverlapV4Min");
-const overlapV5Check = document.getElementById("pgsOverlapV5Check");
-const overlapV5MinInput = document.getElementById("pgsOverlapV5Min");
+// --- 23andMe chip overlap filter controls ---
+const overlapChipSelect = document.getElementById("pgsOverlapChipSelect");
+const overlapMinInput = document.getElementById("pgsOverlapMinInput");
 
-if (overlapV4Check) {
-	overlapV4Check.addEventListener("change", () => {
-		overlapV4Enabled = overlapV4Check.checked;
+if (overlapChipSelect) {
+	overlapChipSelect.addEventListener("change", () => {
+		overlapChip = overlapChipSelect.value || "any";
 		refreshCurrentView();
 	});
 }
-if (overlapV4MinInput) {
-	overlapV4MinInput.addEventListener("input", () => {
-		let val = parseFloat(overlapV4MinInput.value);
+
+if (overlapMinInput) {
+	overlapMinInput.addEventListener("input", () => {
+		let val = parseFloat(overlapMinInput.value);
 		if (!Number.isFinite(val)) val = 0;
-		overlapV4Min = Math.max(0, Math.min(100, val));
-		if (overlapV4Enabled) debouncedRefresh();
-	});
-}
-if (overlapV5Check) {
-	overlapV5Check.addEventListener("change", () => {
-		overlapV5Enabled = overlapV5Check.checked;
-		refreshCurrentView();
-	});
-}
-if (overlapV5MinInput) {
-	overlapV5MinInput.addEventListener("input", () => {
-		let val = parseFloat(overlapV5MinInput.value);
-		if (!Number.isFinite(val)) val = 0;
-		overlapV5Min = Math.max(0, Math.min(100, val));
-		if (overlapV5Enabled) debouncedRefresh();
+		overlapMin = Math.max(0, Math.min(100, val));
+		if (overlapChip !== "any") debouncedRefresh();
 	});
 }
 
@@ -1543,3 +1473,4 @@ window.sdk = Object.assign(window.sdk ?? {}, {
 	fetchScoresTxts,
 	updatePrsScoresDisplay,
 });
+//# sourceMappingURL=displayScores-6f9TVte-.mjs.map

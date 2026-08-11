@@ -29,6 +29,20 @@ Toolkit functionalities
 - AI Interpretation â€“ Research Assistant: Generate follow-up insights, comparison prompts, and research-oriented notes from selected results.
 ---
 
+## 23andMe chip overlap index
+
+The PGS Catalog tab can filter and rank risk models by how well each model's variants are covered by the 23andMe **v4** and **v5** genotyping arrays.
+
+> This index is computed once, offline, from array marker sets rather than from individual genotype data, and is distributed with the application as a static table; no user genotype data is involved at any point in its construction.
+
+The index ships as static JSON (`data/overlap_0_100_v4.json`, `data/overlap_0_100_v5.json`).
+
+The same holds for the **curated 23andMe (v4/v5) marker data** the index is built from:
+
+> The curated 23andMe marker sets are derived from the arrays' published marker definitions rather than from individual genotype data, and are distributed with the application as static reference tables; no user genotype data is involved at any point in their construction.
+
+---
+
 ## Quick Start
 
 

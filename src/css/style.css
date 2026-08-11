@@ -99,6 +99,14 @@
     color: #d6336c;
 }
 
+/* Wider popover so the 23andMe v3/v4/v5 comparison table fits comfortably */
+.chip-info-popover {
+    max-width: 420px;
+}
+.chip-info-popover .popover-body {
+    font-size: 0.8rem;
+}
+
 /* Expandable multi-file participant rows */
 .file-expander {
     color: #495057;

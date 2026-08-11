@@ -30,7 +30,7 @@ let localDataModuleLoaded = false;
 // the tab functionality.
 async function ensurePgsModuleLoaded() {
     if (!pgsModuleLoaded) {
-        await import('./chunks/displayScores-XmjLxZJo.mjs');
+        await import('./chunks/displayScores-8wEk9oBE.mjs');
         pgsModuleLoaded = true;
     }
 }

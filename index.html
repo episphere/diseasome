@@ -720,6 +720,44 @@
                                                 </div>
                                             </div>
                                         </div>
+
+                                        <!-- 23andMe chip overlap filter (precomputed data/overlap_v4/v5.json) -->
+                                        <div>
+                                            <label class="form-label small fw-bold mb-1 d-block">23andMe chip overlap
+                                                <span class="text-muted fw-normal">(optional)</span>
+                                                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2"
+                                                        style="line-height:1;border-radius:50%;font-weight:bold;font-size:0.8rem"
+                                                        data-bs-toggle="popover"
+                                                        data-bs-trigger="focus"
+                                                        data-bs-placement="right"
+                                                        data-bs-html="true"
+                                                        data-bs-custom-class="chip-info-popover"
+                                                        title="Why v2 and v3 are not included"
+                                                        data-bs-content="<p class='mb-2'>The earlier 23andMe v2 (~560,000 SNPs) and v3 (~950,000 SNPs) arrays are older HumanHap/OmniExpress-based designs built primarily for broad common-variant coverage. Although v3 in particular carries a larger total SNP count, the v4 and v5 arrays were redesigned to reduce redundant tagging variants and incorporate more targeted health, coding, and lower-frequency variants, with v5 additionally using the more modern Global Screening Array backbone. A larger raw SNP count on v2 or v3 therefore does not necessarily translate to better overlap with contemporary PGS models, making v4 and especially v5 more relevant for evaluating direct PGS coverage.</p><table class='table table-sm table-bordered mb-1' style='font-size:0.75rem;'><thead><tr><th>Array</th><th>SNPs</th><th>Backbone</th><th>Coverage</th></tr></thead><tbody><tr><td>v2</td><td>~560k</td><td>Illumina HumanHap550+ based</td><td>Early genome-wide common-variant coverage</td></tr><tr><td>v3</td><td>~950k</td><td>OmniExpress+ based</td><td>Broad genome-wide common-variant coverage</td></tr><tr><td>v4</td><td>~570k</td><td>Fully customized 23andMe array</td><td>Reduced redundancy + additional coding/health/rare variants</td></tr><tr><td>v5</td><td>~650–690k</td><td>Customized Illumina Global Screening Array</td><td>Modern genome-wide backbone + custom health/research content</td></tr></tbody></table><p class='small text-muted mb-0'><strong>Genome assembly</strong> (GRCh37 / GRCh38) specifies the coordinate system, not which SNPs were physically genotyped — it is separate from the chip version.</p>"
+                                                        aria-label="Why 23andMe v2 and v3 are not included">?</button>
+                                            </label>
+                                            <div class="d-flex align-items-center gap-2 mb-1">
+                                                <div class="form-check mb-0" style="min-width:78px;">
+                                                    <input class="form-check-input" type="checkbox" id="pgsOverlapV4Check">
+                                                    <label class="form-check-label small" for="pgsOverlapV4Check">v4 chip</label>
+                                                </div>
+                                                <span class="small">&ge;</span>
+                                                <input type="number" id="pgsOverlapV4Min" class="form-control form-control-sm"
+                                                    style="width:70px;" value="80" min="0" max="100" step="5">
+                                                <span class="small">%</span>
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="form-check mb-0" style="min-width:78px;">
+                                                    <input class="form-check-input" type="checkbox" id="pgsOverlapV5Check">
+                                                    <label class="form-check-label small" for="pgsOverlapV5Check">v5 chip</label>
+                                                </div>
+                                                <span class="small">&ge;</span>
+                                                <input type="number" id="pgsOverlapV5Min" class="form-control form-control-sm"
+                                                    style="width:70px;" value="80" min="0" max="100" step="5">
+                                                <span class="small">%</span>
+                                            </div>
+                                            <div class="small text-muted mt-1" style="max-width:220px;">Filter each chip independently by how well it covers a model's variants.</div>
+                                        </div>
                                     </div>
                                     </div>
 
