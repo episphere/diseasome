@@ -6316,6 +6316,9 @@ pheatmap(prs_scaled,
          cluster_cols = TRUE,
          clustering_distance_cols = "euclidean",
          clustering_method = "ward.D2",
+         treeheight_row = 120,
+         treeheight_col = 120,
+         fontsize = 12,
          main = "PRS Hierarchical Clustering",
          border_color = NA)`;
 
@@ -6377,7 +6380,7 @@ async function runRCodeInWebR() {
       withAutoprint: true,
       captureStreams: true,
       captureConditions: false,
-      captureGraphics: { width: 1000, height: 1000 },
+      captureGraphics: { width: 720, height: 720, pointsize: 18 },
     });
 
     const text = (result.output ?? [])
@@ -6394,11 +6397,12 @@ async function runRCodeInWebR() {
       const canvas = document.createElement('canvas');
       canvas.width = img.width;
       canvas.height = img.height;
-      canvas.style.maxWidth = '520px';
+      canvas.style.maxWidth = '640px';
       canvas.style.width = '100%';
       canvas.style.height = 'auto';
       canvas.style.border = '1px solid #ddd';
       canvas.style.marginBottom = '8px';
+      canvas.style.marginLeft = '40px';
       canvas.getContext('2d').drawImage(img, 0, 0);
       if (plotsEl) plotsEl.appendChild(canvas);
     }
@@ -6561,6 +6565,9 @@ pheatmap(prs_scaled,
          cluster_cols = TRUE,
          clustering_distance_cols = "euclidean",
          clustering_method = "ward.D2",
+         treeheight_row = 120,
+         treeheight_col = 120,
+         fontsize = 12,
          main = "PRS Hierarchical Clustering",
          border_color = NA)</code></pre>
     </details>
