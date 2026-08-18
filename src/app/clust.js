@@ -259,17 +259,153 @@ function getUniqueUserIds(rawResults) {
  */
 function downloadMatrixAsCsv(matrix, filename = 'matrix.csv') {
   if (!Array.isArray(matrix) || matrix.length === 0) return;
-  const cols = Object.keys(matrix[0]).filter(k => k !== 'label');
-  const header = ['label', ...cols].join(',');
-  const rows = matrix.map(row =>
-    [row.label, ...cols.map(c => row[c] ?? '')].join(',')
-  );
-  const csv = [header, ...rows].join('\n');
+  const csv = matrixToCsvString(matrix);
   const blob = new Blob([csv], { type: 'text/csv' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Serialise a hclust_plot matrix (array of row-objects with a `label` key) to a CSV string.
+ * @param {Array<Object>} matrix - e.g. [{label:'user1', PGS000001: 0.2, ...}, ...]
+ * @returns {string} CSV text (header row + data rows)
+ */
+function matrixToCsvString(matrix) {
+  if (!Array.isArray(matrix) || matrix.length === 0) return '';
+  const cols = Object.keys(matrix[0]).filter(k => k !== 'label');
+  const header = ['label', ...cols].join(',');
+  const rows = matrix.map(row =>
+    [row.label, ...cols.map(c => row[c] ?? '')].join(',')
+  );
+  return [header, ...rows].join('\n');
+}
+
+// --- WebR (R compiled to WebAssembly) in-browser runner ---
+const WEBR_BASE_URL = 'https://webr.r-wasm.org/latest/';
+const WEBR_MATRIX_PATH = '/home/web_user/prs_matrix.csv';
+let _webRPromise = null;
+
+/** Default R snippet shown in the runner; reads the PRS matrix preloaded into WebR's FS. */
+const WEBR_DEFAULT_CODE = `library(pheatmap)
+
+# The current PRS matrix is preloaded into WebR at the path below.
+prs <- read.csv("${WEBR_MATRIX_PATH}", check.names = FALSE)
+rownames(prs) <- prs$label
+prs_matrix <- as.matrix(prs[, -1])
+
+# Z-score each PGS across users
+prs_scaled <- scale(prs_matrix)
+
+# Distance + hierarchical clustering of users
+user_dist <- dist(prs_scaled, method = "euclidean")
+user_hclust <- hclust(user_dist, method = "ward.D2")
+
+# Heatmap with row + column clustering
+pheatmap(prs_scaled,
+         cluster_rows = user_hclust,
+         cluster_cols = TRUE,
+         clustering_distance_cols = "euclidean",
+         clustering_method = "ward.D2",
+         main = "PRS Hierarchical Clustering",
+         border_color = NA)`;
+
+/**
+ * Lazily load and initialise WebR (base R + pheatmap). Cached across runs so the
+ * multi-MB runtime and package install only happen once per session.
+ * @param {HTMLElement} [statusEl] - optional element for progress messages
+ * @returns {Promise<Object>} the initialised WebR instance
+ */
+function getWebR(statusEl) {
+  if (_webRPromise) return _webRPromise;
+  _webRPromise = (async () => {
+    if (statusEl) statusEl.textContent = 'Loading WebR runtime (first run downloads ~R core)…';
+    const { WebR, ChannelType } = await import('https://webr.r-wasm.org/latest/webr.mjs');
+    // SharedArrayBuffer needs cross-origin isolation (COOP/COEP), which GitHub
+    // Pages doesn't set — fall back to the PostMessage channel when not isolated.
+    const channelType = globalThis.crossOriginIsolated
+      ? (ChannelType?.Automatic ?? 0)
+      : (ChannelType?.PostMessage ?? 3);
+    const webR = new WebR({ baseUrl: WEBR_BASE_URL, channelType });
+    await webR.init();
+    if (statusEl) statusEl.textContent = 'Installing pheatmap…';
+    await webR.installPackages(['pheatmap']);
+    return webR;
+  })();
+  // If init fails, clear the cache so a later click can retry.
+  _webRPromise.catch(() => { _webRPromise = null; });
+  return _webRPromise;
+}
+
+/**
+ * Run the R code from the tab-5 editor in WebR: write the current PRS matrix to
+ * the virtual filesystem, capture text output, and render any plots inline.
+ */
+async function runRCodeInWebR() {
+  const statusEl = document.getElementById('webRStatus');
+  const consoleEl = document.getElementById('webRConsole');
+  const plotsEl = document.getElementById('webRPlots');
+  const btn = document.getElementById('runRWebRBtn');
+  const code = document.getElementById('webRCode')?.value ?? '';
+
+  const data = clusterCache.pivoted ?? pivotPrsResults(window.prsResults);
+  if (!data) { alert('No PRS matrix available. Run a PRS calculation first.'); return; }
+
+  if (btn) btn.disabled = true;
+  if (plotsEl) plotsEl.innerHTML = '';
+  if (consoleEl) { consoleEl.style.display = 'none'; consoleEl.textContent = ''; }
+
+  let shelter;
+  try {
+    const webR = await getWebR(statusEl);
+    if (statusEl) statusEl.textContent = 'Writing PRS matrix…';
+    const csv = matrixToCsvString(data);
+    await webR.FS.writeFile(WEBR_MATRIX_PATH, new TextEncoder().encode(csv));
+
+    if (statusEl) statusEl.textContent = 'Running R…';
+    shelter = await new webR.Shelter();
+    const result = await shelter.captureR(code, {
+      withAutoprint: true,
+      captureStreams: true,
+      captureConditions: false,
+      captureGraphics: { width: 1000, height: 1000 },
+    });
+
+    const text = (result.output ?? [])
+      .filter(o => o.type === 'stdout' || o.type === 'stderr')
+      .map(o => o.data)
+      .join('\n');
+    if (consoleEl && text.trim()) {
+      consoleEl.textContent = text;
+      consoleEl.style.display = 'block';
+    }
+
+    const images = result.images ?? [];
+    for (const img of images) {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      canvas.style.maxWidth = '520px';
+      canvas.style.width = '100%';
+      canvas.style.height = 'auto';
+      canvas.style.border = '1px solid #ddd';
+      canvas.style.marginBottom = '8px';
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      if (plotsEl) plotsEl.appendChild(canvas);
+    }
+    if (statusEl) statusEl.textContent = `Done — ${images.length} plot(s) rendered.`;
+  } catch (err) {
+    console.error('[WebR] run error:', err);
+    if (statusEl) statusEl.textContent = 'Error running R (see below).';
+    if (consoleEl) {
+      consoleEl.textContent = String(err?.message ?? err);
+      consoleEl.style.display = 'block';
+    }
+  } finally {
+    if (shelter) { try { await shelter.purge(); } catch { /* ignore */ } }
+    if (btn) btn.disabled = false;
+  }
 }
 
 
@@ -373,14 +509,16 @@ async function renderCluster() {
       <span class="text-muted small ms-2">Z-score standardizes each PGS column across users so no single model dominates the distance by scale.</span>
     </div>
     <div id="clusterPlotBox" style="position:relative;">
-      <div style="position:sticky; top:8px; z-index:5; height:0; text-align:right; pointer-events:none;">
-        <button id="downloadHeatmapPngBtn" class="btn btn-outline-secondary btn-sm" style="pointer-events:auto; margin-right:8px;">⬇ Download PNG</button>
-      </div>
       <div id="clusterPlotScroll" style="overflow:auto; max-width:100%;">
         <div id="clusterPlotMount"></div>
       </div>
     </div>
     <div class="mt-3">
+      <button id="downloadHeatmapPngBtn" class="btn btn-outline-secondary btn-sm">
+        ⬇ Download PNG
+      </button>
+    </div>
+    <div class="mt-2">
       <button id="downloadPrsMatrixBtn" class="btn btn-outline-secondary btn-sm">
         ⬇ Download JSON
       </button>
@@ -391,63 +529,49 @@ async function renderCluster() {
     </div>
     <details class="mt-3">
       <summary style="cursor:pointer;">🧪 Test the clustering in R (pheatmap)</summary>
-      <p class="text-muted small mt-2 mb-1">Download the CSV above, then run this in R to reproduce the hierarchical clustering with <code>pheatmap</code>. Replace <code>YOUR_USERNAME</code> with your Windows username.</p>
+      <p class="text-muted small mt-2 mb-1">Download the CSV above and run this in R to reproduce the hierarchical clustering with <code>pheatmap</code>, or run it directly in the browser below.</p>
       <div class="d-flex justify-content-end mb-1">
         <button id="copyRCodeBtn" class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 8px;">📋 Copy</button>
       </div>
-      <pre id="rCodeBlock" class="small bg-light border rounded p-2" style="white-space:pre; overflow:auto;"><code># Install once if needed
-install.packages("pheatmap")
+      <pre id="rCodeBlock" class="small bg-light border rounded p-2" style="white-space:pre; overflow:auto;"><code>library(pheatmap)
 
-# Load library
-library(pheatmap)
-
-# Load file from Downloads
-prs <- read.csv(
-  "C:/Users/YOUR_USERNAME/Downloads/prs_matrix_10users.csv",
-  check.names = FALSE
-)
-
-# Use the first column ("label") as the row names
+# The current PRS matrix is preloaded into WebR at the path below.
+prs <- read.csv("${WEBR_MATRIX_PATH}", check.names = FALSE)
 rownames(prs) <- prs$label
-
-# Remove the label column, leaving only PGS values
 prs_matrix <- as.matrix(prs[, -1])
-
-# Check matrix
-prs_matrix
 
 # Z-score each PGS across users
 prs_scaled <- scale(prs_matrix)
 
-# Distance between users
+# Distance + hierarchical clustering of users
 user_dist <- dist(prs_scaled, method = "euclidean")
-
-# Hierarchical clustering
-user_hclust <- hclust(
-  user_dist,
-  method = "ward.D2"
-)
-
-# View dendrogram by itself
-plot(
-  user_hclust,
-  main = "Hierarchical Clustering of Users",
-  xlab = "",
-  sub = "",
-  hang = -1
-)
+user_hclust <- hclust(user_dist, method = "ward.D2")
 
 # Heatmap with row + column clustering
-pheatmap(
-  prs_scaled,
-  cluster_rows = user_hclust,
-  cluster_cols = TRUE,
-  clustering_distance_cols = "euclidean",
-  clustering_method = "ward.D2",
-  main = "PRS Hierarchical Clustering",
-  border_color = NA
-)</code></pre>
+pheatmap(prs_scaled,
+         cluster_rows = user_hclust,
+         cluster_cols = TRUE,
+         clustering_distance_cols = "euclidean",
+         clustering_method = "ward.D2",
+         main = "PRS Hierarchical Clustering",
+         border_color = NA)</code></pre>
     </details>
+    <div class="mt-3 border-top pt-3">
+      <h6 class="mb-1">▶ Run R here (WebR)</h6>
+      <p class="text-muted small mb-2">
+        Runs R directly in your browser via <a href="https://docs.r-wasm.org/webr/latest/" target="_blank" rel="noopener">WebR</a> — no install needed.
+        The current PRS matrix is loaded automatically at <code>${WEBR_MATRIX_PATH}</code>.
+        The first run downloads the R runtime and <code>pheatmap</code> (may take a bit); later runs are fast.
+      </p>
+      <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+        <button id="runRWebRBtn" class="btn btn-success btn-sm">▶ Run in browser</button>
+        <button id="resetRCodeBtn" class="btn btn-outline-secondary btn-sm">Reset code</button>
+        <span id="webRStatus" class="small text-muted"></span>
+      </div>
+      <textarea id="webRCode" class="form-control form-control-sm" spellcheck="false" style="font-family:monospace; white-space:pre; min-height:220px;"></textarea>
+      <div id="webRPlots" class="mt-2 text-start"></div>
+      <pre id="webRConsole" class="small bg-dark text-light rounded p-2 mt-2" style="max-height:240px; overflow:auto; display:none;"></pre>
+    </div>
     </div>
   `;
 
@@ -481,6 +605,14 @@ pheatmap(
       }
     };
   }
+
+  // WebR runner: seed the editor with the default code and wire Run / Reset.
+  const webRCodeEl = document.getElementById('webRCode');
+  if (webRCodeEl && !webRCodeEl.value) webRCodeEl.value = WEBR_DEFAULT_CODE;
+  const runRWebRBtn = document.getElementById('runRWebRBtn');
+  if (runRWebRBtn) runRWebRBtn.onclick = runRCodeInWebR;
+  const resetRCodeBtn = document.getElementById('resetRCodeBtn');
+  if (resetRCodeBtn) resetRCodeBtn.onclick = () => { if (webRCodeEl) webRCodeEl.value = WEBR_DEFAULT_CODE; };
 
   // Download the rendered heatmap (the SVG inside the mount) as a PNG.
   document.getElementById('downloadHeatmapPngBtn').onclick = () => {
