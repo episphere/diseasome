@@ -6405,12 +6405,9 @@ async function runRCodeInWebR() {
       // renderCluster() rebuilds via innerHTML restoration.
       const image = document.createElement('img');
       image.src = canvas.toDataURL('image/png');
+      image.alt = 'R plot output';
+      image.className = 'img-fluid rounded border shadow-sm d-block mb-2';
       image.style.maxWidth = '640px';
-      image.style.width = '100%';
-      image.style.height = 'auto';
-      image.style.border = '1px solid #ddd';
-      image.style.marginBottom = '8px';
-      image.style.marginLeft = '40px';
       if (plotsEl) plotsEl.appendChild(image);
     }
     if (statusEl) statusEl.textContent = `Done — ${images.length} plot(s) rendered.`;
@@ -6491,73 +6488,108 @@ async function renderCluster() {
   const clusterDistance = window.clusterOptions?.clusterDistance ?? 'euclidean';
 
   // Scale mode: raw PRS vs. per-PGS z-scored (normalized) values.
-  const normalize = window.clusterOptions?.normalize ?? false;
+  const normalize = window.clusterOptions?.normalize ?? true;
 
   clusterContainer.innerHTML = `
     <div id="clusterSectionA">
-    <h5>PRS Clustering (${pivoted.length} Users × ${Object.keys(pivoted[0]).length - 1} PGS Entries)</h5>
-    <p class="text-muted small mb-2">
-      Hierarchical clustering of PRS results (${pivoted.length} users × ${Object.keys(pivoted[0]).length - 1} PGS entries).
+    <div class="d-flex align-items-baseline flex-wrap gap-2 mb-1">
+      <h5 class="mb-0">PRS Clustering</h5>
+      <span class="badge bg-light text-dark border">${pivoted.length} users</span>
+      <span class="badge bg-light text-dark border">${Object.keys(pivoted[0]).length - 1} PGS entries</span>
+    </div>
+    <p class="text-muted small mb-3">
+      Hierarchical clustering of PRS results. Adjust the options below to explore how users and risk models group together.
     </p>
-    <div class="mb-2">
-      <strong>Cluster by:</strong>
-      <div class="btn-group ms-2" role="group">
-        <button id="clusterRowsBtn" class="btn btn-sm ${clusterRows ? 'btn-primary' : 'btn-outline-primary'}">Rows (Users)</button>
-        <button id="clusterColsBtn" class="btn btn-sm ${clusterCols ? 'btn-primary' : 'btn-outline-primary'}">Columns (PGS)</button>
-        <button id="clusterBothBtn" class="btn btn-sm ${clusterRows && clusterCols ? 'btn-success' : 'btn-outline-success'}">Both</button>
+
+    <div class="card mb-3">
+      <div class="card-body py-3">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label small text-uppercase text-muted fw-bold mb-1">Cluster by</label>
+            <div class="btn-group d-flex" role="group">
+              <button id="clusterRowsBtn" class="btn btn-sm ${clusterRows ? 'btn-primary' : 'btn-outline-primary'}">Rows (Users)</button>
+              <button id="clusterColsBtn" class="btn btn-sm ${clusterCols ? 'btn-primary' : 'btn-outline-primary'}">Columns (PGS)</button>
+              <button id="clusterBothBtn" class="btn btn-sm ${clusterRows && clusterCols ? 'btn-success' : 'btn-outline-success'}">${clusterRows && clusterCols ? 'None' : 'Both'}</button>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text-uppercase text-muted fw-bold mb-1">Linkage</label>
+            <div class="btn-group d-flex" role="group">
+              <button id="clusterMethodComplete" class="btn btn-sm ${clusterMethod === 'complete' ? 'btn-secondary' : 'btn-outline-secondary'}">Complete</button>
+              <button id="clusterMethodSingle" class="btn btn-sm ${clusterMethod === 'single' ? 'btn-secondary' : 'btn-outline-secondary'}">Single</button>
+              <button id="clusterMethodAverage" class="btn btn-sm ${clusterMethod === 'average' ? 'btn-secondary' : 'btn-outline-secondary'}">Average</button>
+              <button id="clusterMethodWard" class="btn btn-sm ${clusterMethod === 'ward' ? 'btn-secondary' : 'btn-outline-secondary'}">Ward</button>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text-uppercase text-muted fw-bold mb-1">Distance</label>
+            <div class="btn-group d-flex" role="group">
+              <button id="clusterDistEuclidean" class="btn btn-sm ${clusterDistance === 'euclidean' ? 'btn-info' : 'btn-outline-info'}">Euclidean</button>
+              <button id="clusterDistManhattan" class="btn btn-sm ${clusterDistance === 'manhattan' ? 'btn-info' : 'btn-outline-info'}">Manhattan</button>
+              <button id="clusterDistCosine" class="btn btn-sm ${clusterDistance === 'cosine' ? 'btn-info' : 'btn-outline-info'}">Cosine</button>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text-uppercase text-muted fw-bold mb-1">Scale</label>
+            <div class="btn-group d-flex" role="group">
+              <button id="clusterScaleRaw" class="btn btn-sm ${!normalize ? 'btn-dark' : 'btn-outline-dark'}">Raw PRS</button>
+              <button id="clusterScaleZ" class="btn btn-sm ${normalize ? 'btn-dark' : 'btn-outline-dark'}">Z-score (per PGS)</button>
+            </div>
+            <div class="form-text small">Z-score standardizes each PGS column so no single model dominates by scale.</div>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="mb-2">
-      <strong>Linkage:</strong>
-      <div class="btn-group ms-2" role="group">
-        <button id="clusterMethodComplete" class="btn btn-sm ${clusterMethod === 'complete' ? 'btn-secondary' : 'btn-outline-secondary'}">Complete</button>
-        <button id="clusterMethodSingle" class="btn btn-sm ${clusterMethod === 'single' ? 'btn-secondary' : 'btn-outline-secondary'}">Single</button>
-        <button id="clusterMethodAverage" class="btn btn-sm ${clusterMethod === 'average' ? 'btn-secondary' : 'btn-outline-secondary'}">Average</button>
-        <button id="clusterMethodWard" class="btn btn-sm ${clusterMethod === 'ward' ? 'btn-secondary' : 'btn-outline-secondary'}">Ward</button>
-      </div>
-    </div>
-    <div class="mb-3">
-      <strong>Distance:</strong>
-      <div class="btn-group ms-2" role="group">
-        <button id="clusterDistEuclidean" class="btn btn-sm ${clusterDistance === 'euclidean' ? 'btn-info' : 'btn-outline-info'}">Euclidean</button>
-        <button id="clusterDistManhattan" class="btn btn-sm ${clusterDistance === 'manhattan' ? 'btn-info' : 'btn-outline-info'}">Manhattan</button>
-        <button id="clusterDistCosine" class="btn btn-sm ${clusterDistance === 'cosine' ? 'btn-info' : 'btn-outline-info'}">Cosine</button>
-      </div>
-    </div>
-    <div class="mb-3">
-      <strong>Scale:</strong>
-      <div class="btn-group ms-2" role="group">
-        <button id="clusterScaleRaw" class="btn btn-sm ${!normalize ? 'btn-dark' : 'btn-outline-dark'}">Raw PRS</button>
-        <button id="clusterScaleZ" class="btn btn-sm ${normalize ? 'btn-dark' : 'btn-outline-dark'}">Z-score (per PGS)</button>
-      </div>
-      <span class="text-muted small ms-2">Z-score standardizes each PGS column across users so no single model dominates the distance by scale.</span>
-    </div>
+
     <div id="clusterPlotBox" style="position:relative;">
       <div id="clusterPlotScroll" style="overflow:auto; max-width:100%;">
         <div id="clusterPlotMount"></div>
       </div>
     </div>
-    <div class="mt-3">
-      <button id="downloadHeatmapPngBtn" class="btn btn-outline-secondary btn-sm">
-        ⬇ Download PNG
-      </button>
-    </div>
-    <div class="mt-2">
-      <button id="downloadPrsMatrixBtn" class="btn btn-outline-secondary btn-sm">
-        ⬇ Download JSON
-      </button>
-      <button id="downloadPrsCsvBtn" class="btn btn-outline-secondary btn-sm ms-2">
-        ⬇ Download CSV
-      </button>
-      <span class="text-muted small ms-2">ClustJS-compatible format: array of row objects with a <code>label</code> field and one field per PGS ID.</span>
-    </div>
-    <details class="mt-3">
-      <summary style="cursor:pointer;">🧪 Test the clustering in R (pheatmap)</summary>
-      <p class="text-muted small mt-2 mb-1">Download the CSV above and run this in R to reproduce the hierarchical clustering with <code>pheatmap</code>, or run it directly in the browser below.</p>
-      <div class="d-flex justify-content-end mb-1">
-        <button id="copyRCodeBtn" class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 8px;">📋 Copy</button>
+
+    <div class="card mb-3 mt-3">
+      <div class="card-header bg-white py-2">
+        <span class="fw-semibold small text-uppercase text-muted">Downloads</span>
       </div>
-      <pre id="rCodeBlock" class="small bg-light border rounded p-2" style="white-space:pre; overflow:auto;"><code>library(pheatmap)
+      <div class="card-body py-3">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <button id="downloadHeatmapPngBtn" class="btn btn-outline-primary btn-sm">⬇ Heatmap PNG</button>
+          <span class="vr d-none d-sm-block"></span>
+          <button id="downloadPrsMatrixBtn" class="btn btn-outline-secondary btn-sm">⬇ Matrix JSON</button>
+          <button id="downloadPrsCsvBtn" class="btn btn-outline-secondary btn-sm">⬇ Matrix CSV</button>
+        </div>
+        <div class="form-text small mt-2">
+          JSON and CSV use the ClustJS-compatible format: one row object per user with a <code>label</code> field and one field per PGS ID.
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header bg-white py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <span class="fw-semibold small text-uppercase text-muted">Reproduce in R &mdash; pheatmap</span>
+        <div class="d-flex align-items-center gap-2">
+          <button id="runRWebRBtn" class="btn btn-success btn-sm">▶ Run in browser</button>
+          <button id="resetRCodeBtn" class="btn btn-outline-secondary btn-sm">↺ Reset code</button>
+        </div>
+      </div>
+      <div class="card-body py-3">
+        <p class="text-muted small mb-2">
+          Runs R directly in your browser via <a href="https://docs.r-wasm.org/webr/latest/" target="_blank" rel="noopener">WebR</a> &mdash; nothing to install.
+          Your current PRS matrix is already loaded at <code>${WEBR_MATRIX_PATH}</code>, so the code below works as-is.
+          The first run downloads the R runtime and <code>pheatmap</code> and may take a moment; later runs are fast.
+        </p>
+        <div id="webRStatus" class="small text-muted mb-2"></div>
+        <label for="webRCode" class="form-label small text-uppercase text-muted fw-bold mb-1">R code &mdash; editable</label>
+        <textarea id="webRCode" class="form-control form-control-sm bg-light" spellcheck="false" style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:0.8rem; line-height:1.5; white-space:pre; min-height:260px;"></textarea>
+        <div id="webRPlots" class="mt-3"></div>
+        <pre id="webRConsole" class="small bg-dark text-light rounded p-2 mt-3 mb-0" style="max-height:240px; overflow:auto; display:none;"></pre>
+        <details class="mt-3">
+          <summary class="small text-muted" style="cursor:pointer;">Run this in a local R / RStudio session instead</summary>
+          <p class="text-muted small mt-2 mb-1">Download the CSV above, point <code>read.csv()</code> at it, and run:</p>
+          <div class="d-flex justify-content-end mb-1">
+            <button id="copyRCodeBtn" class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 8px;">📋 Copy</button>
+          </div>
+          <pre id="rCodeBlock" class="small bg-light border rounded p-2 mb-0" style="white-space:pre; overflow:auto;"><code>library(pheatmap)
 
 # The current PRS matrix is preloaded into WebR at the path below.
 prs <- read.csv("${WEBR_MATRIX_PATH}", check.names = FALSE)
@@ -6582,22 +6614,8 @@ pheatmap(prs_scaled,
          fontsize = 12,
          main = "PRS Hierarchical Clustering",
          border_color = NA)</code></pre>
-    </details>
-    <div class="mt-3 border-top pt-3">
-      <h6 class="mb-1">▶ Run R here (WebR)</h6>
-      <p class="text-muted small mb-2">
-        Runs R directly in your browser via <a href="https://docs.r-wasm.org/webr/latest/" target="_blank" rel="noopener">WebR</a> — no install needed.
-        The current PRS matrix is loaded automatically at <code>${WEBR_MATRIX_PATH}</code>.
-        The first run downloads the R runtime and <code>pheatmap</code> (may take a bit); later runs are fast.
-      </p>
-      <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
-        <button id="runRWebRBtn" class="btn btn-success btn-sm">▶ Run in browser</button>
-        <button id="resetRCodeBtn" class="btn btn-outline-secondary btn-sm">Reset code</button>
-        <span id="webRStatus" class="small text-muted"></span>
+        </details>
       </div>
-      <textarea id="webRCode" class="form-control form-control-sm" spellcheck="false" style="font-family:monospace; white-space:pre; min-height:220px;"></textarea>
-      <div id="webRPlots" class="mt-2 text-start"></div>
-      <pre id="webRConsole" class="small bg-dark text-light rounded p-2 mt-2" style="max-height:240px; overflow:auto; display:none;"></pre>
     </div>
     </div>
   `;
@@ -6742,9 +6760,9 @@ pheatmap(prs_scaled,
   const plotDataLabeled = relabelPgsColumns(plotData, getPgsTraitMap(window.prsResults));
 
   // Grow the canvas with the matrix so dendrograms and axis labels have room
-  // and aren't clipped at the plot edges.
+  // and aren't clipped at the plot edges, while keeping a roughly square aspect.
   const colCount = Object.keys(pivoted[0]).length - 1;
-  const fullWidth = Math.max(1500, 150 * colCount + 500);
+  const fullWidth = Math.max(900, 120 * colCount + 400);
   const fullHeight = Math.max(760, 46 * pivoted.length + 320);
   // Render the plot smaller while keeping the reserved area (box) unchanged, so
   // the surrounding layout and the top-right download button stay put.
@@ -6752,13 +6770,12 @@ pheatmap(prs_scaled,
   const plotWidth = Math.round(fullWidth * plotScale);
   const plotHeight = Math.round(fullHeight * plotScale);
 
-  // Preserve the original footprint even though the plot is drawn smaller, and
-  // bound the scroll area so wide/tall matrices scroll inside the box while the
-  // top-right download button stays pinned to the visible corner.
+  // Bound the scroll area to the drawn plot so wide/tall matrices scroll inside
+  // the box without leaving blank space underneath.
   const plotBox = document.getElementById('clusterPlotBox');
-  if (plotBox) plotBox.style.minHeight = fullHeight + 'px';
+  if (plotBox) plotBox.style.minHeight = plotHeight + 'px';
   const plotScroll = document.getElementById('clusterPlotScroll');
-  if (plotScroll) plotScroll.style.maxHeight = fullHeight + 'px';
+  if (plotScroll) plotScroll.style.maxHeight = plotHeight + 'px';
 
   // Render PRS cluster plot
   try {
