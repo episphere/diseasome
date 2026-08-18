@@ -30,14 +30,14 @@ let localDataModuleLoaded = false;
 // the tab functionality.
 async function ensurePgsModuleLoaded() {
     if (!pgsModuleLoaded) {
-        await import('./chunks/displayScores-8wEk9oBE.mjs');
+        await import('./chunks/displayScores-B-lWO9h5.mjs');
         pgsModuleLoaded = true;
     }
 }
 
 async function ensureLocalDataModuleLoaded() {
     if (!localDataModuleLoaded) {
-        await import('./chunks/displayUsers-WTPW8V0Y.mjs');
+        await import('./chunks/displayUsers-DSGP5eXj.mjs');
         localDataModuleLoaded = true;
     }
 }
@@ -3795,42 +3795,127 @@ function truncCell(value) {
 	return `<span title="${escapeHtml(text)}">${escapeHtml(text.slice(0, MAX_CELL_CHARS))}…</span>`;
 }
 
-/*** Make an already-rendered table sortable by clicking any column header.
- * Sorts the tbody rows in place based on each cell's text: numeric when both
- * values parse as numbers, otherwise natural (locale, numeric-aware) string order.
- * Clicking the same header toggles ascending/descending.
- * @param {HTMLTableElement|null} table - The table element to enhance.
- */
-function makeTableSortable(table) {
-	const thead = table?.tHead;
-	const tbody = table?.tBodies?.[0];
-	const headRow = thead?.rows?.[0];
-	if (!headRow || !tbody) return;
-	const ths = Array.from(headRow.cells);
-	const state = { idx: -1, dir: 1 };
-	ths.forEach((th, i) => {
-		if (!th.dataset.label) th.dataset.label = th.textContent.trim();
-		th.style.cursor = "pointer";
-		th.style.userSelect = "none";
-		// Neutral sort indicator to match the other tabs' tables.
-		th.textContent = th.dataset.label + " ⇅";
+// --- PRS results table: paginated (100 rows/page) + click-to-sort on any column ---
+const PRS_RESULTS_PER_PAGE = 100;
+
+/** Parse a possibly-formatted numeric cell value; non-numeric sorts last. */
+function prsResultNum(v) {
+	if (v == null || v === "-") return -Infinity;
+	const n = Number(String(v).replace(/,/g, "").replace(/%/g, ""));
+	return Number.isFinite(n) ? n : -Infinity;
+}
+
+/** Column definitions for the PRS results table: label, optional sort getter, cell renderer. */
+const PRS_RESULT_COLUMNS = [
+	{ label: "#", cell: (r, i) => String(i + 1) },
+	{ label: "Participant ID", sort: (r) => String(r.userId ?? "").toLowerCase(), cell: (r) => truncCell(r.userId) },
+	{ label: "Name", sort: (r) => String(r.userName ?? "").toLowerCase(), cell: (r) => truncCell(r.userName) },
+	{ label: "PGS ID", sort: (r) => String(r.pgsId ?? "").toLowerCase(), cell: (r) => escapeHtml(r.pgsId) },
+	{ label: "PRS Score", sort: (r) => (typeof r.PRS === "number" ? r.PRS : -Infinity), cell: (r) => (typeof r.PRS === "number" ? r.PRS.toFixed(6) : (r.PRS ?? "-")) },
+	{ label: "Matched", sort: (r) => (r.alleles?.length ?? 0), cell: (r) => (r.alleles?.length ?? 0) },
+	{ label: "0", title: "Matched with 0 effect alleles", sort: (r) => prsResultNum(r.organized?.summary?.zeroAlleleCount), cell: (r) => (r.organized?.summary?.zeroAlleleCount ?? "-") },
+	{ label: "1", title: "Matched with 1 effect allele", sort: (r) => prsResultNum(r.organized?.summary?.oneAlleleCount), cell: (r) => (r.organized?.summary?.oneAlleleCount ?? "-") },
+	{ label: "2", title: "Matched with 2 effect alleles", sort: (r) => prsResultNum(r.organized?.summary?.twoAlleleCount), cell: (r) => (r.organized?.summary?.twoAlleleCount ?? "-") },
+	{ label: "Total", sort: (r) => prsResultNum(r.totalVariants), cell: (r) => (r.totalVariants ?? "-") },
+	{ label: "Match %", sort: (r) => prsResultNum(r.organized?.summary?.matchRate), cell: (r) => (r.organized?.summary?.matchRate ?? "-") },
+	{ label: "QC", sort: (r) => (r.QC ? 1 : 0), cell: (r) => (r.QC ? "✓" : r.QCtext ?? "-") },
+	{ label: "Src", title: "📦 = cached, 🔄 = calculated", sort: (r) => (r.fromCache ? 1 : 0), cell: (r) => (r.fromCache ? "📦" : "🔄") },
+];
+
+let _prsResults = [];
+let _prsResultsDiv = null;
+let _prsResultsSort = { idx: -1, dir: 1 };
+let _prsResultsPage = 1;
+
+/** Public entry: render the PRS results into `resultsDiv`, resetting page and sort. */
+function renderPrsResultsTable(resultsDiv, prsResults) {
+	_prsResultsDiv = resultsDiv;
+	_prsResults = Array.isArray(prsResults) ? prsResults : [];
+	_prsResultsPage = 1;
+	_prsResultsSort = { idx: -1, dir: 1 };
+	_renderPrsResultsPage();
+}
+
+/** Render the current page of the PRS results table, honoring the active sort. */
+function _renderPrsResultsPage() {
+	const resultsDiv = _prsResultsDiv;
+	if (!resultsDiv) return;
+	if (_prsResults.length === 0) {
+		resultsDiv.innerHTML = `<p class="text-muted">PRS calculation completed. Check console for details.</p>`;
+		return;
+	}
+
+	const rows = _prsResults.slice();
+	const s = _prsResultsSort;
+	if (s.idx >= 0 && PRS_RESULT_COLUMNS[s.idx]?.sort) {
+		const get = PRS_RESULT_COLUMNS[s.idx].sort;
+		rows.sort((a, b) => {
+			const av = get(a), bv = get(b);
+			const c = (typeof av === "number" && typeof bv === "number")
+				? (av === bv ? 0 : (av < bv ? -1 : 1))
+				: String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: "base" });
+			return c * s.dir;
+		});
+	}
+
+	const totalPages = Math.max(1, Math.ceil(rows.length / PRS_RESULTS_PER_PAGE));
+	_prsResultsPage = Math.min(Math.max(1, _prsResultsPage), totalPages);
+	const startIndex = (_prsResultsPage - 1) * PRS_RESULTS_PER_PAGE;
+	const pageRows = rows.slice(startIndex, startIndex + PRS_RESULTS_PER_PAGE);
+
+	const arrow = (i) => (s.idx === i ? (s.dir === 1 ? " ▲" : " ▼") : (PRS_RESULT_COLUMNS[i].sort ? " ⇅" : ""));
+	const headHtml = PRS_RESULT_COLUMNS.map((c, i) => {
+		const titleAttr = c.title ? ` title="${escapeHtml(c.title)}"` : "";
+		const cls = c.sort ? ` class="prs-result-sort" style="cursor:pointer;user-select:none;"` : "";
+		return `<th data-idx="${i}"${cls}${titleAttr}>${escapeHtml(c.label)}${arrow(i)}</th>`;
+	}).join("");
+
+	const bodyHtml = pageRows.map((r, i) => {
+		const cls = r.fromCache ? ' class="table-secondary"' : "";
+		const cells = PRS_RESULT_COLUMNS.map((c) => `<td>${c.cell(r, startIndex + i)}</td>`).join("");
+		return `<tr${cls}>${cells}</tr>`;
+	}).join("");
+
+	resultsDiv.innerHTML = `
+		<div class="d-flex justify-content-end gap-2 mt-3">
+			<button class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" onclick="window.downloadRiskScoresJson && window.downloadRiskScoresJson()">⬇ Download Scores (JSON)</button>
+			<button class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" onclick="window.downloadRiskScoresCsv && window.downloadRiskScoresCsv()">⬇ Download Scores (CSV)</button>
+		</div>
+		<div class="table-responsive">
+			<table class="table table-striped table-sm mt-3">
+				<thead class="table-dark"><tr>${headHtml}</tr></thead>
+				<tbody>${bodyHtml}</tbody>
+			</table>
+		</div>
+		<div class="d-flex justify-content-between align-items-center mt-2">
+			<span class="small text-muted">${rows.length.toLocaleString()} result(s)</span>
+			<div class="d-flex align-items-center gap-2">
+				<button id="prsResFirst" class="btn btn-sm btn-outline-secondary" ${_prsResultsPage === 1 ? "disabled" : ""}>&laquo; First</button>
+				<button id="prsResPrev" class="btn btn-sm btn-outline-secondary" ${_prsResultsPage === 1 ? "disabled" : ""}>&lsaquo; Previous</button>
+				<span class="small text-muted">Page ${_prsResultsPage} of ${totalPages}</span>
+				<button id="prsResNext" class="btn btn-sm btn-outline-secondary" ${_prsResultsPage >= totalPages ? "disabled" : ""}>Next &rsaquo;</button>
+				<button id="prsResLast" class="btn btn-sm btn-outline-secondary" ${_prsResultsPage >= totalPages ? "disabled" : ""}>Last &raquo;</button>
+			</div>
+		</div>
+		<details class="mt-2">
+			<summary>Raw JSON</summary>
+			<pre class="small">${escapeHtml(JSON.stringify(_prsResults, null, 2))}</pre>
+		</details>`;
+
+	resultsDiv.querySelectorAll("th.prs-result-sort").forEach((th) => {
 		th.addEventListener("click", () => {
-			state.dir = state.idx === i ? -state.dir : 1;
-			state.idx = i;
-			const val = (row) => (row.cells[i]?.textContent ?? "").trim();
-			const rows = Array.from(tbody.rows);
-			rows.sort((ra, rb) => {
-				const av = val(ra), bv = val(rb);
-				const an = Number(av.replace(/,/g, "")), bn = Number(bv.replace(/,/g, ""));
-				const numeric = av !== "" && bv !== "" && !Number.isNaN(an) && !Number.isNaN(bn);
-				const c = numeric ? (an - bn) : av.localeCompare(bv, undefined, { numeric: true, sensitivity: "base" });
-				return c * state.dir;
-			});
-			rows.forEach((r) => tbody.appendChild(r));
-			ths.forEach((h) => { h.textContent = h.dataset.label + " ⇅"; });
-			th.textContent = th.dataset.label + (state.dir === 1 ? " ▲" : " ▼");
+			const i = Number(th.dataset.idx);
+			if (_prsResultsSort.idx === i) _prsResultsSort.dir = -_prsResultsSort.dir;
+			else { _prsResultsSort.idx = i; _prsResultsSort.dir = 1; }
+			_prsResultsPage = 1;
+			_renderPrsResultsPage();
 		});
 	});
+	const byId = (id) => document.getElementById(id);
+	byId("prsResFirst")?.addEventListener("click", () => { _prsResultsPage = 1; _renderPrsResultsPage(); });
+	byId("prsResPrev")?.addEventListener("click", () => { _prsResultsPage -= 1; _renderPrsResultsPage(); });
+	byId("prsResNext")?.addEventListener("click", () => { _prsResultsPage += 1; _renderPrsResultsPage(); });
+	byId("prsResLast")?.addEventListener("click", () => { _prsResultsPage = totalPages; _renderPrsResultsPage(); });
 }
 
 /** Collect the values of all checked checkboxes matching a selector into a Set. */
@@ -4740,64 +4825,9 @@ async function calculatePRS() {
 		if (statusEl) statusEl.textContent = `Completed! ${elapsedSec}s. ${prsResults.length} result(s) (${cachedCount} from cache, ${calculatedCount} calculated).`;
 		setProgressBar("calculate", statusEl, 100);
 
-		// Display results
+		// Display results (paginated at 100 rows/page, click-to-sort on every column).
 		if (resultsDiv) {
-			if (prsResults.length > 0) {
-				const rows = prsResults.map((r, idx) => {
-					const org = r.organized?.summary ?? {};
-					return `
-					<tr${r.fromCache ? ' class="table-secondary"' : ''}>
-						<td>${idx + 1}</td>
-						<td>${truncCell(r.userId)}</td>
-						<td>${truncCell(r.userName)}</td>
-						<td>${escapeHtml(r.pgsId)}</td>
-						<td>${typeof r.PRS === 'number' ? r.PRS.toFixed(6) : (r.PRS ?? "-")}</td>
-						<td>${r.alleles?.length ?? 0}</td>
-						<td title="Zero alleles">${org.zeroAlleleCount ?? "-"}</td>
-						<td title="One allele">${org.oneAlleleCount ?? "-"}</td>
-						<td title="Two alleles">${org.twoAlleleCount ?? "-"}</td>
-						<td>${r.totalVariants ?? "-"}</td>
-						<td>${org.matchRate ?? "-"}</td>
-						<td>${r.QC ? "✓" : r.QCtext ?? "-"}</td>
-						<td>${r.fromCache ? "📦" : "🔄"}</td>
-					</tr>
-				`;
-				}).join("");
-
-				resultsDiv.innerHTML = `
-					<div class="d-flex justify-content-end gap-2 mt-3">
-						<button class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" onclick="window.downloadRiskScoresJson && window.downloadRiskScoresJson()">⬇ Download Scores (JSON)</button>
-						<button class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" onclick="window.downloadRiskScoresCsv && window.downloadRiskScoresCsv()">⬇ Download Scores (CSV)</button>
-					</div>
-					<table class="table table-striped table-sm mt-3">
-						<thead class="table-dark">
-							<tr>
-								<th>#</th>
-								<th>Participant ID</th>
-								<th>Name</th>
-								<th>PGS ID</th>
-								<th>PRS Score</th>
-								<th>Matched</th>
-								<th title="Matched with 0 effect alleles">0</th>
-								<th title="Matched with 1 effect allele">1</th>
-								<th title="Matched with 2 effect alleles">2</th>
-								<th>Total</th>
-								<th>Match %</th>
-								<th>QC</th>
-								<th title="📦 = cached, 🔄 = calculated">Src</th>
-							</tr>
-						</thead>
-						<tbody>${rows}</tbody>
-					</table>
-					<details class="mt-2">
-						<summary>Raw JSON</summary>
-						<pre class="small">${JSON.stringify(prsResults, null, 2)}</pre>
-					</details>`;
-				// Enable click-to-sort on every column of the risk scores results table.
-				makeTableSortable(resultsDiv.querySelector("table"));
-			} else {
-				resultsDiv.innerHTML = `<p class="text-muted">PRS calculation completed. Check console for details.</p>`;
-			}
+			renderPrsResultsTable(resultsDiv, prsResults);
 		}
 
 	} catch (err) {
@@ -6317,15 +6347,6 @@ async function renderCluster() {
     <p class="text-muted small mb-2">
       Hierarchical clustering of PRS results (${pivoted.length} users × ${Object.keys(pivoted[0]).length - 1} PGS entries).
     </p>
-    <div class="mb-3">
-      <button id="downloadPrsMatrixBtn" class="btn btn-outline-secondary btn-sm">
-        ⬇ Download JSON
-      </button>
-      <button id="downloadPrsCsvBtn" class="btn btn-outline-secondary btn-sm ms-2">
-        ⬇ Download CSV
-      </button>
-      <span class="text-muted small ms-2">ClustJS-compatible format: array of row objects with a <code>label</code> field and one field per PGS ID.</span>
-    </div>
     <div class="mb-2">
       <strong>Cluster by:</strong>
       <div class="btn-group ms-2" role="group">
@@ -6367,6 +6388,74 @@ async function renderCluster() {
         <div id="clusterPlotMount"></div>
       </div>
     </div>
+    <div class="mt-3">
+      <button id="downloadPrsMatrixBtn" class="btn btn-outline-secondary btn-sm">
+        ⬇ Download JSON
+      </button>
+      <button id="downloadPrsCsvBtn" class="btn btn-outline-secondary btn-sm ms-2">
+        ⬇ Download CSV
+      </button>
+      <span class="text-muted small ms-2">ClustJS-compatible format: array of row objects with a <code>label</code> field and one field per PGS ID.</span>
+    </div>
+    <details class="mt-3">
+      <summary style="cursor:pointer;">🧪 Test the clustering in R (pheatmap)</summary>
+      <p class="text-muted small mt-2 mb-1">Download the CSV above, then run this in R to reproduce the hierarchical clustering with <code>pheatmap</code>. Replace <code>YOUR_USERNAME</code> with your Windows username.</p>
+      <div class="d-flex justify-content-end mb-1">
+        <button id="copyRCodeBtn" class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 8px;">📋 Copy</button>
+      </div>
+      <pre id="rCodeBlock" class="small bg-light border rounded p-2" style="white-space:pre; overflow:auto;"><code># Install once if needed
+install.packages("pheatmap")
+
+# Load library
+library(pheatmap)
+
+# Load file from Downloads
+prs <- read.csv(
+  "C:/Users/YOUR_USERNAME/Downloads/prs_matrix_10users.csv",
+  check.names = FALSE
+)
+
+# Use the first column ("label") as the row names
+rownames(prs) <- prs$label
+
+# Remove the label column, leaving only PGS values
+prs_matrix <- as.matrix(prs[, -1])
+
+# Check matrix
+prs_matrix
+
+# Z-score each PGS across users
+prs_scaled <- scale(prs_matrix)
+
+# Distance between users
+user_dist <- dist(prs_scaled, method = "euclidean")
+
+# Hierarchical clustering
+user_hclust <- hclust(
+  user_dist,
+  method = "ward.D2"
+)
+
+# View dendrogram by itself
+plot(
+  user_hclust,
+  main = "Hierarchical Clustering of Users",
+  xlab = "",
+  sub = "",
+  hang = -1
+)
+
+# Heatmap with row + column clustering
+pheatmap(
+  prs_scaled,
+  cluster_rows = user_hclust,
+  cluster_cols = TRUE,
+  clustering_distance_cols = "euclidean",
+  clustering_method = "ward.D2",
+  main = "PRS Hierarchical Clustering",
+  border_color = NA
+)</code></pre>
+    </details>
     </div>
   `;
 
@@ -6383,6 +6472,23 @@ async function renderCluster() {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  // Copy the R clustering snippet to the clipboard.
+  const copyRCodeBtn = document.getElementById('copyRCodeBtn');
+  if (copyRCodeBtn) {
+    copyRCodeBtn.onclick = async () => {
+      const code = document.getElementById('rCodeBlock')?.innerText ?? '';
+      try {
+        await navigator.clipboard.writeText(code);
+        const prev = copyRCodeBtn.textContent;
+        copyRCodeBtn.textContent = '✓ Copied';
+        setTimeout(() => { copyRCodeBtn.textContent = prev; }, 1500);
+      } catch (err) {
+        console.error('[PRS Clustering] Copy R code failed:', err);
+        alert('Could not copy the R code.');
+      }
+    };
+  }
 
   // Download the rendered heatmap (the SVG inside the mount) as a PNG.
   document.getElementById('downloadHeatmapPngBtn').onclick = () => {

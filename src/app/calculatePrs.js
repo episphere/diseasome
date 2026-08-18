@@ -731,6 +731,129 @@ function makeTableSortable(table) {
 	});
 }
 
+// --- PRS results table: paginated (100 rows/page) + click-to-sort on any column ---
+const PRS_RESULTS_PER_PAGE = 100;
+
+/** Parse a possibly-formatted numeric cell value; non-numeric sorts last. */
+function prsResultNum(v) {
+	if (v == null || v === "-") return -Infinity;
+	const n = Number(String(v).replace(/,/g, "").replace(/%/g, ""));
+	return Number.isFinite(n) ? n : -Infinity;
+}
+
+/** Column definitions for the PRS results table: label, optional sort getter, cell renderer. */
+const PRS_RESULT_COLUMNS = [
+	{ label: "#", cell: (r, i) => String(i + 1) },
+	{ label: "Participant ID", sort: (r) => String(r.userId ?? "").toLowerCase(), cell: (r) => truncCell(r.userId) },
+	{ label: "Name", sort: (r) => String(r.userName ?? "").toLowerCase(), cell: (r) => truncCell(r.userName) },
+	{ label: "PGS ID", sort: (r) => String(r.pgsId ?? "").toLowerCase(), cell: (r) => escapeHtml(r.pgsId) },
+	{ label: "PRS Score", sort: (r) => (typeof r.PRS === "number" ? r.PRS : -Infinity), cell: (r) => (typeof r.PRS === "number" ? r.PRS.toFixed(6) : (r.PRS ?? "-")) },
+	{ label: "Matched", sort: (r) => (r.alleles?.length ?? 0), cell: (r) => (r.alleles?.length ?? 0) },
+	{ label: "0", title: "Matched with 0 effect alleles", sort: (r) => prsResultNum(r.organized?.summary?.zeroAlleleCount), cell: (r) => (r.organized?.summary?.zeroAlleleCount ?? "-") },
+	{ label: "1", title: "Matched with 1 effect allele", sort: (r) => prsResultNum(r.organized?.summary?.oneAlleleCount), cell: (r) => (r.organized?.summary?.oneAlleleCount ?? "-") },
+	{ label: "2", title: "Matched with 2 effect alleles", sort: (r) => prsResultNum(r.organized?.summary?.twoAlleleCount), cell: (r) => (r.organized?.summary?.twoAlleleCount ?? "-") },
+	{ label: "Total", sort: (r) => prsResultNum(r.totalVariants), cell: (r) => (r.totalVariants ?? "-") },
+	{ label: "Match %", sort: (r) => prsResultNum(r.organized?.summary?.matchRate), cell: (r) => (r.organized?.summary?.matchRate ?? "-") },
+	{ label: "QC", sort: (r) => (r.QC ? 1 : 0), cell: (r) => (r.QC ? "✓" : r.QCtext ?? "-") },
+	{ label: "Src", title: "📦 = cached, 🔄 = calculated", sort: (r) => (r.fromCache ? 1 : 0), cell: (r) => (r.fromCache ? "📦" : "🔄") },
+];
+
+let _prsResults = [];
+let _prsResultsDiv = null;
+let _prsResultsSort = { idx: -1, dir: 1 };
+let _prsResultsPage = 1;
+
+/** Public entry: render the PRS results into `resultsDiv`, resetting page and sort. */
+function renderPrsResultsTable(resultsDiv, prsResults) {
+	_prsResultsDiv = resultsDiv;
+	_prsResults = Array.isArray(prsResults) ? prsResults : [];
+	_prsResultsPage = 1;
+	_prsResultsSort = { idx: -1, dir: 1 };
+	_renderPrsResultsPage();
+}
+
+/** Render the current page of the PRS results table, honoring the active sort. */
+function _renderPrsResultsPage() {
+	const resultsDiv = _prsResultsDiv;
+	if (!resultsDiv) return;
+	if (_prsResults.length === 0) {
+		resultsDiv.innerHTML = `<p class="text-muted">PRS calculation completed. Check console for details.</p>`;
+		return;
+	}
+
+	const rows = _prsResults.slice();
+	const s = _prsResultsSort;
+	if (s.idx >= 0 && PRS_RESULT_COLUMNS[s.idx]?.sort) {
+		const get = PRS_RESULT_COLUMNS[s.idx].sort;
+		rows.sort((a, b) => {
+			const av = get(a), bv = get(b);
+			const c = (typeof av === "number" && typeof bv === "number")
+				? (av === bv ? 0 : (av < bv ? -1 : 1))
+				: String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: "base" });
+			return c * s.dir;
+		});
+	}
+
+	const totalPages = Math.max(1, Math.ceil(rows.length / PRS_RESULTS_PER_PAGE));
+	_prsResultsPage = Math.min(Math.max(1, _prsResultsPage), totalPages);
+	const startIndex = (_prsResultsPage - 1) * PRS_RESULTS_PER_PAGE;
+	const pageRows = rows.slice(startIndex, startIndex + PRS_RESULTS_PER_PAGE);
+
+	const arrow = (i) => (s.idx === i ? (s.dir === 1 ? " ▲" : " ▼") : (PRS_RESULT_COLUMNS[i].sort ? " ⇅" : ""));
+	const headHtml = PRS_RESULT_COLUMNS.map((c, i) => {
+		const titleAttr = c.title ? ` title="${escapeHtml(c.title)}"` : "";
+		const cls = c.sort ? ` class="prs-result-sort" style="cursor:pointer;user-select:none;"` : "";
+		return `<th data-idx="${i}"${cls}${titleAttr}>${escapeHtml(c.label)}${arrow(i)}</th>`;
+	}).join("");
+
+	const bodyHtml = pageRows.map((r, i) => {
+		const cls = r.fromCache ? ' class="table-secondary"' : "";
+		const cells = PRS_RESULT_COLUMNS.map((c) => `<td>${c.cell(r, startIndex + i)}</td>`).join("");
+		return `<tr${cls}>${cells}</tr>`;
+	}).join("");
+
+	resultsDiv.innerHTML = `
+		<div class="d-flex justify-content-end gap-2 mt-3">
+			<button class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" onclick="window.downloadRiskScoresJson && window.downloadRiskScoresJson()">⬇ Download Scores (JSON)</button>
+			<button class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" onclick="window.downloadRiskScoresCsv && window.downloadRiskScoresCsv()">⬇ Download Scores (CSV)</button>
+		</div>
+		<div class="table-responsive">
+			<table class="table table-striped table-sm mt-3">
+				<thead class="table-dark"><tr>${headHtml}</tr></thead>
+				<tbody>${bodyHtml}</tbody>
+			</table>
+		</div>
+		<div class="d-flex justify-content-between align-items-center mt-2">
+			<span class="small text-muted">${rows.length.toLocaleString()} result(s)</span>
+			<div class="d-flex align-items-center gap-2">
+				<button id="prsResFirst" class="btn btn-sm btn-outline-secondary" ${_prsResultsPage === 1 ? "disabled" : ""}>&laquo; First</button>
+				<button id="prsResPrev" class="btn btn-sm btn-outline-secondary" ${_prsResultsPage === 1 ? "disabled" : ""}>&lsaquo; Previous</button>
+				<span class="small text-muted">Page ${_prsResultsPage} of ${totalPages}</span>
+				<button id="prsResNext" class="btn btn-sm btn-outline-secondary" ${_prsResultsPage >= totalPages ? "disabled" : ""}>Next &rsaquo;</button>
+				<button id="prsResLast" class="btn btn-sm btn-outline-secondary" ${_prsResultsPage >= totalPages ? "disabled" : ""}>Last &raquo;</button>
+			</div>
+		</div>
+		<details class="mt-2">
+			<summary>Raw JSON</summary>
+			<pre class="small">${escapeHtml(JSON.stringify(_prsResults, null, 2))}</pre>
+		</details>`;
+
+	resultsDiv.querySelectorAll("th.prs-result-sort").forEach((th) => {
+		th.addEventListener("click", () => {
+			const i = Number(th.dataset.idx);
+			if (_prsResultsSort.idx === i) _prsResultsSort.dir = -_prsResultsSort.dir;
+			else { _prsResultsSort.idx = i; _prsResultsSort.dir = 1; }
+			_prsResultsPage = 1;
+			_renderPrsResultsPage();
+		});
+	});
+	const byId = (id) => document.getElementById(id);
+	byId("prsResFirst")?.addEventListener("click", () => { _prsResultsPage = 1; _renderPrsResultsPage(); });
+	byId("prsResPrev")?.addEventListener("click", () => { _prsResultsPage -= 1; _renderPrsResultsPage(); });
+	byId("prsResNext")?.addEventListener("click", () => { _prsResultsPage += 1; _renderPrsResultsPage(); });
+	byId("prsResLast")?.addEventListener("click", () => { _prsResultsPage = totalPages; _renderPrsResultsPage(); });
+}
+
 /** Collect the values of all checked checkboxes matching a selector into a Set. */
 function getCheckedIds(selector) {
 	return new Set(Array.from(document.querySelectorAll(selector + ":checked")).map(cb => cb.value));
@@ -1638,64 +1761,9 @@ async function calculatePRS() {
 		if (statusEl) statusEl.textContent = `Completed! ${elapsedSec}s. ${prsResults.length} result(s) (${cachedCount} from cache, ${calculatedCount} calculated).`;
 		setProgressBar("calculate", statusEl, 100);
 
-		// Display results
+		// Display results (paginated at 100 rows/page, click-to-sort on every column).
 		if (resultsDiv) {
-			if (prsResults.length > 0) {
-				const rows = prsResults.map((r, idx) => {
-					const org = r.organized?.summary ?? {};
-					return `
-					<tr${r.fromCache ? ' class="table-secondary"' : ''}>
-						<td>${idx + 1}</td>
-						<td>${truncCell(r.userId)}</td>
-						<td>${truncCell(r.userName)}</td>
-						<td>${escapeHtml(r.pgsId)}</td>
-						<td>${typeof r.PRS === 'number' ? r.PRS.toFixed(6) : (r.PRS ?? "-")}</td>
-						<td>${r.alleles?.length ?? 0}</td>
-						<td title="Zero alleles">${org.zeroAlleleCount ?? "-"}</td>
-						<td title="One allele">${org.oneAlleleCount ?? "-"}</td>
-						<td title="Two alleles">${org.twoAlleleCount ?? "-"}</td>
-						<td>${r.totalVariants ?? "-"}</td>
-						<td>${org.matchRate ?? "-"}</td>
-						<td>${r.QC ? "✓" : r.QCtext ?? "-"}</td>
-						<td>${r.fromCache ? "📦" : "🔄"}</td>
-					</tr>
-				`;
-				}).join("");
-
-				resultsDiv.innerHTML = `
-					<div class="d-flex justify-content-end gap-2 mt-3">
-						<button class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" onclick="window.downloadRiskScoresJson && window.downloadRiskScoresJson()">⬇ Download Scores (JSON)</button>
-						<button class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" onclick="window.downloadRiskScoresCsv && window.downloadRiskScoresCsv()">⬇ Download Scores (CSV)</button>
-					</div>
-					<table class="table table-striped table-sm mt-3">
-						<thead class="table-dark">
-							<tr>
-								<th>#</th>
-								<th>Participant ID</th>
-								<th>Name</th>
-								<th>PGS ID</th>
-								<th>PRS Score</th>
-								<th>Matched</th>
-								<th title="Matched with 0 effect alleles">0</th>
-								<th title="Matched with 1 effect allele">1</th>
-								<th title="Matched with 2 effect alleles">2</th>
-								<th>Total</th>
-								<th>Match %</th>
-								<th>QC</th>
-								<th title="📦 = cached, 🔄 = calculated">Src</th>
-							</tr>
-						</thead>
-						<tbody>${rows}</tbody>
-					</table>
-					<details class="mt-2">
-						<summary>Raw JSON</summary>
-						<pre class="small">${JSON.stringify(prsResults, null, 2)}</pre>
-					</details>`;
-				// Enable click-to-sort on every column of the risk scores results table.
-				makeTableSortable(resultsDiv.querySelector("table"));
-			} else {
-				resultsDiv.innerHTML = `<p class="text-muted">PRS calculation completed. Check console for details.</p>`;
-			}
+			renderPrsResultsTable(resultsDiv, prsResults);
 		}
 
 	} catch (err) {

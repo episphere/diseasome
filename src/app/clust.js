@@ -339,15 +339,6 @@ async function renderCluster() {
     <p class="text-muted small mb-2">
       Hierarchical clustering of PRS results (${pivoted.length} users × ${Object.keys(pivoted[0]).length - 1} PGS entries).
     </p>
-    <div class="mb-3">
-      <button id="downloadPrsMatrixBtn" class="btn btn-outline-secondary btn-sm">
-        ⬇ Download JSON
-      </button>
-      <button id="downloadPrsCsvBtn" class="btn btn-outline-secondary btn-sm ms-2">
-        ⬇ Download CSV
-      </button>
-      <span class="text-muted small ms-2">ClustJS-compatible format: array of row objects with a <code>label</code> field and one field per PGS ID.</span>
-    </div>
     <div class="mb-2">
       <strong>Cluster by:</strong>
       <div class="btn-group ms-2" role="group">
@@ -389,6 +380,74 @@ async function renderCluster() {
         <div id="clusterPlotMount"></div>
       </div>
     </div>
+    <div class="mt-3">
+      <button id="downloadPrsMatrixBtn" class="btn btn-outline-secondary btn-sm">
+        ⬇ Download JSON
+      </button>
+      <button id="downloadPrsCsvBtn" class="btn btn-outline-secondary btn-sm ms-2">
+        ⬇ Download CSV
+      </button>
+      <span class="text-muted small ms-2">ClustJS-compatible format: array of row objects with a <code>label</code> field and one field per PGS ID.</span>
+    </div>
+    <details class="mt-3">
+      <summary style="cursor:pointer;">🧪 Test the clustering in R (pheatmap)</summary>
+      <p class="text-muted small mt-2 mb-1">Download the CSV above, then run this in R to reproduce the hierarchical clustering with <code>pheatmap</code>. Replace <code>YOUR_USERNAME</code> with your Windows username.</p>
+      <div class="d-flex justify-content-end mb-1">
+        <button id="copyRCodeBtn" class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 8px;">📋 Copy</button>
+      </div>
+      <pre id="rCodeBlock" class="small bg-light border rounded p-2" style="white-space:pre; overflow:auto;"><code># Install once if needed
+install.packages("pheatmap")
+
+# Load library
+library(pheatmap)
+
+# Load file from Downloads
+prs <- read.csv(
+  "C:/Users/YOUR_USERNAME/Downloads/prs_matrix_10users.csv",
+  check.names = FALSE
+)
+
+# Use the first column ("label") as the row names
+rownames(prs) <- prs$label
+
+# Remove the label column, leaving only PGS values
+prs_matrix <- as.matrix(prs[, -1])
+
+# Check matrix
+prs_matrix
+
+# Z-score each PGS across users
+prs_scaled <- scale(prs_matrix)
+
+# Distance between users
+user_dist <- dist(prs_scaled, method = "euclidean")
+
+# Hierarchical clustering
+user_hclust <- hclust(
+  user_dist,
+  method = "ward.D2"
+)
+
+# View dendrogram by itself
+plot(
+  user_hclust,
+  main = "Hierarchical Clustering of Users",
+  xlab = "",
+  sub = "",
+  hang = -1
+)
+
+# Heatmap with row + column clustering
+pheatmap(
+  prs_scaled,
+  cluster_rows = user_hclust,
+  cluster_cols = TRUE,
+  clustering_distance_cols = "euclidean",
+  clustering_method = "ward.D2",
+  main = "PRS Hierarchical Clustering",
+  border_color = NA
+)</code></pre>
+    </details>
     </div>
   `;
 
@@ -405,6 +464,23 @@ async function renderCluster() {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  // Copy the R clustering snippet to the clipboard.
+  const copyRCodeBtn = document.getElementById('copyRCodeBtn');
+  if (copyRCodeBtn) {
+    copyRCodeBtn.onclick = async () => {
+      const code = document.getElementById('rCodeBlock')?.innerText ?? '';
+      try {
+        await navigator.clipboard.writeText(code);
+        const prev = copyRCodeBtn.textContent;
+        copyRCodeBtn.textContent = '✓ Copied';
+        setTimeout(() => { copyRCodeBtn.textContent = prev; }, 1500);
+      } catch (err) {
+        console.error('[PRS Clustering] Copy R code failed:', err);
+        alert('Could not copy the R code.');
+      }
+    };
+  }
 
   // Download the rendered heatmap (the SVG inside the mount) as a PNG.
   document.getElementById('downloadHeatmapPngBtn').onclick = () => {
