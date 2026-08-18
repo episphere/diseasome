@@ -6294,6 +6294,9 @@ function matrixToCsvString(matrix) {
 const WEBR_BASE_URL = 'https://webr.r-wasm.org/latest/';
 const WEBR_MATRIX_PATH = '/home/web_user/prs_matrix.csv';
 let _webRPromise = null;
+// Persist the WebR runner UI across renderCluster() rebuilds so clicking a
+// clustering parameter for the first plot doesn't wipe the R output/code.
+let _webRState = { code: null, plotsHTML: '', consoleHTML: '', consoleVisible: false, status: '' };
 
 /** Default R snippet shown in the runner; reads the PRS matrix preloaded into WebR's FS. */
 const WEBR_DEFAULT_CODE = `library(pheatmap)
@@ -6308,14 +6311,14 @@ prs_scaled <- scale(prs_matrix)
 
 # Distance + hierarchical clustering of users
 user_dist <- dist(prs_scaled, method = "euclidean")
-user_hclust <- hclust(user_dist, method = "ward.D2")
+user_hclust <- hclust(user_dist, method = "complete")
 
 # Heatmap with row + column clustering
 pheatmap(prs_scaled,
          cluster_rows = user_hclust,
          cluster_cols = TRUE,
          clustering_distance_cols = "euclidean",
-         clustering_method = "ward.D2",
+         clustering_method = "complete",
          treeheight_row = 120,
          treeheight_col = 120,
          fontsize = 12,
@@ -6397,14 +6400,18 @@ async function runRCodeInWebR() {
       const canvas = document.createElement('canvas');
       canvas.width = img.width;
       canvas.height = img.height;
-      canvas.style.maxWidth = '640px';
-      canvas.style.width = '100%';
-      canvas.style.height = 'auto';
-      canvas.style.border = '1px solid #ddd';
-      canvas.style.marginBottom = '8px';
-      canvas.style.marginLeft = '40px';
       canvas.getContext('2d').drawImage(img, 0, 0);
-      if (plotsEl) plotsEl.appendChild(canvas);
+      // Use an <img> (data URL) rather than a live canvas so the plot survives
+      // renderCluster() rebuilds via innerHTML restoration.
+      const image = document.createElement('img');
+      image.src = canvas.toDataURL('image/png');
+      image.style.maxWidth = '640px';
+      image.style.width = '100%';
+      image.style.height = 'auto';
+      image.style.border = '1px solid #ddd';
+      image.style.marginBottom = '8px';
+      image.style.marginLeft = '40px';
+      if (plotsEl) plotsEl.appendChild(image);
     }
     if (statusEl) statusEl.textContent = `Done — ${images.length} plot(s) rendered.`;
   } catch (err) {
@@ -6417,6 +6424,11 @@ async function runRCodeInWebR() {
   } finally {
     if (shelter) { try { await shelter.purge(); } catch { /* ignore */ } }
     if (btn) btn.disabled = false;
+    // Save the output so it can be restored after a renderCluster() rebuild.
+    _webRState.plotsHTML = plotsEl ? plotsEl.innerHTML : '';
+    _webRState.consoleHTML = consoleEl ? consoleEl.textContent : '';
+    _webRState.consoleVisible = !!(consoleEl && consoleEl.style.display !== 'none');
+    _webRState.status = statusEl ? statusEl.textContent : '';
   }
 }
 
@@ -6557,14 +6569,14 @@ prs_scaled <- scale(prs_matrix)
 
 # Distance + hierarchical clustering of users
 user_dist <- dist(prs_scaled, method = "euclidean")
-user_hclust <- hclust(user_dist, method = "ward.D2")
+user_hclust <- hclust(user_dist, method = "complete")
 
 # Heatmap with row + column clustering
 pheatmap(prs_scaled,
          cluster_rows = user_hclust,
          cluster_cols = TRUE,
          clustering_distance_cols = "euclidean",
-         clustering_method = "ward.D2",
+         clustering_method = "complete",
          treeheight_row = 120,
          treeheight_col = 120,
          fontsize = 12,
@@ -6623,11 +6635,29 @@ pheatmap(prs_scaled,
 
   // WebR runner: seed the editor with the default code and wire Run / Reset.
   const webRCodeEl = document.getElementById('webRCode');
-  if (webRCodeEl && !webRCodeEl.value) webRCodeEl.value = WEBR_DEFAULT_CODE;
+  if (webRCodeEl) {
+    // Restore previously-entered code (or seed the default on first render).
+    webRCodeEl.value = _webRState.code != null ? _webRState.code : WEBR_DEFAULT_CODE;
+    webRCodeEl.addEventListener('input', () => { _webRState.code = webRCodeEl.value; });
+  }
+  // Restore any previously-rendered plots / console / status so switching a
+  // clustering parameter for the first plot doesn't wipe the WebR output.
+  const webRPlotsEl = document.getElementById('webRPlots');
+  if (webRPlotsEl && _webRState.plotsHTML) webRPlotsEl.innerHTML = _webRState.plotsHTML;
+  const webRConsoleEl = document.getElementById('webRConsole');
+  if (webRConsoleEl && _webRState.consoleHTML) {
+    webRConsoleEl.textContent = _webRState.consoleHTML;
+    webRConsoleEl.style.display = _webRState.consoleVisible ? 'block' : 'none';
+  }
+  const webRStatusEl = document.getElementById('webRStatus');
+  if (webRStatusEl && _webRState.status) webRStatusEl.textContent = _webRState.status;
   const runRWebRBtn = document.getElementById('runRWebRBtn');
   if (runRWebRBtn) runRWebRBtn.onclick = runRCodeInWebR;
   const resetRCodeBtn = document.getElementById('resetRCodeBtn');
-  if (resetRCodeBtn) resetRCodeBtn.onclick = () => { if (webRCodeEl) webRCodeEl.value = WEBR_DEFAULT_CODE; };
+  if (resetRCodeBtn) resetRCodeBtn.onclick = () => {
+    if (webRCodeEl) webRCodeEl.value = WEBR_DEFAULT_CODE;
+    _webRState.code = WEBR_DEFAULT_CODE;
+  };
 
   // Download the rendered heatmap (the SVG inside the mount) as a PNG.
   document.getElementById('downloadHeatmapPngBtn').onclick = () => {
