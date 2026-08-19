@@ -149,8 +149,10 @@ function pivotPrsResults(rawResults) {
  * Standardize (z-score) each PGS column across users so that no single model
  * dominates the clustering distance purely because of its scale.
  * For each PGS: z = (value - mean) / sd, computed across all users that have a
- * finite value. Columns with fewer than 2 finite values (or zero variance) are
- * left effectively unscaled (sd defaults to 1). Missing values stay missing.
+ * finite value, using the sample standard deviation (n - 1 denominator) so the
+ * result matches R's scale(). Columns with fewer than 2 finite values (or zero
+ * variance) are left effectively unscaled (sd defaults to 1). Missing values
+ * stay missing.
  * @param {Array<Object>} pivoted - Row objects: { label, <pgsId>: value, ... }
  * @param {string[]} pgsIds - PGS column ids to standardize
  * @returns {Array<Object>} New row objects with z-scored values.
@@ -165,7 +167,9 @@ function standardizePivot(pivoted, pgsIds) {
     const vals = pivoted.map(row => row[pgsId]).filter(v => Number.isFinite(v));
     if (vals.length < 2) continue;
     const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-    const sd = Math.sqrt(vals.reduce((a, b) => a + (b - mean) ** 2, 0) / vals.length) || 1;
+    // Sample standard deviation (n - 1 denominator), matching R's sd()/scale().
+    const sumSquared = vals.reduce((a, b) => a + (b - mean) ** 2, 0);
+    const sd = Math.sqrt(sumSquared / (vals.length - 1)) || 1;
     stats[pgsId] = { mean, sd };
   }
 

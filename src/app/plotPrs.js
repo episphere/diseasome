@@ -265,7 +265,70 @@ function createInspectModal() {
 }
 
 /**
- * Plot pie chart showing total beta contribution for matched vs unmatched variants
+ * Summarise how much of a score's effect weight is retained by the matched
+ * (directly observable) variants. Variant-count overlap alone hides the case
+ * where the retained subset preferentially keeps one sign of effect weight.
+ * @param {number[]} matchedRisk - effect weights of matched variants
+ * @param {number[]} allRisk - effect weights of every variant in the score
+ * @returns {{variant:number|null, absolute:number|null, positive:number|null, negative:number|null}}
+ *   coverage fractions in 0..1, or null where the denominator is zero
+ */
+function effectWeightCoverage(matchedRisk, allRisk) {
+    const finite = (arr) => arr.filter(w => Number.isFinite(w));
+    const m = finite(matchedRisk);
+    const a = finite(allRisk);
+    const sumAbs = (arr) => arr.reduce((s, w) => s + Math.abs(w), 0);
+    const sumPos = (arr) => arr.reduce((s, w) => s + (w > 0 ? w : 0), 0);
+    const sumNegAbs = (arr) => arr.reduce((s, w) => s + (w < 0 ? -w : 0), 0);
+    const ratio = (num, den) => (den > 0 ? num / den : null);
+    return {
+        variant: ratio(m.length, a.length),
+        absolute: ratio(sumAbs(m), sumAbs(a)),
+        positive: ratio(sumPos(m), sumPos(a)),
+        negative: ratio(sumNegAbs(m), sumNegAbs(a)),
+    };
+}
+
+/**
+ * Render the effect-weight coverage metrics above the pie chart.
+ * @param {Object} data - PGS23.data object containing pgs and 23andMe match data
+ */
+function renderCoverageMetrics(data) {
+    const div = document.getElementById('coverageMetricsDiv');
+    if (!div) return;
+
+    const matchedRisk = data.plot?.matched?.risk ?? [];
+    const allRisk = data.plot?.all?.risk
+        ?? [...matchedRisk, ...(data.plot?.not_matched?.risk ?? [])];
+    const cov = effectWeightCoverage(matchedRisk, allRisk);
+
+    const pct = (v) => (v == null ? 'n/a' : `${(v * 100).toFixed(1)}%`);
+    const cell = (label, value, help) => `
+        <div class="col-6 col-md-3">
+          <div class="border rounded p-2 h-100">
+            <div class="text-muted text-uppercase" style="font-size:0.7rem;" title="${help}">${label}</div>
+            <div class="fw-bold" style="font-size:1.1rem;">${pct(value)}</div>
+          </div>
+        </div>`;
+
+    div.innerHTML = `
+      <div class="row g-2 mb-3">
+        ${cell('Variant coverage', cov.variant, 'Matched variants divided by all variants in the score.')}
+        ${cell('Absolute weight coverage', cov.absolute, 'Sum of |effect weight| over matched variants divided by the same sum over all variants.')}
+        ${cell('Positive weight coverage', cov.positive, 'Sum of positive effect weights over matched variants divided by the same sum over all variants.')}
+        ${cell('Negative weight coverage', cov.negative, 'Sum of |effect weight| over matched variants with negative weights, divided by the same sum over all variants.')}
+      </div>
+      <p class="text-muted small mb-3">
+        Coverage compares the directly observable (matched) variants against the full score.
+        A large gap between positive and negative weight coverage means the matched subset
+        disproportionately retains one direction of effect, which biases the score beyond
+        what variant-count overlap alone would suggest.
+      </p>`;
+    div.style.display = '';
+}
+
+/**
+ * Plot pie chart showing total effect-weight contribution for matched vs unmatched variants
  * @param {Object} data - PGS23.data object containing pgs and 23andMe match data
  */
 function pieChart(data = PGS23.data) {
@@ -282,22 +345,29 @@ function pieChart(data = PGS23.data) {
     const caption = document.getElementById('pieChartCaption');
     if (caption) caption.style.display = '';
 
-    /* Plot percent of matched and not matched betas */
+    renderCoverageMetrics(data);
+
+    /* Plot percent of matched and not matched effect weights */
     // Consistent typography for the whole figure.
     const fontFamily = "'Helvetica Neue', Helvetica, Arial, sans-serif";
     const pgsId = data.pgs.meta.pgs_id.replace(/^.*0+/, '');
 
-    const risk_composition = {};
     const risk1 = data.plot.matched.risk.reduce((partialSum, a) => partialSum + a, 0);
     const risk2 = data.plot.not_matched.risk.reduce((partialSum, a) => partialSum + a, 0);
-    // Short, non-redundant labels; the counts live here so the title stays clean.
-    risk_composition[`Matched (${data.plot.matched.risk.length})`] = risk1;
-    risk_composition[`Unmatched (${data.plot.not_matched.risk.length})`] = risk2;
-    var y = Object.values(risk_composition);
-    var x = Object.keys(risk_composition);
+    // Effect weights are signed, so summing them directly can make the slices
+    // cancel and blow the percentages far outside 0-100%. Size the slices by the
+    // magnitude of each group's total and surface the signed value on hover.
+    const labels = [
+        `Matched (${data.plot.matched.risk.length})`,
+        `Unmatched (${data.plot.not_matched.risk.length})`
+    ];
+    const signedTotals = [risk1, risk2];
+    var y = signedTotals.map(Math.abs);
+    var x = labels;
     var piePlotData = [{
         values: y,
         labels: x,
+        customdata: signedTotals,
         sort: false,
         insidetextorientation: "horizontal",
         textinfo: "percent",
@@ -315,7 +385,7 @@ function pieChart(data = PGS23.data) {
             color: '#222',
             size: 13
         },
-        hovertemplate: '%{label}<br>β = %{value:.3f} (%{percent})<extra></extra>',
+        hovertemplate: '%{label}<br>summed effect weight = %{customdata:.3f}<br>share of |total| = %{percent}<extra></extra>',
         hoverlabel: {
             bgcolor: 'black',
             bordercolor: 'black',
@@ -329,7 +399,7 @@ function pieChart(data = PGS23.data) {
     var layout = {
         font: { family: fontFamily },
         title: {
-            text: `PGS#${pgsId}: β contribution by match status`,
+            text: `PGS#${pgsId}: effect-weight contribution by match status`,
             font: {
                 family: fontFamily,
                 size: 16,
