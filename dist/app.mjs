@@ -5781,7 +5781,7 @@ function plotAllMatchByEffect4(data = PGS23.data, dv2 = document.getElementById(
             tickfont: {
                 size: 16
             },
-            title: '<span style="font-size:large">β</span>',
+            title: '<span style="font-size:large">effect weight (w)</span>',
             linewidth: 1,
             mirror: true,
         }
@@ -5811,7 +5811,30 @@ function tabulateAllMatchByEffect(data = PGS23.data, div = document.getElementBy
         div = document.createElement('div');
         document.body.appendChild(div);
     }
-    div.innerHTML = `<span style="font-size:x-large">PRS = exp( ∑ (𝛽*z)) = ${Math.round(data.PRS * 1000) / 1000}</span><br><hr><div>Top 20 contributing variants</div><hr>`;
+    // The score is the weighted sum on the scale of the original model. `effect_weight`
+    // is not assumed to be a beta / log(OR) — the PGS Catalog reports weight_type
+    // separately and it is often "NR" (not reported) — so the values are labelled as
+    // effect weights. exp(PRS) is shown separately, and is only interpretable as a
+    // relative risk / odds ratio when weight_type really is beta or log(OR).
+    const round3 = (v) => (Number.isFinite(v) ? Math.round(v * 1000) / 1000 : null);
+    const prs = Number.isFinite(data.PRS) ? data.PRS : null;
+    const weightType = data.pgs?.meta?.weight_type ?? 'NR';
+    const expNote = weightType === 'beta' || weightType === 'log(OR)' || weightType === 'log(HR)'
+        ? `interpretable as a relative risk because <code>weight_type</code> is <code>${weightType}</code>`
+        : `<strong>not</strong> interpretable as a relative risk: <code>weight_type</code> is <code>${weightType}</code>, so the effect weights are not known to be on a log scale`;
+
+    div.innerHTML = `
+        <div style="font-size:x-large">PRS = &Sigma;<sub>j</sub> (w<sub>j</sub> &middot; z<sub>j</sub>) = ${prs === null ? '&ndash;' : round3(prs)}</div>
+        <div class="text-muted small mt-1">
+            where <strong>w<sub>j</sub></strong> = PGS Catalog <code>effect_weight</code> of variant <em>j</em>
+            (<code>weight_type</code>: <code>${weightType}</code>)<br>
+            and <strong>z<sub>j</sub></strong> = effect-allele dosage of variant <em>j</em>, 0, 1, or 2<br>
+            summed over matched variants only, on the scale of the original model (not normalized).
+        </div>
+        <div class="mt-2">exp(PRS) = ${prs === null ? '&ndash;' : round3(Math.exp(prs))}
+            <span class="text-muted small">&mdash; ${expNote}.</span>
+        </div>
+        <hr><div>Top 20 contributing variants</div><hr>`;
     // sort by absolute value
     let jj = [...Array(data.calcRiskScore.length)].map((_, i) => i); // match indexes
     // remove zero effect
@@ -5824,7 +5847,7 @@ function tabulateAllMatchByEffect(data = PGS23.data, div = document.getElementBy
     div.appendChild(tb);
     let thead = document.createElement('thead');
     tb.appendChild(thead);
-    thead.innerHTML = `<tr><th align="left">#</th><th>β</th><th align="left">z</th><th align="right"> β*z</th><th align="center">variant</th><th align="center">dbSNP</th><th align="left">SNPedia </th></tr>`;
+    thead.innerHTML = `<tr><th align="left">#</th><th>w</th><th align="left">z</th><th align="right"> w*z</th><th align="center">variant</th><th align="center">dbSNP</th><th align="left">SNPedia </th></tr>`;
     let tbody = document.createElement('tbody');
     tb.appendChild(tbody);
     const indChr = data.pgs.cols.indexOf('hm_chr');
@@ -5879,7 +5902,12 @@ function plotResultByIndex(index, validResults) {
             dt: resultWithData.organized?.all?.dt ?? [],
             meta: {
                 pgs_id: resultWithData.pgsId,
-                trait_mapped: resultWithData.organized?.summary?.trait ?? ''
+                trait_mapped: resultWithData.organized?.summary?.trait ?? '',
+                // Reported by the scoring file; drives the effect-weight labelling.
+                weight_type: resultWithData.pgs?.meta?.weight_type
+                    ?? resultWithData.weightType
+                    ?? resultWithData.organized?.summary?.weightType
+                    ?? 'NR'
             }
         },
         pgsMatchMy23: resultWithData.pgsMatchMy23,
@@ -31497,7 +31525,7 @@ ${data.userId}${data.userName ? ` (${data.userName})` : ''} - ${data.pgsId} (${d
   PRS: ${typeof data.PRS === 'number' ? data.PRS.toFixed(4) : 'N/A'}
   Variants: ${matchedCount}/${totalVariants} matched (${matchRate}%)
   Allele distribution: 0-allele=${zeroAlleles}, 1-allele=${oneAllele}, 2-allele=${twoAlleles}
-  Beta sums: matched(+)=${(betaSums.matchedPositive ?? 0).toFixed(4)}, matched(-)=${(betaSums.matchedNegative ?? 0).toFixed(4)}`;
+  Effect weight sums: matched(+)=${(betaSums.matchedPositive ?? 0).toFixed(4)}, matched(-)=${(betaSums.matchedNegative ?? 0).toFixed(4)}`;
             
             // Top contributors
             if (md.topContributors && md.topContributors.length > 0) {
@@ -32086,7 +32114,7 @@ function buildPRSPrompt(results, question) {
   PRS: ${typeof data.PRS === 'number' ? data.PRS.toFixed(4) : 'N/A'}
   Variants: ${matchedCount}/${totalVariants} matched (${matchRate}%)
   Allele distribution: 0-allele=${zeroAlleles}, 1-allele=${oneAllele}, 2-allele=${twoAlleles}
-  Beta sums: positive=${(betaSums.matchedPositive ?? 0).toFixed(4)}, negative=${(betaSums.matchedNegative ?? 0).toFixed(4)}
+  Effect weight sums: positive=${(betaSums.matchedPositive ?? 0).toFixed(4)}, negative=${(betaSums.matchedNegative ?? 0).toFixed(4)}
 `;
         });
     }

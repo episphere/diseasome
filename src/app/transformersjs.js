@@ -103,7 +103,7 @@ ${data.userId}${data.userName ? ` (${data.userName})` : ''} - ${data.pgsId} (${d
   PRS: ${typeof data.PRS === 'number' ? data.PRS.toFixed(4) : 'N/A'}
   Variants: ${matchedCount}/${totalVariants} matched (${matchRate}%)
   Allele distribution: 0-allele=${zeroAlleles}, 1-allele=${oneAllele}, 2-allele=${twoAlleles}
-  Beta sums: matched(+)=${(betaSums.matchedPositive ?? 0).toFixed(4)}, matched(-)=${(betaSums.matchedNegative ?? 0).toFixed(4)}`;
+  Effect weight sums: matched(+)=${(betaSums.matchedPositive ?? 0).toFixed(4)}, matched(-)=${(betaSums.matchedNegative ?? 0).toFixed(4)}`;
             
             // Top contributors
             if (md.topContributors && md.topContributors.length > 0) {

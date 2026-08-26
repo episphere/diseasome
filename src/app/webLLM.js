@@ -272,7 +272,7 @@ function buildPRSPrompt(results, question) {
   PRS: ${typeof data.PRS === 'number' ? data.PRS.toFixed(4) : 'N/A'}
   Variants: ${matchedCount}/${totalVariants} matched (${matchRate}%)
   Allele distribution: 0-allele=${zeroAlleles}, 1-allele=${oneAllele}, 2-allele=${twoAlleles}
-  Beta sums: positive=${(betaSums.matchedPositive ?? 0).toFixed(4)}, negative=${(betaSums.matchedNegative ?? 0).toFixed(4)}
+  Effect weight sums: positive=${(betaSums.matchedPositive ?? 0).toFixed(4)}, negative=${(betaSums.matchedNegative ?? 0).toFixed(4)}
 `;
         });
     }
