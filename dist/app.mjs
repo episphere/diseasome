@@ -4976,6 +4976,9 @@ function inspectFiles(result) {
                         <button class="btn btn-sm btn-outline-primary mt-1" onclick="window.inspectPGSFile('${pgsId}')">
                             <i class="bi bi-file-text"></i> Inspect PGS
                         </button>
+                        <button class="btn btn-sm btn-outline-primary mt-1" onclick="window.inspectEffectWeights('${pgsId}')">
+                            <i class="bi bi-graph-up"></i> Inspect Effect Weights
+                        </button>
                         <a href="${pgsDownloadUrl}" target="_blank" class="btn btn-sm btn-outline-secondary mt-1">
                             <i class="bi bi-download"></i> Download
                         </a>
@@ -5056,10 +5059,179 @@ window.inspectPGSFile = async function(pgsId) {
     }
 };
 
+// GRCh37 chromosome lengths, used only to lay chromosomes out end-to-end on the x axis
+// so the spacing reflects genomic size rather than how many model variants happen to
+// fall on each chromosome. Harmonized scoring files are fetched as hmPOS_GRCh37.
+const CHR_LENGTHS_GRCH37 = {
+    '1': 249250621, '2': 243199373, '3': 198022430, '4': 191154276, '5': 180915260,
+    '6': 171115067, '7': 159138663, '8': 146364022, '9': 141213431, '10': 135534747,
+    '11': 135006516, '12': 133851895, '13': 115169878, '14': 107349540, '15': 102531392,
+    '16': 90354753, '17': 81195210, '18': 78077248, '19': 59128983, '20': 63025520,
+    '21': 48129895, '22': 51304566, 'X': 155270560, 'Y': 59373566, 'MT': 16569
+};
+const CHR_ORDER = Object.keys(CHR_LENGTHS_GRCH37);
+// Repeating qualitative palette so neighbouring chromosomes are always distinguishable.
+const CHR_COLORS = [
+    '#7f7f7f', '#000000', '#f7b6d2', '#1f77b4', '#d62728', '#ff7f0e',
+    '#2ca02c', '#e377c2', '#9467bd', '#17becf'
+];
+
+/**
+ * Inspect the effect weights of a scoring file as a Manhattan-style scatter:
+ * effect weight on the y axis, chromosome position on the x axis.
+ * @param {string} pgsId - PGS ID whose parsed scoring file is in window._inspectPGSData
+ */
+window.inspectEffectWeights = function (pgsId) {
+    const modal = createInspectModal('modal-xl');
+    modal.title.textContent = `Effect weights: ${pgsId}`;
+
+    const stored = window._inspectPGSData?.[pgsId];
+    if (!stored?.dt?.length) {
+        modal.body.innerHTML = '<div class="alert alert-warning">PGS data not available. Please select a different result from the dropdown.</div>';
+        modal.show();
+        return;
+    }
+
+    const cols = stored.cols ?? [];
+    const indChr = cols.indexOf('hm_chr');
+    const indPos = cols.indexOf('hm_pos');
+    const indWeight = cols.indexOf('effect_weight');
+    if (indChr === -1 || indPos === -1 || indWeight === -1) {
+        modal.body.innerHTML = '<div class="alert alert-warning">This scoring file has no harmonized position columns (<code>hm_chr</code>, <code>hm_pos</code>) or no <code>effect_weight</code>, so it cannot be plotted by position.</div>';
+        modal.show();
+        return;
+    }
+    const indRsid = ['rsID', 'rsid', 'hm_rsID'].map(c => cols.indexOf(c)).find(i => i !== -1) ?? -1;
+    const indEffectAllele = cols.indexOf('effect_allele');
+
+    const weightType = stored.meta?.weight_type ?? 'NR';
+    modal.body.innerHTML = `
+        <p class="text-muted small">
+            Every variant in the scoring file, plotted at its harmonized position.
+            The y axis is the reported <code>effect_weight</code>
+            (<code>weight_type</code>: <code>${weightType}</code>) &mdash; positive weights
+            increase the score, negative weights decrease it. This is the model itself, not
+            this participant's genotypes.
+        </p>
+        <div id="effectWeightPlotDiv" style="width:100%;height:460px;"></div>
+        <div id="effectWeightPlotSummary" class="text-muted small mt-2"></div>`;
+
+    const draw = () => renderEffectWeightPlot(stored, { indChr, indPos, indWeight, indRsid, indEffectAllele }, pgsId);
+
+    // Plotly needs the container to have its final width, which only happens once the
+    // modal has finished animating in. If it is already open (repeat click), draw now.
+    if (modal.element.classList.contains('show')) {
+        draw();
+    } else {
+        modal.element.addEventListener('shown.bs.modal', draw, { once: true });
+    }
+    modal.show();
+};
+
+/**
+ * Draw the effect-weight-by-position scatter into #effectWeightPlotDiv.
+ * @param {Object} pgs - Parsed scoring file { cols, dt, meta }
+ * @param {Object} idx - Resolved column indexes
+ * @param {string} pgsId - PGS ID, used in the title
+ */
+function renderEffectWeightPlot(pgs, idx, pgsId) {
+    const div = document.getElementById('effectWeightPlotDiv');
+    if (!div) return;
+
+    // Group variants by chromosome, dropping rows without a usable position or weight.
+    const byChr = new Map();
+    let skipped = 0;
+    for (const row of pgs.dt) {
+        const chr = String(row[idx.indChr] ?? '').replace(/^chr/i, '').toUpperCase();
+        const pos = Number(row[idx.indPos]);
+        const w = Number(row[idx.indWeight]);
+        if (!chr || !Number.isFinite(pos) || !Number.isFinite(w)) { skipped++; continue; }
+        if (!byChr.has(chr)) byChr.set(chr, { pos: [], w: [], label: [] });
+        const g = byChr.get(chr);
+        g.pos.push(pos);
+        g.w.push(w);
+        const rsid = idx.indRsid !== -1 ? row[idx.indRsid] : '';
+        const allele = idx.indEffectAllele !== -1 ? row[idx.indEffectAllele] : '';
+        g.label.push(`${rsid || `chr${chr}:${pos}`}${allele ? ` (${allele})` : ''}`);
+    }
+
+    // Known chromosomes first in genomic order, then anything unexpected.
+    const present = [...byChr.keys()];
+    const ordered = CHR_ORDER.filter(c => byChr.has(c))
+        .concat(present.filter(c => !CHR_ORDER.includes(c)).sort());
+
+    const traces = [];
+    const tickVals = [];
+    const tickText = [];
+    let offset = 0;
+    ordered.forEach((chr, i) => {
+        const g = byChr.get(chr);
+        const length = CHR_LENGTHS_GRCH37[chr] ?? (Math.max(...g.pos) || 1);
+        traces.push({
+            x: g.pos.map(p => p + offset),
+            y: g.w,
+            text: g.label,
+            customdata: g.pos,
+            name: `chr${chr}`,
+            mode: 'markers',
+            type: 'scattergl',
+            marker: { size: 4, color: CHR_COLORS[i % CHR_COLORS.length], opacity: 0.8 },
+            hovertemplate: `%{text}<br>chr${chr}:%{customdata}<br>effect weight = %{y:.4f}<extra></extra>`
+        });
+        tickVals.push(offset + length / 2);
+        tickText.push(`chr${chr}`);
+        offset += length;
+    });
+
+    const layout = {
+        title: {
+            text: `${pgsId}: effect weight by genomic position`,
+            font: { size: 16, color: '#333' }
+        },
+        margin: { l: 60, r: 20, t: 50, b: 60 },
+        xaxis: {
+            title: 'SNPs over the chromosome',
+            tickmode: 'array',
+            tickvals: tickVals,
+            ticktext: tickText,
+            tickangle: -45,
+            tickfont: { size: 9 },
+            range: [0, offset],
+            showgrid: false,
+            zeroline: false,
+            showline: true,
+            mirror: true
+        },
+        yaxis: {
+            title: 'Effect weight (w)',
+            zeroline: true,
+            zerolinecolor: '#999',
+            gridcolor: '#e9ecef',
+            showline: true,
+            mirror: true
+        },
+        showlegend: false,
+        plot_bgcolor: '#fff'
+    };
+
+    Plotly.newPlot(div, traces, layout, { responsive: true, displaylogo: false });
+
+    const summary = document.getElementById('effectWeightPlotSummary');
+    if (summary) {
+        const all = traces.flatMap(t => t.y);
+        const pos = all.filter(w => w > 0).length;
+        const neg = all.filter(w => w < 0).length;
+        const absMax = all.reduce((m, w) => Math.max(m, Math.abs(w)), 0);
+        summary.innerHTML = `${all.length.toLocaleString()} variants plotted across ${ordered.length} chromosomes`
+            + ` &mdash; ${pos.toLocaleString()} positive, ${neg.toLocaleString()} negative,`
+            + ` largest magnitude ${absMax.toPrecision(3)}.`
+            + (skipped > 0 ? ` ${skipped.toLocaleString()} variant(s) skipped for missing position or weight.` : '');
+    }
+}
+
 /**
  * Render a page of raw text data with pagination
- */
-function renderInspectPage(page) {
+ */function renderInspectPage(page) {
     const body = document.getElementById('inspectModalBody');
     const { data, type, id } = window._inspectData;
     const pageSize = 100;
@@ -5146,8 +5318,9 @@ window.renderInspectPage = renderInspectPage;
 
 /**
  * Create or get the inspect modal
+ * @param {string} [sizeClass='modal-lg'] - Bootstrap modal size class for the dialog
  */
-function createInspectModal() {
+function createInspectModal(sizeClass = 'modal-lg') {
     let modal = document.getElementById('inspectModal');
     if (!modal) {
         modal = document.createElement('div');
@@ -5170,11 +5343,16 @@ function createInspectModal() {
         `;
         document.body.appendChild(modal);
     }
-    
-    const bsModal = new bootstrap.Modal(modal);
+
+    // The modal is reused across inspectors, so reset the width every time.
+    const dialog = modal.querySelector('.modal-dialog');
+    if (dialog) dialog.className = `modal-dialog ${sizeClass} modal-dialog-scrollable`;
+
+    const bsModal = bootstrap.Modal.getOrCreateInstance(modal);
     return {
         title: document.getElementById('inspectModalTitle'),
         body: document.getElementById('inspectModalBody'),
+        element: modal,
         show: () => bsModal.show()
     };
 }
