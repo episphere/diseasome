@@ -113,7 +113,7 @@
                     <div id="errorDiv" class="text-danger small mb-2"></div>
                     <div id="inspectFilesDiv" style="display:none;" class="mb-3"></div>
                     <h5 id="pieChartHeading" style="display:none;">Effect-Weight Contribution: Matched vs. Unmatched</h5>
-                    <p id="pieChartCaption" class="text-muted small" style="display:none;">Slices are sized by the <strong>absolute summed effect weight</strong> of variants, not by the number of variants. Hover a slice for its signed total. Effect weights may be reported as beta, log(OR), or <code>NR</code> (not reported) depending on the score, so they are referred to here as effect weights rather than betas.</p>
+                    <p id="pieChartCaption" class="text-muted small" style="display:none;">Slices are sized by the <strong>sum of the absolute effect weights</strong> (&Sigma;|w|) of the variants in each group, not by the number of variants, so positive and negative weights cannot cancel each other out. The matched slice therefore equals the <strong>Absolute weight coverage</strong> metric above. Hover a slice for its signed total. Effect weights may be reported as beta, log(OR), or <code>NR</code> (not reported) depending on the score, so they are referred to here as effect weights rather than betas.</p>
                     <div id="coverageMetricsDiv" style="display:none;"></div>
                     <div id="pieChartDiv" style="width:100%;"></div>
                     <div id="tabulateAllMatchByEffectDiv"></div>
@@ -860,7 +860,7 @@
                                 data (such as 23andMe). No software download, installation, or configuration is needed. The
                                 calculator matches individual PGS Catalog entries against a personal genome of roughly
                                 <strong>600K&nbsp;&ndash;&nbsp;1.4M single-nucleotide polymorphisms (SNPs)</strong>, using
-                                the reported beta coefficients to estimate risk associated with the matched variants. It has
+                                the reported <code>effect_weight</code> of each matched variant to compute a weighted score. It has
                                 been tested on a range of devices &mdash; including smartphones &mdash; confirming the
                                 feasibility of computing personal risk scores locally from a full 23andMe SNP file
                                 (compressed or not).</p>
@@ -1063,12 +1063,15 @@
                                                     clinical use</strong>.</li>
                                             <li>Uses pre-imputation genotype data, which yields a relatively low number of
                                                 SNP matches.</li>
-                                            <li>Only the relative-risk model is computed <a
-                                                    href="https://www.nature.com/articles/nrg.2016.27#Sec5"
-                                                    target="_blank" rel="noopener">(Box&nbsp;1, eq&nbsp;2)</a>, with no
-                                                estimate of absolute disease risk.</li>
-                                            <li>Risk is only calculated for PGS entries reporting effects as beta values
-                                                under <code>effect_weight</code>.</li>
+                                            <li>Scores are the weighted sum of effect-allele dosages and the reported
+                                                <code>effect_weight</code>, on the scale of the original model. They are
+                                                not exponentiated, not normalized against a population reference, and give
+                                                no estimate of absolute disease risk.</li>
+                                            <li>The reported <code>weight_type</code> (beta, log(OR), OR, or <code>NR</code>)
+                                                is passed through as model metadata and shown in the model and score tables.
+                                                It is never inferred from the magnitude or sign of the weights.</li>
+                                            <li>Unmatched variants are omitted from the sum without substitution, so scores
+                                                from incomplete variant sets do not reproduce the complete published model.</li>
                                         </ul>
                                     </div>
                                 </div>

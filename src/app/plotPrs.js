@@ -354,15 +354,19 @@ function pieChart(data = PGS23.data) {
 
     const risk1 = data.plot.matched.risk.reduce((partialSum, a) => partialSum + a, 0);
     const risk2 = data.plot.not_matched.risk.reduce((partialSum, a) => partialSum + a, 0);
-    // Effect weights are signed, so summing them directly can make the slices
-    // cancel and blow the percentages far outside 0-100%. Size the slices by the
-    // magnitude of each group's total and surface the signed value on hover.
+    // Effect weights are signed. Sizing slices by |sum of weights| lets positive and
+    // negative weights cancel inside a group before the percentages are computed, which
+    // is not the "absolute summed effect weight" the caption promises and does not match
+    // the Absolute weight coverage metric above. Size slices by the sum of |weight|
+    // instead — the same quantity effectWeightCoverage() reports — and keep the signed
+    // total on hover.
+    const sumAbs = (arr) => arr.reduce((s, w) => s + (Number.isFinite(w) ? Math.abs(w) : 0), 0);
     const labels = [
         `Matched (${data.plot.matched.risk.length})`,
         `Unmatched (${data.plot.not_matched.risk.length})`
     ];
     const signedTotals = [risk1, risk2];
-    var y = signedTotals.map(Math.abs);
+    var y = [sumAbs(data.plot.matched.risk), sumAbs(data.plot.not_matched.risk)];
     var x = labels;
     var piePlotData = [{
         values: y,
@@ -385,7 +389,7 @@ function pieChart(data = PGS23.data) {
             color: '#222',
             size: 13
         },
-        hovertemplate: '%{label}<br>summed effect weight = %{customdata:.3f}<br>share of |total| = %{percent}<extra></extra>',
+        hovertemplate: '%{label}<br>sum of |effect weight| = %{value:.3f}<br>signed total = %{customdata:.3f}<br>share of \u03a3|w| = %{percent}<extra></extra>',
         hoverlabel: {
             bgcolor: 'black',
             bordercolor: 'black',

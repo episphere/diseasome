@@ -30,7 +30,7 @@ let localDataModuleLoaded = false;
 // the tab functionality.
 async function ensurePgsModuleLoaded() {
     if (!pgsModuleLoaded) {
-        await import('./chunks/displayScores-B-lWO9h5.mjs');
+        await import('./chunks/displayScores-Bg5CVxD_.mjs');
         pgsModuleLoaded = true;
     }
 }
@@ -121,11 +121,11 @@ function MatchOptimized(mypgs, my23) {
   // Defensive checks
   if (!mypgs || !mypgs.cols || !Array.isArray(mypgs.cols)) {
     console.error("MatchOptimized error: invalid mypgs structure", mypgs);
-    return { pgs_id: mypgs && mypgs.meta && mypgs.meta.pgs_id, PRS: "error", QC: false, QCtext: "Invalid PGS data structure" };
+    return { pgs_id: mypgs && mypgs.meta && mypgs.meta.pgs_id, PRS: null, error: "Invalid PGS data structure" };
   }
   if (!my23 || !my23.cols || !Array.isArray(my23.cols)) {
     console.error("MatchOptimized error: invalid my23 structure", my23);
-    return { pgs_id: mypgs && mypgs.meta && mypgs.meta.pgs_id, PRS: "error", QC: false, QCtext: "Invalid genome data structure" };
+    return { pgs_id: mypgs && mypgs.meta && mypgs.meta.pgs_id, PRS: null, error: "Invalid genome data structure" };
   }
 
   const indChr = mypgs.cols.indexOf('hm_chr');
@@ -158,13 +158,17 @@ function MatchOptimized(mypgs, my23) {
 
   // For each PGS row, do O(1) key lookup and filter only local candidates.
   const pgsRowCount = Array.isArray(mypgs.dt) ? mypgs.dt.length : 0;
+  // Reasons a model variant never contributes to the score.
+  let positionAbsent = 0;      // locus not present in the genome file
+  let noCall = 0;              // locus genotyped but the call is not an ACGT duplet ("--", "II", haploid)
+  let alleleIncompatible = 0;  // valid call, but it carries neither the effect nor the other allele
   for (let i = 0; i < pgsRowCount; i++) {
     const r = mypgs.dt[i];
     const key = `${r[indChr]}:${r[indPos]}`;
     // console.log(`Processing PGS row ${i} at locus ${key}:`, r);
     const locusRows = genomeIndex.get(key) || [];
     // console.log("locusRows = genomeIndex.get(key) || [];",locusRows)
-    if (locusRows.length === 0) continue;
+    if (locusRows.length === 0) { positionAbsent++; continue; }
 
     const regexPattern = new RegExp([r[indEffectAllele], r[indOtherAllele]].join('|'));
     const alleleRows = locusRows.filter(myr => regexPattern.test(myr[ind23Genotype]));
@@ -172,6 +176,10 @@ function MatchOptimized(mypgs, my23) {
     // neither the effect nor the other allele (strand flip, no-call "--", indel, third
     // allele). Dropping them hid genotyped loci that legitimately contribute 0 alleles.
     const isAlleleMatch = alleleRows.length > 0;
+    if (!isAlleleMatch) {
+      const called = locusRows.some(myr => /^[ACGT]{2}$/.test(String(myr[ind23Genotype])));
+      if (called) alleleIncompatible++; else noCall++;
+    }
     dtMatch.push((isAlleleMatch ? alleleRows : locusRows).concat([r]));
     matchType.push(isAlleleMatch ? 'allele' : 'position');
   }
@@ -208,24 +216,34 @@ function MatchOptimized(mypgs, my23) {
   data2.alleles = alleles;
   data2.calcRiskScore = calcRiskScore;
 
-  const weights = mypgs.dt.map(row => row[indEffectWeight]);
-  if (calcRiskScore.length == 0) {
-    data2.PRS = "there are no matches :-(";
-    data2.QC = false;
-    data2.QCtext = 'there are no matches :-(';
-  } else if (calcRiskScore.reduce((a, b) => Math.max(a, b)) > 100) {
-    data2.PRS = Math.exp(calcRiskScore.reduce((a, b) => a + b));
-    data2.QC = false;
-    data2.QCtext = 'these are large betas :-(';
-  } else if (weights.reduce((a, b) => Math.min(a, b)) > -2e-5) {
-    data2.PRS = Math.exp(calcRiskScore.reduce((a, b) => a + b));
-    data2.QC = false;
-    data2.QCtext = 'these are not betas :-(';
-  } else {
-    data2.PRS = Math.exp(calcRiskScore.reduce((a, b) => a + b));
-    data2.QC = true;
-    data2.QCtext = '';
-  }
+  // Weight type is carried through as model metadata (PGS Catalog `#weight_type=`).
+  // It is never inferred from the magnitude or the sign of the weights; "NR" means the
+  // scoring file did not report one.
+  data2.weightType = mypgs.meta?.weight_type ?? "NR";
+
+  // Score on the scale defined by the original PGS model:
+  //   PRS_i = sum_j G_ij * w_j   over matched variants j
+  // G in {0,1,2} is the effect-allele dosage and w is the reported `effect_weight`.
+  // No exponentiation is applied, the score is not normalized against a population
+  // reference, and unmatched variants are simply omitted from the summation (no
+  // reference-allele or mean-dosage substitution).
+  const scoreSum = calcRiskScore.reduce((a, b) => a + b, 0);
+  data2.PRS = data2.alleleMatchCount > 0 ? scoreSum : null;
+
+  // Per sample-model accounting.
+  const absWeight = (w) => { const n = Number(w); return Number.isFinite(n) ? Math.abs(n) : 0; };
+  const totalAbsWeight = mypgs.dt.reduce((s, row) => s + absWeight(row[indEffectWeight]), 0);
+  const matchedAbsWeight = dtMatch.reduce((s, m, i) =>
+    matchType[i] === 'allele' ? s + absWeight(m.at(-1)[indEffectWeight]) : s, 0);
+
+  data2.totalVariants = pgsRowCount;
+  data2.matchedVariants = data2.alleleMatchCount;
+  data2.unmatchedVariants = pgsRowCount - data2.alleleMatchCount;
+  data2.missingGenotypes = positionAbsent + noCall;
+  data2.unmatchedReasons = { positionAbsent, noCall, alleleIncompatible };
+  data2.matchPercent = pgsRowCount > 0 ? (data2.alleleMatchCount / pgsRowCount) * 100 : null;
+  // Fraction of the model's total absolute effect weight represented by matched variants.
+  data2.weightCoverage = totalAbsWeight > 0 ? matchedAbsWeight / totalAbsWeight : null;
 
   data2.complexity = {
     bigO: 'O(n + m)',
@@ -3336,11 +3354,12 @@ function downloadRiskModelsJson() {
 function downloadRiskModelsCsv() {
 	const models = getSelectedRiskModels();
 	if (!models.length) { alert("No risk models selected. Select models in the PGS Catalog first."); return; }
-	const headers = ["PGS ID", "Name", "Trait", "Variants", "Release Date"];
+	const headers = ["PGS ID", "Name", "Trait", "Weight Type", "Variants", "Release Date"];
 	const rows = models.map(m => [
 		m?.id ?? "",
 		m?.name ?? "",
 		m?.trait_reported ?? "",
+		m?.weight_type ?? "NR",
 		m?.variants_number ?? "",
 		m?.date_release ?? "",
 	]);
@@ -3359,9 +3378,10 @@ function downloadRiskScoresCsv() {
 	const results = Array.isArray(window.prsResults) ? window.prsResults : [];
 	if (!results.length) { alert("No PRS results yet. Click \"Calculate PRS\" first."); return; }
 	const headers = [
-		"Participant ID", "Name", "PGS ID", "PRS Score", "Matched Alleles",
+		"Participant ID", "Name", "PGS ID", "PRS Score", "Weight Type", "Matched Alleles",
 		"Zero Allele Count", "One Allele Count", "Two Allele Count",
-		"Total Variants", "Match Rate", "QC", "Source",
+		"Total Variants", "Unmatched Variants", "Missing Genotypes",
+		"Match Rate", "Weight Coverage", "Source",
 	];
 	const rows = results.map(r => {
 		const org = r.organized?.summary ?? {};
@@ -3370,13 +3390,16 @@ function downloadRiskScoresCsv() {
 			r.userName ?? "",
 			r.pgsId ?? "",
 			typeof r.PRS === "number" ? r.PRS : (r.PRS ?? ""),
+			r.weightType ?? r.pgs?.meta?.weight_type ?? "NR",
 			r.alleles?.length ?? 0,
 			org.zeroAlleleCount ?? "",
 			org.oneAlleleCount ?? "",
 			org.twoAlleleCount ?? "",
 			r.totalVariants ?? "",
+			r.unmatchedVariants ?? "",
+			r.missingGenotypes ?? "",
 			org.matchRate ?? "",
-			r.QC ? "pass" : (r.QCtext ?? ""),
+			Number.isFinite(r.weightCoverage) ? (r.weightCoverage * 100).toFixed(2) + "%" : "",
 			r.fromCache ? "cached" : "calculated",
 		];
 	});
@@ -3555,6 +3578,12 @@ function organizeResultsByAllele(matchResult, pgsData) {
 		oneAlleleCount: one_allele.length,
 		twoAlleleCount: two_allele.length,
 		matchRate: (matched.length / pgsData.dt.length * 100).toFixed(2) + "%",
+		// Model variants whose locus was absent from the genome file or returned a no-call.
+		missingGenotypes: matchResult.missingGenotypes ?? null,
+		// Fraction of the model's total absolute effect weight represented by matched variants.
+		weightCoverage: matchResult.weightCoverage ?? null,
+		// Reported by the scoring file; not inferred from the weights.
+		weightType: matchResult.weightType ?? pgsData.meta?.weight_type ?? "NR",
 		PRS: matchResult.PRS,
 		pgsId: matchResult.pgs_id ?? pgsData.meta?.pgs_id,
 		trait: pgsData.meta?.trait_mapped ?? pgsData.meta?.trait_reported ?? ""
@@ -3805,20 +3834,26 @@ function prsResultNum(v) {
 	return Number.isFinite(n) ? n : -Infinity;
 }
 
+/** Weight type reported by the scoring file for a PRS result ("NR" when not reported). */
+function prsWeightType(r) {
+	return String(r?.weightType ?? r?.pgs?.meta?.weight_type ?? "NR");
+}
+
 /** Column definitions for the PRS results table: label, optional sort getter, cell renderer. */
 const PRS_RESULT_COLUMNS = [
 	{ label: "#", cell: (r, i) => String(i + 1) },
 	{ label: "Participant ID", sort: (r) => String(r.userId ?? "").toLowerCase(), cell: (r) => truncCell(r.userId) },
 	{ label: "Name", sort: (r) => String(r.userName ?? "").toLowerCase(), cell: (r) => truncCell(r.userName) },
 	{ label: "PGS ID", sort: (r) => String(r.pgsId ?? "").toLowerCase(), cell: (r) => escapeHtml(r.pgsId) },
-	{ label: "PRS Score", sort: (r) => (typeof r.PRS === "number" ? r.PRS : -Infinity), cell: (r) => (typeof r.PRS === "number" ? r.PRS.toFixed(6) : (r.PRS ?? "-")) },
+	{ label: "PRS Score", title: "Sum of effect-allele dosage x reported effect_weight over matched variants, on the scale of the original model", sort: (r) => (typeof r.PRS === "number" ? r.PRS : -Infinity), cell: (r) => (typeof r.PRS === "number" ? r.PRS.toFixed(6) : (r.PRS ?? "-")) },
+	{ label: "Weight Type", title: "weight_type reported by the PGS Catalog scoring file (NR = not reported). Never inferred from the weights themselves.", sort: (r) => prsWeightType(r).toLowerCase(), cell: (r) => escapeHtml(prsWeightType(r)) },
 	{ label: "Matched", sort: (r) => (r.alleles?.length ?? 0), cell: (r) => (r.alleles?.length ?? 0) },
 	{ label: "0", title: "Matched with 0 effect alleles", sort: (r) => prsResultNum(r.organized?.summary?.zeroAlleleCount), cell: (r) => (r.organized?.summary?.zeroAlleleCount ?? "-") },
 	{ label: "1", title: "Matched with 1 effect allele", sort: (r) => prsResultNum(r.organized?.summary?.oneAlleleCount), cell: (r) => (r.organized?.summary?.oneAlleleCount ?? "-") },
 	{ label: "2", title: "Matched with 2 effect alleles", sort: (r) => prsResultNum(r.organized?.summary?.twoAlleleCount), cell: (r) => (r.organized?.summary?.twoAlleleCount ?? "-") },
 	{ label: "Total", sort: (r) => prsResultNum(r.totalVariants), cell: (r) => (r.totalVariants ?? "-") },
 	{ label: "Match %", sort: (r) => prsResultNum(r.organized?.summary?.matchRate), cell: (r) => (r.organized?.summary?.matchRate ?? "-") },
-	{ label: "QC", sort: (r) => (r.QC ? 1 : 0), cell: (r) => (r.QC ? "✓" : r.QCtext ?? "-") },
+	{ label: "Weight %", title: "Fraction of the model's total absolute effect weight represented by matched variants", sort: (r) => (Number.isFinite(r.weightCoverage) ? r.weightCoverage : -Infinity), cell: (r) => (Number.isFinite(r.weightCoverage) ? (r.weightCoverage * 100).toFixed(2) + "%" : "-") },
 	{ label: "Src", title: "📦 = cached, 🔄 = calculated", sort: (r) => (r.fromCache ? 1 : 0), cell: (r) => (r.fromCache ? "📦" : "🔄") },
 ];
 
@@ -3951,6 +3986,9 @@ function renderScoresTable(scores, txts = []) {
 		const date = escapeHtml(score?.date_release ?? "");
 		const loadedTxt = txts.find(t => (t?.id ?? t?.meta?.pgs_id) === score.id);
 		const variantsLoaded = loadedTxt?.dt?.length ?? 0;
+		// Reported by the scoring file header (`#weight_type=`), or by the catalog metadata
+		// before the file is loaded. "NR" = not reported; never inferred from the weights.
+		const weightType = escapeHtml(loadedTxt?.meta?.weight_type ?? score?.weight_type ?? "NR");
 		return `
 			<tr>
 				<td>${idx + 1}</td>
@@ -3958,6 +3996,7 @@ function renderScoresTable(scores, txts = []) {
 				<td>${id}</td>
 				<td>${name}</td>
 				<td>${trait}</td>
+				<td>${weightType}</td>
 				<td>${variants}</td>
 				<td>${variantsLoaded.toLocaleString()}</td>
 				<td>${date}</td>
@@ -3977,6 +4016,7 @@ function renderScoresTable(scores, txts = []) {
 					<th>PGS ID</th>
 					<th>Name</th>
 					<th>Trait</th>
+					<th title="weight_type reported by the PGS Catalog (NR = not reported)">Weight Type</th>
 					<th>Variants #</th>
 					<th>Variants Loaded</th>
 					<th>Date</th>
@@ -4659,6 +4699,8 @@ async function calculateAndCachePRS(mypgs, my23, userId, pgsId, userData) {
 			...cached,
 			userName,
 			organized: organizedData,
+			// Older cached entries predate weight-type reporting; fall back to the scoring file.
+			weightType: cached.weightType ?? mypgs.meta?.weight_type ?? "NR",
 			pgs: cached.pgs ?? { cols: mypgs.cols, dt: mypgs.dt, meta: mypgs.meta },
 			fromCache: true
 		};
@@ -5227,15 +5269,19 @@ function pieChart(data = PGS23.data) {
 
     const risk1 = data.plot.matched.risk.reduce((partialSum, a) => partialSum + a, 0);
     const risk2 = data.plot.not_matched.risk.reduce((partialSum, a) => partialSum + a, 0);
-    // Effect weights are signed, so summing them directly can make the slices
-    // cancel and blow the percentages far outside 0-100%. Size the slices by the
-    // magnitude of each group's total and surface the signed value on hover.
+    // Effect weights are signed. Sizing slices by |sum of weights| lets positive and
+    // negative weights cancel inside a group before the percentages are computed, which
+    // is not the "absolute summed effect weight" the caption promises and does not match
+    // the Absolute weight coverage metric above. Size slices by the sum of |weight|
+    // instead — the same quantity effectWeightCoverage() reports — and keep the signed
+    // total on hover.
+    const sumAbs = (arr) => arr.reduce((s, w) => s + (Number.isFinite(w) ? Math.abs(w) : 0), 0);
     const labels = [
         `Matched (${data.plot.matched.risk.length})`,
         `Unmatched (${data.plot.not_matched.risk.length})`
     ];
     const signedTotals = [risk1, risk2];
-    var y = signedTotals.map(Math.abs);
+    var y = [sumAbs(data.plot.matched.risk), sumAbs(data.plot.not_matched.risk)];
     var x = labels;
     var piePlotData = [{
         values: y,
@@ -5258,7 +5304,7 @@ function pieChart(data = PGS23.data) {
             color: '#222',
             size: 13
         },
-        hovertemplate: '%{label}<br>summed effect weight = %{customdata:.3f}<br>share of |total| = %{percent}<extra></extra>',
+        hovertemplate: '%{label}<br>sum of |effect weight| = %{value:.3f}<br>signed total = %{customdata:.3f}<br>share of \u03a3|w| = %{percent}<extra></extra>',
         hoverlabel: {
             bgcolor: 'black',
             bordercolor: 'black',

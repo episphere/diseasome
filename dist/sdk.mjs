@@ -2866,11 +2866,11 @@ function Match2(mypgs, my23){
   // Defensive checks
   if (!mypgs || !mypgs.cols || !Array.isArray(mypgs.cols)) {
     console.error("Match2 error: invalid mypgs structure", mypgs);
-    return { pgs_id: mypgs && mypgs.meta && mypgs.meta.pgs_id, PRS: "error", QC: false, QCtext: "Invalid PGS data structure" };
+    return { pgs_id: mypgs && mypgs.meta && mypgs.meta.pgs_id, PRS: null, error: "Invalid PGS data structure" };
   }
   if (!my23 || !my23.cols || !Array.isArray(my23.cols)) {
     console.error("Match2 error: invalid my23 structure", my23);
-    return { pgs_id: mypgs && mypgs.meta && mypgs.meta.pgs_id, PRS: "error", QC: false, QCtext: "Invalid genome data structure" };
+    return { pgs_id: mypgs && mypgs.meta && mypgs.meta.pgs_id, PRS: null, error: "Invalid genome data structure" };
   }
 	
   let data2 = {};
@@ -2932,29 +2932,22 @@ function Match2(mypgs, my23){
 			data2.pgs_id = mypgs.meta.pgs_id;
 			data2.alleles = alleles;
 			data2.calcRiskScore = calcRiskScore;
-			let weight_idx = mypgs.cols.indexOf('effect_weight');
-			let weights = mypgs.dt.map(row => row[weight_idx]);
-			// warning: no matches found!
-			if (calcRiskScore.length == 0) { 
-				data2.PRS = "there are no matches :-(";
-				data2.QC = false;
-				data2.QCtext = 'there are no matches :-(';
-				//console.log('there are no matches :-(',data.PRS)
-			}else if (calcRiskScore.reduce((a, b) => Math.max(a, b)) > 100) { //&&(calcRiskScore.reduce((a,b)=>Math.max(a,b))<=1)){ // hazard ratios?
-				data2.PRS = Math.exp(calcRiskScore.reduce((a, b) => a + b));
-			data2.QC = false;
-				data2.QCtext = 'these are large betas :-(';
-				//console.log('these are large betas :-(',weights)
-			} else if (weights.reduce((a, b) => Math.min(a, b)) > -2e-5 ) {
-				data2.PRS = Math.exp(calcRiskScore.reduce((a, b) => a + b));
-				data2.QC = false;
-				data2.QCtext = 'these are not betas :-(';
-				//console.log('these are not betas :-(',weights) 
-			}  else {
-				data2.PRS = Math.exp(calcRiskScore.reduce((a, b) => a + b));
-				data2.QC = true;
-				data2.QCtext = '';
-			}
+			// Weight type comes from the scoring file metadata only; it is never inferred
+			// from the magnitude or sign of the weights. "NR" = not reported.
+			data2.weightType = mypgs.meta?.weight_type ?? "NR";
+			// PRS_i = sum_j G_ij * w_j on the scale of the original model (no exponentiation,
+			// no normalization, unmatched variants simply omitted).
+			data2.PRS = dtMatch.length > 0 ? calcRiskScore.reduce((a, b) => a + b, 0) : null;
+			const weight_idx = mypgs.cols.indexOf('effect_weight');
+			const absWeight = (w) => { const n = Number(w); return Number.isFinite(n) ? Math.abs(n) : 0 };
+			const totalAbsWeight = mypgs.dt.reduce((s, row) => s + absWeight(row[weight_idx]), 0);
+			const matchedAbsWeight = dtMatch.reduce((s, m) => s + absWeight(m.at(-1)[weight_idx]), 0);
+			data2.totalVariants = mypgs.dt.length;
+			data2.matchedVariants = dtMatch.length;
+			data2.unmatchedVariants = mypgs.dt.length - dtMatch.length;
+			data2.matchPercent = mypgs.dt.length > 0 ? (dtMatch.length / mypgs.dt.length) * 100 : null;
+			// Fraction of the model's total absolute effect weight represented by matched variants.
+			data2.weightCoverage = totalAbsWeight > 0 ? matchedAbsWeight / totalAbsWeight : null;
   
   return data2
   }
@@ -2963,11 +2956,11 @@ function MatchOptimized(mypgs, my23) {
   // Defensive checks
   if (!mypgs || !mypgs.cols || !Array.isArray(mypgs.cols)) {
     console.error("MatchOptimized error: invalid mypgs structure", mypgs);
-    return { pgs_id: mypgs && mypgs.meta && mypgs.meta.pgs_id, PRS: "error", QC: false, QCtext: "Invalid PGS data structure" };
+    return { pgs_id: mypgs && mypgs.meta && mypgs.meta.pgs_id, PRS: null, error: "Invalid PGS data structure" };
   }
   if (!my23 || !my23.cols || !Array.isArray(my23.cols)) {
     console.error("MatchOptimized error: invalid my23 structure", my23);
-    return { pgs_id: mypgs && mypgs.meta && mypgs.meta.pgs_id, PRS: "error", QC: false, QCtext: "Invalid genome data structure" };
+    return { pgs_id: mypgs && mypgs.meta && mypgs.meta.pgs_id, PRS: null, error: "Invalid genome data structure" };
   }
 
   const indChr = mypgs.cols.indexOf('hm_chr');
@@ -3000,13 +2993,17 @@ function MatchOptimized(mypgs, my23) {
 
   // For each PGS row, do O(1) key lookup and filter only local candidates.
   const pgsRowCount = Array.isArray(mypgs.dt) ? mypgs.dt.length : 0;
+  // Reasons a model variant never contributes to the score.
+  let positionAbsent = 0;      // locus not present in the genome file
+  let noCall = 0;              // locus genotyped but the call is not an ACGT duplet ("--", "II", haploid)
+  let alleleIncompatible = 0;  // valid call, but it carries neither the effect nor the other allele
   for (let i = 0; i < pgsRowCount; i++) {
     const r = mypgs.dt[i];
     const key = `${r[indChr]}:${r[indPos]}`;
     // console.log(`Processing PGS row ${i} at locus ${key}:`, r);
     const locusRows = genomeIndex.get(key) || [];
     // console.log("locusRows = genomeIndex.get(key) || [];",locusRows)
-    if (locusRows.length === 0) continue;
+    if (locusRows.length === 0) { positionAbsent++; continue; }
 
     const regexPattern = new RegExp([r[indEffectAllele], r[indOtherAllele]].join('|'));
     const alleleRows = locusRows.filter(myr => regexPattern.test(myr[ind23Genotype]));
@@ -3014,6 +3011,10 @@ function MatchOptimized(mypgs, my23) {
     // neither the effect nor the other allele (strand flip, no-call "--", indel, third
     // allele). Dropping them hid genotyped loci that legitimately contribute 0 alleles.
     const isAlleleMatch = alleleRows.length > 0;
+    if (!isAlleleMatch) {
+      const called = locusRows.some(myr => /^[ACGT]{2}$/.test(String(myr[ind23Genotype])));
+      if (called) alleleIncompatible++; else noCall++;
+    }
     dtMatch.push((isAlleleMatch ? alleleRows : locusRows).concat([r]));
     matchType.push(isAlleleMatch ? 'allele' : 'position');
   }
@@ -3050,24 +3051,34 @@ function MatchOptimized(mypgs, my23) {
   data2.alleles = alleles;
   data2.calcRiskScore = calcRiskScore;
 
-  const weights = mypgs.dt.map(row => row[indEffectWeight]);
-  if (calcRiskScore.length == 0) {
-    data2.PRS = "there are no matches :-(";
-    data2.QC = false;
-    data2.QCtext = 'there are no matches :-(';
-  } else if (calcRiskScore.reduce((a, b) => Math.max(a, b)) > 100) {
-    data2.PRS = Math.exp(calcRiskScore.reduce((a, b) => a + b));
-    data2.QC = false;
-    data2.QCtext = 'these are large betas :-(';
-  } else if (weights.reduce((a, b) => Math.min(a, b)) > -2e-5) {
-    data2.PRS = Math.exp(calcRiskScore.reduce((a, b) => a + b));
-    data2.QC = false;
-    data2.QCtext = 'these are not betas :-(';
-  } else {
-    data2.PRS = Math.exp(calcRiskScore.reduce((a, b) => a + b));
-    data2.QC = true;
-    data2.QCtext = '';
-  }
+  // Weight type is carried through as model metadata (PGS Catalog `#weight_type=`).
+  // It is never inferred from the magnitude or the sign of the weights; "NR" means the
+  // scoring file did not report one.
+  data2.weightType = mypgs.meta?.weight_type ?? "NR";
+
+  // Score on the scale defined by the original PGS model:
+  //   PRS_i = sum_j G_ij * w_j   over matched variants j
+  // G in {0,1,2} is the effect-allele dosage and w is the reported `effect_weight`.
+  // No exponentiation is applied, the score is not normalized against a population
+  // reference, and unmatched variants are simply omitted from the summation (no
+  // reference-allele or mean-dosage substitution).
+  const scoreSum = calcRiskScore.reduce((a, b) => a + b, 0);
+  data2.PRS = data2.alleleMatchCount > 0 ? scoreSum : null;
+
+  // Per sample-model accounting.
+  const absWeight = (w) => { const n = Number(w); return Number.isFinite(n) ? Math.abs(n) : 0; };
+  const totalAbsWeight = mypgs.dt.reduce((s, row) => s + absWeight(row[indEffectWeight]), 0);
+  const matchedAbsWeight = dtMatch.reduce((s, m, i) =>
+    matchType[i] === 'allele' ? s + absWeight(m.at(-1)[indEffectWeight]) : s, 0);
+
+  data2.totalVariants = pgsRowCount;
+  data2.matchedVariants = data2.alleleMatchCount;
+  data2.unmatchedVariants = pgsRowCount - data2.alleleMatchCount;
+  data2.missingGenotypes = positionAbsent + noCall;
+  data2.unmatchedReasons = { positionAbsent, noCall, alleleIncompatible };
+  data2.matchPercent = pgsRowCount > 0 ? (data2.alleleMatchCount / pgsRowCount) * 100 : null;
+  // Fraction of the model's total absolute effect weight represented by matched variants.
+  data2.weightCoverage = totalAbsWeight > 0 ? matchedAbsWeight / totalAbsWeight : null;
 
   data2.complexity = {
     bigO: 'O(n + m)',

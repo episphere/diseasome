@@ -234,11 +234,12 @@ function downloadRiskModelsJson() {
 function downloadRiskModelsCsv() {
 	const models = getSelectedRiskModels();
 	if (!models.length) { alert("No risk models selected. Select models in the PGS Catalog first."); return; }
-	const headers = ["PGS ID", "Name", "Trait", "Variants", "Release Date"];
+	const headers = ["PGS ID", "Name", "Trait", "Weight Type", "Variants", "Release Date"];
 	const rows = models.map(m => [
 		m?.id ?? "",
 		m?.name ?? "",
 		m?.trait_reported ?? "",
+		m?.weight_type ?? "NR",
 		m?.variants_number ?? "",
 		m?.date_release ?? "",
 	]);
@@ -257,9 +258,10 @@ function downloadRiskScoresCsv() {
 	const results = Array.isArray(window.prsResults) ? window.prsResults : [];
 	if (!results.length) { alert("No PRS results yet. Click \"Calculate PRS\" first."); return; }
 	const headers = [
-		"Participant ID", "Name", "PGS ID", "PRS Score", "Matched Alleles",
+		"Participant ID", "Name", "PGS ID", "PRS Score", "Weight Type", "Matched Alleles",
 		"Zero Allele Count", "One Allele Count", "Two Allele Count",
-		"Total Variants", "Match Rate", "QC", "Source",
+		"Total Variants", "Unmatched Variants", "Missing Genotypes",
+		"Match Rate", "Weight Coverage", "Source",
 	];
 	const rows = results.map(r => {
 		const org = r.organized?.summary ?? {};
@@ -268,13 +270,16 @@ function downloadRiskScoresCsv() {
 			r.userName ?? "",
 			r.pgsId ?? "",
 			typeof r.PRS === "number" ? r.PRS : (r.PRS ?? ""),
+			r.weightType ?? r.pgs?.meta?.weight_type ?? "NR",
 			r.alleles?.length ?? 0,
 			org.zeroAlleleCount ?? "",
 			org.oneAlleleCount ?? "",
 			org.twoAlleleCount ?? "",
 			r.totalVariants ?? "",
+			r.unmatchedVariants ?? "",
+			r.missingGenotypes ?? "",
 			org.matchRate ?? "",
-			r.QC ? "pass" : (r.QCtext ?? ""),
+			Number.isFinite(r.weightCoverage) ? (r.weightCoverage * 100).toFixed(2) + "%" : "",
 			r.fromCache ? "cached" : "calculated",
 		];
 	});
@@ -453,6 +458,12 @@ function organizeResultsByAllele(matchResult, pgsData) {
 		oneAlleleCount: one_allele.length,
 		twoAlleleCount: two_allele.length,
 		matchRate: (matched.length / pgsData.dt.length * 100).toFixed(2) + "%",
+		// Model variants whose locus was absent from the genome file or returned a no-call.
+		missingGenotypes: matchResult.missingGenotypes ?? null,
+		// Fraction of the model's total absolute effect weight represented by matched variants.
+		weightCoverage: matchResult.weightCoverage ?? null,
+		// Reported by the scoring file; not inferred from the weights.
+		weightType: matchResult.weightType ?? pgsData.meta?.weight_type ?? "NR",
 		PRS: matchResult.PRS,
 		pgsId: matchResult.pgs_id ?? pgsData.meta?.pgs_id,
 		trait: pgsData.meta?.trait_mapped ?? pgsData.meta?.trait_reported ?? ""
@@ -741,20 +752,26 @@ function prsResultNum(v) {
 	return Number.isFinite(n) ? n : -Infinity;
 }
 
+/** Weight type reported by the scoring file for a PRS result ("NR" when not reported). */
+function prsWeightType(r) {
+	return String(r?.weightType ?? r?.pgs?.meta?.weight_type ?? "NR");
+}
+
 /** Column definitions for the PRS results table: label, optional sort getter, cell renderer. */
 const PRS_RESULT_COLUMNS = [
 	{ label: "#", cell: (r, i) => String(i + 1) },
 	{ label: "Participant ID", sort: (r) => String(r.userId ?? "").toLowerCase(), cell: (r) => truncCell(r.userId) },
 	{ label: "Name", sort: (r) => String(r.userName ?? "").toLowerCase(), cell: (r) => truncCell(r.userName) },
 	{ label: "PGS ID", sort: (r) => String(r.pgsId ?? "").toLowerCase(), cell: (r) => escapeHtml(r.pgsId) },
-	{ label: "PRS Score", sort: (r) => (typeof r.PRS === "number" ? r.PRS : -Infinity), cell: (r) => (typeof r.PRS === "number" ? r.PRS.toFixed(6) : (r.PRS ?? "-")) },
+	{ label: "PRS Score", title: "Sum of effect-allele dosage x reported effect_weight over matched variants, on the scale of the original model", sort: (r) => (typeof r.PRS === "number" ? r.PRS : -Infinity), cell: (r) => (typeof r.PRS === "number" ? r.PRS.toFixed(6) : (r.PRS ?? "-")) },
+	{ label: "Weight Type", title: "weight_type reported by the PGS Catalog scoring file (NR = not reported). Never inferred from the weights themselves.", sort: (r) => prsWeightType(r).toLowerCase(), cell: (r) => escapeHtml(prsWeightType(r)) },
 	{ label: "Matched", sort: (r) => (r.alleles?.length ?? 0), cell: (r) => (r.alleles?.length ?? 0) },
 	{ label: "0", title: "Matched with 0 effect alleles", sort: (r) => prsResultNum(r.organized?.summary?.zeroAlleleCount), cell: (r) => (r.organized?.summary?.zeroAlleleCount ?? "-") },
 	{ label: "1", title: "Matched with 1 effect allele", sort: (r) => prsResultNum(r.organized?.summary?.oneAlleleCount), cell: (r) => (r.organized?.summary?.oneAlleleCount ?? "-") },
 	{ label: "2", title: "Matched with 2 effect alleles", sort: (r) => prsResultNum(r.organized?.summary?.twoAlleleCount), cell: (r) => (r.organized?.summary?.twoAlleleCount ?? "-") },
 	{ label: "Total", sort: (r) => prsResultNum(r.totalVariants), cell: (r) => (r.totalVariants ?? "-") },
 	{ label: "Match %", sort: (r) => prsResultNum(r.organized?.summary?.matchRate), cell: (r) => (r.organized?.summary?.matchRate ?? "-") },
-	{ label: "QC", sort: (r) => (r.QC ? 1 : 0), cell: (r) => (r.QC ? "✓" : r.QCtext ?? "-") },
+	{ label: "Weight %", title: "Fraction of the model's total absolute effect weight represented by matched variants", sort: (r) => (Number.isFinite(r.weightCoverage) ? r.weightCoverage : -Infinity), cell: (r) => (Number.isFinite(r.weightCoverage) ? (r.weightCoverage * 100).toFixed(2) + "%" : "-") },
 	{ label: "Src", title: "📦 = cached, 🔄 = calculated", sort: (r) => (r.fromCache ? 1 : 0), cell: (r) => (r.fromCache ? "📦" : "🔄") },
 ];
 
@@ -887,6 +904,9 @@ function renderScoresTable(scores, txts = []) {
 		const date = escapeHtml(score?.date_release ?? "");
 		const loadedTxt = txts.find(t => (t?.id ?? t?.meta?.pgs_id) === score.id);
 		const variantsLoaded = loadedTxt?.dt?.length ?? 0;
+		// Reported by the scoring file header (`#weight_type=`), or by the catalog metadata
+		// before the file is loaded. "NR" = not reported; never inferred from the weights.
+		const weightType = escapeHtml(loadedTxt?.meta?.weight_type ?? score?.weight_type ?? "NR");
 		return `
 			<tr>
 				<td>${idx + 1}</td>
@@ -894,6 +914,7 @@ function renderScoresTable(scores, txts = []) {
 				<td>${id}</td>
 				<td>${name}</td>
 				<td>${trait}</td>
+				<td>${weightType}</td>
 				<td>${variants}</td>
 				<td>${variantsLoaded.toLocaleString()}</td>
 				<td>${date}</td>
@@ -913,6 +934,7 @@ function renderScoresTable(scores, txts = []) {
 					<th>PGS ID</th>
 					<th>Name</th>
 					<th>Trait</th>
+					<th title="weight_type reported by the PGS Catalog (NR = not reported)">Weight Type</th>
 					<th>Variants #</th>
 					<th>Variants Loaded</th>
 					<th>Date</th>
@@ -1595,6 +1617,8 @@ async function calculateAndCachePRS(mypgs, my23, userId, pgsId, userData) {
 			...cached,
 			userName,
 			organized: organizedData,
+			// Older cached entries predate weight-type reporting; fall back to the scoring file.
+			weightType: cached.weightType ?? mypgs.meta?.weight_type ?? "NR",
 			pgs: cached.pgs ?? { cols: mypgs.cols, dt: mypgs.dt, meta: mypgs.meta },
 			fromCache: true
 		};
