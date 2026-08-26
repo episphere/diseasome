@@ -3337,29 +3337,52 @@ function downloadTimestamp() {
 	return new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
 }
 
-/** Currently selected risk models (from the PGS Catalog tab). */
+/** Risk models shown in the PRS tab's models table: the Select Risk Models tab's
+ * selection merged with models loaded here (examples / fetched). Using the same source
+ * as the table means whatever is listed can always be downloaded. */
 function getSelectedRiskModels() {
-	const models = typeof window.getSelectedScores === "function" ? window.getSelectedScores() : [];
-	return Array.isArray(models) ? models : [];
+	return getPrsDisplayScores();
 }
 
-/** Download the selected risk models as JSON (full model objects). */
+/** weight_type for a model: from the parsed scoring file header when it is loaded,
+ * otherwise from the catalog metadata. "NR" = not reported. */
+function riskModelWeightType(score) {
+	const txts = Array.isArray(window.loadedPgsTxts) ? window.loadedPgsTxts : [];
+	const txt = txts.find(t => (t?.id ?? t?.meta?.pgs_id) === score?.id);
+	return txt?.meta?.weight_type ?? score?.weight_type ?? "NR";
+}
+
+/** Download the models' metadata as JSON: the catalog record for each model plus the
+ * full `#key=value` header block parsed from its scoring file. The header is available
+ * as soon as the scoring files are loaded (step 2) — running Calculate PRS is not
+ * required. The scoring-file variant rows are not included. */
 function downloadRiskModelsJson() {
 	const models = getSelectedRiskModels();
-	if (!models.length) { alert("No risk models selected. Select models in the PGS Catalog first."); return; }
-	triggerDownload(JSON.stringify(models, null, 2), `risk_models_${downloadTimestamp()}.json`, "application/json");
+	if (!models.length) { alert("No risk models listed. Select models in the PGS Catalog or load the example models first."); return; }
+	const txts = Array.isArray(window.loadedPgsTxts) ? window.loadedPgsTxts : [];
+	const payload = models.map(m => {
+		// Drop internal "_" keys (e.g. _parsed) so the file stays metadata, not a data dump.
+		const record = Object.fromEntries(Object.entries(m ?? {}).filter(([k]) => !k.startsWith("_")));
+		const txt = txts.find(t => (t?.id ?? t?.meta?.pgs_id) === m?.id);
+		return { ...record, meta: txt?.meta ?? null };
+	});
+	const missing = payload.filter(p => p.meta == null).length;
+	if (missing > 0) {
+		console.warn(`${missing} model(s) have no parsed scoring file yet; their "meta" is null. Load the scoring files first.`);
+	}
+	triggerDownload(JSON.stringify(payload, null, 2), `risk_models_${downloadTimestamp()}.json`, "application/json");
 }
 
-/** Download the selected risk models as CSV (curated columns). */
+/** Download the models table as CSV (the rows shown above). */
 function downloadRiskModelsCsv() {
 	const models = getSelectedRiskModels();
-	if (!models.length) { alert("No risk models selected. Select models in the PGS Catalog first."); return; }
+	if (!models.length) { alert("No risk models listed. Select models in the PGS Catalog or load the example models first."); return; }
 	const headers = ["PGS ID", "Name", "Trait", "Weight Type", "Variants", "Release Date"];
 	const rows = models.map(m => [
 		m?.id ?? "",
 		m?.name ?? "",
 		m?.trait_reported ?? "",
-		m?.weight_type ?? "NR",
+		riskModelWeightType(m),
 		m?.variants_number ?? "",
 		m?.date_release ?? "",
 	]);
@@ -3913,8 +3936,8 @@ function _renderPrsResultsPage() {
 
 	resultsDiv.innerHTML = `
 		<div class="d-flex justify-content-end gap-2 mt-3">
-			<button class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" onclick="window.downloadRiskScoresJson && window.downloadRiskScoresJson()">⬇ Download Scores (JSON)</button>
-			<button class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" onclick="window.downloadRiskScoresCsv && window.downloadRiskScoresCsv()">⬇ Download Scores (CSV)</button>
+			<button class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" title="Full result objects, including every matched variant" onclick="window.downloadRiskScoresJson && window.downloadRiskScoresJson()">⬇ Full Results (JSON)</button>
+			<button class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" title="The rows shown in this table" onclick="window.downloadRiskScoresCsv && window.downloadRiskScoresCsv()">⬇ Results Table (CSV)</button>
 		</div>
 		<div class="table-responsive">
 			<table class="table table-striped table-sm mt-3">
@@ -4005,8 +4028,8 @@ function renderScoresTable(scores, txts = []) {
 
 	return `
 		<div class="d-flex justify-content-end gap-2 mt-3">
-			<button class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" onclick="window.downloadRiskModelsJson && window.downloadRiskModelsJson()">⬇ Download Models (JSON)</button>
-			<button class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" onclick="window.downloadRiskModelsCsv && window.downloadRiskModelsCsv()">⬇ Download Models (CSV)</button>
+			<button class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" title="Catalog record plus the full scoring-file header (#key=value) for each model — not the variant rows" onclick="window.downloadRiskModelsJson && window.downloadRiskModelsJson()">⬇ Model Metadata (JSON)</button>
+			<button class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" title="The rows shown in this table" onclick="window.downloadRiskModelsCsv && window.downloadRiskModelsCsv()">⬇ Models Table (CSV)</button>
 		</div>
 		<table class="table table-striped table-sm mt-3">
 			<thead class="table-dark">
