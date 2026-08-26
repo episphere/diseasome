@@ -22,8 +22,8 @@ Toolkit functionalities
 
 ## UI exploration tabs
 - PGP Tab: Explore public genome profiles and participant metadata, and load available genotype records for analysis.
-- PGS Catalog Tab: Browse polygenic score models by trait/category, inspect model metadata, and select scores to analyze.
-- PRS Tab: Run score matching between genotype inputs and selected PGS models, then review comparative PRS outputs.
+- PGS Catalog Tab: Browse polygenic score models by trait/category, inspect model metadata (including the reported `weight_type`), and select scores to analyze.
+- PRS Tab: Run score matching between genotype inputs and selected PGS models, then review comparative PRS outputs alongside their match and weight-coverage statistics. Inspect the raw genome and scoring files, plot each model's effect weights across the genome, and export the models, their full metadata, and the results as JSON or CSV.
 - Cluster Tab: Interactively visualize and group samples/scores to identify similarity patterns and trait-level structure.
 - AI Interpretation â€“ Score Insight: Convert PRS outputs into plain-language summaries with context and interpretation caveats.
 - AI Interpretation â€“ Research Assistant: Generate follow-up insights, comparison prompts, and research-oriented notes from selected results.
@@ -40,6 +40,35 @@ The index ships as static JSON (`data/overlap_0_100_v4.json`, `data/overlap_0_10
 The same holds for the **curated 23andMe (v4/v5) marker data** the index is built from:
 
 > The curated 23andMe marker sets are derived from the arrays' published marker definitions rather than from individual genotype data, and are distributed with the application as static reference tables; no user genotype data is involved at any point in their construction.
+
+---
+
+## Scoring model
+
+Variants in a harmonized PGS scoring file are matched to genotype calls through a
+hash index keyed on harmonized chromosome and position, giving `O(n + m)` matching
+rather than a nested scan. Genotypes are converted to effect-allele dosages
+`G ∈ {0, 1, 2}`, and each sample's score is the weighted sum over matched variants:
+
+$$\text{PRS}_i = \sum_{j} G_{ij} \cdot w_j$$
+
+where `w` is the `effect_weight` **as reported by the PGS Catalog**.
+
+> The weights are used exactly as published and are never interpreted. The catalog's `weight_type` (`beta`, `OR`, `HR`, or `NR` when the submitter did not report one) is carried through as metadata and displayed alongside every score, in the models table, the results table, and every export — it is never inferred from the values, and the score is never transformed on the basis of a guess about them.
+
+Consequences, all of them intentional:
+
+- Scores are on the **original model's scale** — not exponentiated, not standardized, not normalized against a reference panel. Comparisons are valid **across samples for a given model**, not across models.
+- Variants with no usable genotype are **omitted**, never imputed or mean-substituted.
+- Because of that omission, every sample × model pair reports its own denominators: total variants, matched, unmatched, missing genotypes, matching percentage, and the share of the model's total absolute weight that was actually scored,
+
+$$\text{weight coverage} = \frac{\sum_{j \in \text{matched}} \lvert w_j \rvert}{\sum_{j \in \text{total}} \lvert w_j \rvert}$$
+
+  computed on absolute values so positive and negative weights cannot cancel and inflate apparent coverage.
+
+PRS results are cached in IndexedDB under `PRS: <userId>_<pgsId>` and are **not**
+version-stamped — use the **Clear PRS Cache** button after any change to the
+scoring math.
 
 ---
 
@@ -123,7 +152,13 @@ diseasome/
 | `allUsersMetaDataByType_fast()` | Get user metadata by type |
 | `fetchProfile(id)` | Fetch a user profile |
 | `get23Txt(path, id, cache)` | Load and parse a 23andMe file |
-| `Match2(pgsTxt, my23Txt)` | Calculate PRS (2-input) |
+| `Match2(pgsTxt, my23Txt)` | Calculate PRS — reference implementation, `O(n × m)` |
+| `MatchOptimized(pgsTxt, my23Txt)` | Calculate PRS — hash-indexed, `O(n + m)`; used by the app |
+
+Both matchers return the score together with its provenance and coverage:
+`{ PRS, weightType, totalVariants, matchedVariants, unmatchedVariants,
+missingGenotypes, matchPercent, weightCoverage, alleles, calcRiskScore, ... }`.
+`PRS` is `null` when nothing matched.
 
 **SDK Availability:**
 - **Browser SDK (`sdk.mjs`)**: All functions above
@@ -139,6 +174,20 @@ import { fetchAllScores, fetchTraits, getTxts } from "polygenic_risk_scores";
 const scores = await fetchAllScores();
 const traits = await fetchTraits();
 const txts = await getTxts(["PGS000001"]);
+```
+
+Scoring a genome, and reading the score with its denominators:
+
+```js
+const sdk = await import("https://episphere.github.io/diseasome/dist/sdk.mjs");
+
+const pgs    = await sdk.pgs.getPgsTxt("PGS000001");
+const genome = await sdk.pgp.get23Txt("data/genome_LW_v5_Full_20170924182428.txt", "lw");
+const r      = sdk.prs.MatchOptimized(pgs, genome);
+
+console.log(r.PRS, r.weightType);                     // 0.7485 'NR'
+console.log(`${r.matchedVariants}/${r.totalVariants}`); // 72/77
+console.log((r.weightCoverage * 100).toFixed(1) + "%"); // 95.6% of Σ|w|
 ```
 
 ---
