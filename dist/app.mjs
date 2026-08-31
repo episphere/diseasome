@@ -6839,6 +6839,16 @@ async function renderCluster() {
   const clusterMethod = window.clusterOptions?.clusterMethod ?? 'complete';
   const clusterDistance = window.clusterOptions?.clusterDistance ?? 'euclidean';
 
+  // Ward linkage minimizes the increase in within-cluster sum of squared deviations
+  // and only retains its minimum-variance interpretation (R's hclust ward.D2) under
+  // Euclidean distance. So Ward is only offered with Euclidean, and Manhattan/cosine
+  // are disabled while Ward is active. Single/complete/average work on any supplied
+  // dissimilarity matrix and stay available for all three distances.
+  const wardActive = clusterMethod === 'ward';
+  const nonEuclidean = clusterDistance !== 'euclidean';
+  const wardTitle = 'Ward linkage requires Euclidean distance (ward.D2). Switch distance to Euclidean to enable it.';
+  const nonEuclideanTitle = 'Disabled with Ward linkage — Ward only retains its minimum-variance interpretation under Euclidean distance.';
+
   // Scale mode: raw PRS vs. per-PGS z-scored (normalized) values.
   const normalize = window.clusterOptions?.normalize ?? true;
 
@@ -6870,16 +6880,17 @@ async function renderCluster() {
               <button id="clusterMethodComplete" class="btn btn-sm ${clusterMethod === 'complete' ? 'btn-secondary' : 'btn-outline-secondary'}">Complete</button>
               <button id="clusterMethodSingle" class="btn btn-sm ${clusterMethod === 'single' ? 'btn-secondary' : 'btn-outline-secondary'}">Single</button>
               <button id="clusterMethodAverage" class="btn btn-sm ${clusterMethod === 'average' ? 'btn-secondary' : 'btn-outline-secondary'}">Average</button>
-              <button id="clusterMethodWard" class="btn btn-sm ${clusterMethod === 'ward' ? 'btn-secondary' : 'btn-outline-secondary'}">Ward</button>
+              <button id="clusterMethodWard" class="btn btn-sm ${clusterMethod === 'ward' ? 'btn-secondary' : 'btn-outline-secondary'}" ${nonEuclidean ? 'disabled' : ''} title="${nonEuclidean ? wardTitle : 'Ward (ward.D2) minimum-variance linkage — Euclidean only.'}">Ward</button>
             </div>
           </div>
           <div class="col-md-6">
             <label class="form-label small text-uppercase text-muted fw-bold mb-1">Distance</label>
             <div class="btn-group d-flex" role="group">
               <button id="clusterDistEuclidean" class="btn btn-sm ${clusterDistance === 'euclidean' ? 'btn-info' : 'btn-outline-info'}">Euclidean</button>
-              <button id="clusterDistManhattan" class="btn btn-sm ${clusterDistance === 'manhattan' ? 'btn-info' : 'btn-outline-info'}">Manhattan</button>
-              <button id="clusterDistCosine" class="btn btn-sm ${clusterDistance === 'cosine' ? 'btn-info' : 'btn-outline-info'}">Cosine</button>
+              <button id="clusterDistManhattan" class="btn btn-sm ${clusterDistance === 'manhattan' ? 'btn-info' : 'btn-outline-info'}" ${wardActive ? 'disabled' : ''} title="${wardActive ? nonEuclideanTitle : 'Manhattan (city-block) distance.'}">Manhattan</button>
+              <button id="clusterDistCosine" class="btn btn-sm ${clusterDistance === 'cosine' ? 'btn-info' : 'btn-outline-info'}" ${wardActive ? 'disabled' : ''} title="${wardActive ? nonEuclideanTitle : 'Cosine distance.'}">Cosine</button>
             </div>
+            <div class="form-text small">Single, complete, and average linkage work with any distance. Ward (ward.D2) is restricted to Euclidean, where its minimum-variance interpretation holds.</div>
           </div>
           <div class="col-md-6">
             <label class="form-label small text-uppercase text-muted fw-bold mb-1">Scale</label>
@@ -7066,7 +7077,9 @@ pheatmap(prs_scaled,
     renderCluster();
   };
   document.getElementById('clusterMethodWard').onclick = () => {
-    window.clusterOptions = { ...window.clusterOptions, clusterMethod: 'ward' };
+    // Ward only holds its minimum-variance interpretation under Euclidean distance,
+    // so selecting Ward forces the distance to Euclidean (ward.D2).
+    window.clusterOptions = { ...window.clusterOptions, clusterMethod: 'ward', clusterDistance: 'euclidean' };
     renderCluster();
   };
 
@@ -7076,11 +7089,15 @@ pheatmap(prs_scaled,
     renderCluster();
   };
   document.getElementById('clusterDistManhattan').onclick = () => {
-    window.clusterOptions = { ...window.clusterOptions, clusterDistance: 'manhattan' };
+    // Ward is invalid with non-Euclidean distances; fall back to complete linkage.
+    const method = window.clusterOptions?.clusterMethod === 'ward' ? 'complete' : window.clusterOptions?.clusterMethod;
+    window.clusterOptions = { ...window.clusterOptions, clusterDistance: 'manhattan', clusterMethod: method };
     renderCluster();
   };
   document.getElementById('clusterDistCosine').onclick = () => {
-    window.clusterOptions = { ...window.clusterOptions, clusterDistance: 'cosine' };
+    // Ward is invalid with non-Euclidean distances; fall back to complete linkage.
+    const method = window.clusterOptions?.clusterMethod === 'ward' ? 'complete' : window.clusterOptions?.clusterMethod;
+    window.clusterOptions = { ...window.clusterOptions, clusterDistance: 'cosine', clusterMethod: method };
     renderCluster();
   };
 
