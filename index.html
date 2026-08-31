@@ -803,6 +803,8 @@
                                         <div id="pgsSelectionProgressBar" class="progress-bar bg-success" role="progressbar"
                                             style="width:0%; transition:width .2s ease;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="10"></div>
                                     </div>
+                                    <div id="pgsLoadingStatus" class="text-muted mt-1" style="font-size:0.7rem;">Loading PGS scores...</div>
+                                    <span id="fetchScoresStatus" class="small text-muted"></span>
                                 </div>
                                 <div class="d-flex align-items-center gap-1" style="flex:0 0 auto;"
                                     title="Genome build of the harmonized scoring file to fetch. GRCh37 and GRCh38 versions of the same model are cached separately.">
@@ -813,6 +815,15 @@
                                         <input type="radio" class="btn-check" name="pgsBuild" id="pgsBuild38" value="38">
                                         <label class="btn btn-outline-secondary" for="pgsBuild38">GRCh38</label>
                                     </div>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2"
+                                            style="line-height:1;border-radius:50%;font-weight:bold;font-size:0.8rem"
+                                            data-bs-toggle="popover"
+                                            data-bs-trigger="focus"
+                                            data-bs-placement="right"
+                                            data-bs-html="true"
+                                            title="Genome build"
+                                            data-bs-content="<p class='mb-2'>Harmonized scoring files are available in <strong>GRCh37</strong> and <strong>GRCh38</strong>.</p><p class='mb-0'>PGS Catalog harmonized scoring files are standardized versions of the original submitted models. They retain the same effect weights but add standardized variant identifiers and coordinates mapped to <strong>GRCh37 or GRCh38</strong>, making the models easier to apply consistently across genomic datasets.</p>"
+                                            aria-label="About genome build">?</button>
                                 </div>
                                 <button id="fetchPgsFilesBtn" class="btn btn-success btn-sm" style="display:none;">Fetch PGS Files</button>
                                 <button id="nextToPrsBtn" class="btn btn-outline-primary btn-sm" style="display:none;" onclick="document.querySelector('.tablinks[onclick*=PRS]').click(); return false;">Continue to Calculation →</button>
@@ -821,8 +832,6 @@
 
                         <!-- PGS cache management (right-aligned, matches Genome Cache on tab 1) -->
                         <div class="mb-3">
-                            <span id="fetchScoresStatus" class="small text-muted"></span>
-                            <div id="pgsLoadingStatus" class="text-muted text-end mb-1" style="font-size:0.7rem;">Loading PGS scores...</div>
                             <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
                                 <span class="text-muted" style="font-size:0.7rem;"><b>PGS Cache:</b></span>
                                 <button id="showPgsCacheBtn" class="btn btn-outline-secondary" style="font-size:0.65rem;padding:1px 6px;"
