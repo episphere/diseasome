@@ -30,7 +30,7 @@ let localDataModuleLoaded = false;
 // the tab functionality.
 async function ensurePgsModuleLoaded() {
     if (!pgsModuleLoaded) {
-        await import('./chunks/displayScores-Bg5CVxD_.mjs');
+        await import('./chunks/displayScores-DgF8Gfp2.mjs');
         pgsModuleLoaded = true;
     }
 }
@@ -4269,9 +4269,12 @@ async function loadScoresFromList(scores, onProgress = null) {
 
 	if (toFetch.length > 0) {
 		// Load one score at a time so progress can be updated per score.
+		// Pass the genome build selected in the Select Risk Models tab (37/38) so
+		// the fetch and its cache key match what fetchScoresTxts() used.
+		const build = window.getPgsBuild?.() ?? 37;
 		for (const score of toFetch) {
 			try {
-				const result = await getPgsTxt(score.id);
+				const result = await getPgsTxt(score.id, undefined, true, build);
 				const parsed = Array.isArray(result) ? result[0] : result;
 				if (!parsed) {
 					console.warn(`No parseable file for score ${score?.id}`);

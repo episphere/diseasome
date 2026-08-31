@@ -1187,9 +1187,12 @@ async function loadScoresFromList(scores, onProgress = null) {
 
 	if (toFetch.length > 0) {
 		// Load one score at a time so progress can be updated per score.
+		// Pass the genome build selected in the Select Risk Models tab (37/38) so
+		// the fetch and its cache key match what fetchScoresTxts() used.
+		const build = window.getPgsBuild?.() ?? 37;
 		for (const score of toFetch) {
 			try {
-				const result = await getPgsTxt(score.id);
+				const result = await getPgsTxt(score.id, undefined, true, build);
 				const parsed = Array.isArray(result) ? result[0] : result;
 				if (!parsed) {
 					console.warn(`No parseable file for score ${score?.id}`);
