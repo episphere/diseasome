@@ -28,6 +28,17 @@ let clusterCache = {
   userIds: null,
 };
 
+// Ward-linkage constraint messages (shared by the initial template and the
+// in-place control updates).
+const WARD_TITLE = 'Ward linkage requires Euclidean distance (ward.D2). Switch distance to Euclidean to enable it.';
+const NON_EUCLIDEAN_TITLE = 'Disabled with Ward linkage — Ward only retains its minimum-variance interpretation under Euclidean distance.';
+
+// Plot-only re-render machinery: the token supersedes stale renders and the
+// promise queue serializes hclust_plot calls so rapid option clicks can't
+// interleave their SVG output in the mount.
+let _plotToken = 0;
+let _plotQueue = Promise.resolve();
+
 /**
  * Generate a simple hash of prsResults to detect changes
  */
@@ -292,7 +303,7 @@ const WEBR_MATRIX_PATH = '/home/web_user/prs_matrix.csv';
 let _webRPromise = null;
 // Persist the WebR runner UI across renderCluster() rebuilds so clicking a
 // clustering parameter for the first plot doesn't wipe the R output/code.
-let _webRState = { code: null, plotsHTML: '', consoleHTML: '', consoleVisible: false, status: '' };
+let _webRState = { code: null, plotsHTML: '', consoleHTML: '', consoleVisible: false, status: '', expanded: false };
 
 /** Default R snippet shown in the runner; reads the PRS matrix preloaded into WebR's FS. */
 const WEBR_DEFAULT_CODE = `library(pheatmap)
@@ -426,6 +437,167 @@ async function runRCodeInWebR() {
 }
 
 
+/** Read the current clustering options (with defaults) from window.clusterOptions. */
+function getClusterOptions() {
+  return {
+    clusterRows: window.clusterOptions?.clusterRows ?? true,
+    clusterCols: window.clusterOptions?.clusterCols ?? true,
+    clusterMethod: window.clusterOptions?.clusterMethod ?? 'complete',
+    clusterDistance: window.clusterOptions?.clusterDistance ?? 'euclidean',
+    normalize: window.clusterOptions?.normalize ?? true,
+  };
+}
+
+/**
+ * Sync the option buttons and legend caption with window.clusterOptions in
+ * place, so option clicks don't need to rebuild the whole panel.
+ */
+function updateClusterControlStates() {
+  const { clusterRows, clusterCols, clusterMethod, clusterDistance, normalize } = getClusterOptions();
+  const setActive = (id, active) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.classList.toggle('btn-primary', active);
+    btn.classList.toggle('btn-outline-primary', !active);
+    btn.setAttribute('aria-pressed', String(active));
+  };
+  setActive('clusterRowsBtn', clusterRows);
+  setActive('clusterColsBtn', clusterCols);
+  setActive('clusterMethodComplete', clusterMethod === 'complete');
+  setActive('clusterMethodSingle', clusterMethod === 'single');
+  setActive('clusterMethodAverage', clusterMethod === 'average');
+  setActive('clusterMethodWard', clusterMethod === 'ward');
+  setActive('clusterDistEuclidean', clusterDistance === 'euclidean');
+  setActive('clusterDistManhattan', clusterDistance === 'manhattan');
+  setActive('clusterDistCosine', clusterDistance === 'cosine');
+  setActive('clusterScaleRaw', !normalize);
+  setActive('clusterScaleZ', normalize);
+
+  const bothBtn = document.getElementById('clusterBothBtn');
+  if (bothBtn) bothBtn.textContent = clusterRows && clusterCols ? 'Turn both off' : 'Turn both on';
+
+  const wardActive = clusterMethod === 'ward';
+  const nonEuclidean = clusterDistance !== 'euclidean';
+  const wardBtn = document.getElementById('clusterMethodWard');
+  if (wardBtn) {
+    wardBtn.disabled = nonEuclidean;
+    wardBtn.title = nonEuclidean ? WARD_TITLE : 'Ward (ward.D2) minimum-variance linkage — Euclidean only.';
+  }
+  const distTitles = { clusterDistManhattan: 'Manhattan (city-block) distance.', clusterDistCosine: 'Cosine distance.' };
+  for (const [id, title] of Object.entries(distTitles)) {
+    const btn = document.getElementById(id);
+    if (!btn) continue;
+    btn.disabled = wardActive;
+    btn.title = wardActive ? NON_EUCLIDEAN_TITLE : title;
+  }
+
+  const caption = document.getElementById('clusterLegendCaption');
+  if (caption) caption.textContent = `Heatmap color = ${normalize ? 'z-score of PRS (standardized per PGS column)' : 'raw PRS value'} · gray = missing`;
+}
+
+/** Show a translucent spinner overlay on the plot box while it re-renders. */
+function showPlotOverlay() {
+  const box = document.getElementById('clusterPlotBox');
+  if (!box || box.querySelector('.cluster-plot-overlay')) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'cluster-plot-overlay d-flex align-items-center justify-content-center';
+  overlay.style.cssText = 'position:absolute; inset:0; background:rgba(255,255,255,0.6); z-index:5;';
+  overlay.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Re-rendering…</span></div>';
+  box.appendChild(overlay);
+}
+
+function hidePlotOverlay() {
+  document.querySelector('#clusterPlotBox .cluster-plot-overlay')?.remove();
+}
+
+/**
+ * Queue a plot-only re-render. The previous plot stays visible under an
+ * overlay spinner; superseded clicks are skipped via the token and renders are
+ * serialized via the queue so hclust_plot calls never overlap.
+ */
+function schedulePlotRender() {
+  const token = ++_plotToken;
+  showPlotOverlay();
+  _plotQueue = _plotQueue
+    .then(async () => {
+      if (token !== _plotToken) return; // superseded by a newer option click
+      await drawClusterPlot();
+    })
+    .catch(e => console.error('[PRS Clustering] plot render error:', e))
+    .finally(() => { if (token === _plotToken) hidePlotOverlay(); });
+}
+
+/**
+ * Draw (or redraw) only the heatmap/dendrogram using the cached matrix and the
+ * current window.clusterOptions, leaving controls, downloads, and the WebR
+ * card untouched.
+ */
+async function drawClusterPlot() {
+  const pivoted = clusterCache.pivoted;
+  if (!pivoted || !document.getElementById('clusterPlotMount')) return;
+  const pgsIds = clusterCache.pgsIds ?? getUniquePgsIds(window.prsResults);
+  const { clusterRows, clusterCols, clusterMethod, clusterDistance, normalize } = getClusterOptions();
+
+  // Apply per-PGS z-score standardization when the Z-score scale is selected.
+  const plotData = normalize ? standardizePivot(pivoted, pgsIds) : pivoted;
+
+  // Append the reported trait to each PGS column label (plot only; downloads
+  // keep raw PGS ids). Full label shows on hover; axis text is capped at 12 chars.
+  const plotDataLabeled = relabelPgsColumns(plotData, getPgsTraitMap(window.prsResults));
+
+  // Grow the canvas with the matrix so dendrograms and axis labels have room
+  // and aren't clipped at the plot edges, while keeping a roughly square aspect.
+  const colCount = Object.keys(pivoted[0]).length - 1;
+  const fullWidth = Math.max(900, 120 * colCount + 400);
+  const fullHeight = Math.max(760, 46 * pivoted.length + 320);
+  // Render the plot smaller while keeping the reserved area (box) unchanged, so
+  // the surrounding layout and the top-right download button stay put.
+  const plotScale = 0.8;
+  const plotWidth = Math.round(fullWidth * plotScale);
+  const plotHeight = Math.round(fullHeight * plotScale);
+
+  // Bound the scroll area to the drawn plot so wide/tall matrices scroll inside
+  // the box without leaving blank space underneath.
+  const plotBox = document.getElementById('clusterPlotBox');
+  if (plotBox) plotBox.style.minHeight = plotHeight + 'px';
+  const plotScroll = document.getElementById('clusterPlotScroll');
+  if (plotScroll) plotScroll.style.maxHeight = plotHeight + 'px';
+
+  try {
+    await hclust_plot({
+      divId: "clusterPlotMount",
+      data: plotDataLabeled,
+      width: plotWidth,
+      height: plotHeight,
+      marginBottom: 180,
+      // Pull the color legend + "Missing" swatch left so they aren't clipped at
+      // the right edge. hclust_plot auto-computes the right margin (marginRight
+      // is ignored), so legendOffsetX is the lever for legend position.
+      legendOffsetX: 38,
+      clusterRows: clusterRows,
+      clusterCols: clusterCols,
+      clusteringMethodRows: clusterMethod,
+      clusteringMethodCols: clusterMethod,
+      clusteringDistanceRows: clusterDistance,
+      clusteringDistanceCols: clusterDistance
+    });
+  } catch (e) { console.error('[PRS Clustering] hclust_plot error:', e); }
+
+  // The remote ClustJS SDK appends the row index to each user label to keep
+  // axis labels unique (e.g. "v5 Cajun" is rendered as "v5 Cajun1"), which
+  // reads like part of the name. Rewrite exact "<label><index>" matches in the
+  // rendered SVG back to the clean label.
+  try {
+    const labels = plotDataLabeled.map(r => r.label);
+    document.querySelectorAll('#clusterPlotMount svg text').forEach(t => {
+      const raw = (t.textContent ?? '').trim();
+      for (let i = 0; i < labels.length; i++) {
+        if (raw === `${labels[i]}${i}`) { t.textContent = labels[i]; break; }
+      }
+    });
+  } catch (e) { console.warn('[PRS Clustering] label cleanup skipped:', e); }
+}
+
 async function renderCluster() {
   const clusterContainer = document.getElementById(clusterContainerId);
   if (!clusterContainer) return;
@@ -479,12 +651,7 @@ async function renderCluster() {
   }
 
   // Get current clustering options (preserve state across re-renders)
-  const clusterRows = window.clusterOptions?.clusterRows ?? true;
-  const clusterCols = window.clusterOptions?.clusterCols ?? true;
-
-  // Clustering algorithm options
-  const clusterMethod = window.clusterOptions?.clusterMethod ?? 'complete';
-  const clusterDistance = window.clusterOptions?.clusterDistance ?? 'euclidean';
+  const { clusterRows, clusterCols, clusterMethod, clusterDistance, normalize } = getClusterOptions();
 
   // Ward linkage minimizes the increase in within-cluster sum of squared deviations
   // and only retains its minimum-variance interpretation (R's hclust ward.D2) under
@@ -493,11 +660,8 @@ async function renderCluster() {
   // dissimilarity matrix and stay available for all three distances.
   const wardActive = clusterMethod === 'ward';
   const nonEuclidean = clusterDistance !== 'euclidean';
-  const wardTitle = 'Ward linkage requires Euclidean distance (ward.D2). Switch distance to Euclidean to enable it.';
-  const nonEuclideanTitle = 'Disabled with Ward linkage — Ward only retains its minimum-variance interpretation under Euclidean distance.';
-
-  // Scale mode: raw PRS vs. per-PGS z-scored (normalized) values.
-  const normalize = window.clusterOptions?.normalize ?? true;
+  const wardTitle = WARD_TITLE;
+  const nonEuclideanTitle = NON_EUCLIDEAN_TITLE;
 
   clusterContainer.innerHTML = `
     <div id="clusterSectionA">
@@ -547,8 +711,8 @@ async function renderCluster() {
       </div>
     </div>
 
-    <div class="small text-muted mb-1">Heatmap color = ${normalize ? 'z-score of PRS (standardized per PGS column)' : 'raw PRS value'} · gray = missing</div>
-    <div id="clusterPlotBox" style="position:relative;">
+    <div id="clusterLegendCaption" class="small text-muted mb-1">Heatmap color = ${normalize ? 'z-score of PRS (standardized per PGS column)' : 'raw PRS value'} · gray = missing</div>
+    <div id="clusterPlotBox" style="position:relative; min-height:200px;">
       <div id="clusterPlotScroll" style="overflow:auto; max-width:100%;">
         <div id="clusterPlotMount"></div>
       </div>
@@ -573,12 +737,15 @@ async function renderCluster() {
 
     <div class="card mb-3">
       <div class="card-header bg-white py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
-        <span class="fw-semibold small text-uppercase text-muted">Reproduce in R &mdash; pheatmap</span>
+        <button id="webRCardToggle" type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-semibold small text-uppercase text-muted" aria-expanded="${_webRState.expanded}" aria-controls="webRCardBody">
+          <span id="webRCardChevron">${_webRState.expanded ? '▾' : '▸'}</span> Reproduce in R &mdash; pheatmap
+        </button>
         <div class="d-flex align-items-center gap-2">
           <button id="runRWebRBtn" class="btn btn-success btn-sm">▶ Run in browser</button>
           <button id="resetRCodeBtn" class="btn btn-outline-secondary btn-sm">↺ Reset code</button>
         </div>
       </div>
+      <div id="webRCardBody" class="${_webRState.expanded ? '' : 'd-none'}">
       <div class="card-body py-3">
         <p class="text-muted small mb-2">
           Runs R directly in your browser via <a href="https://docs.r-wasm.org/webr/latest/" target="_blank" rel="noopener">WebR</a> &mdash; nothing to install.
@@ -622,6 +789,7 @@ pheatmap(prs_scaled,
          main = "PRS Hierarchical Clustering",
          border_color = NA)</code></pre>
         </details>
+      </div>
       </div>
     </div>
     </div>
@@ -676,8 +844,23 @@ pheatmap(prs_scaled,
   }
   const webRStatusEl = document.getElementById('webRStatus');
   if (webRStatusEl && _webRState.status) webRStatusEl.textContent = _webRState.status;
+  // Collapsible WebR card (collapsed by default; state survives re-renders).
+  const setWebRExpanded = (expanded) => {
+    _webRState.expanded = expanded;
+    document.getElementById('webRCardBody')?.classList.toggle('d-none', !expanded);
+    const toggle = document.getElementById('webRCardToggle');
+    if (toggle) toggle.setAttribute('aria-expanded', String(expanded));
+    const chevron = document.getElementById('webRCardChevron');
+    if (chevron) chevron.textContent = expanded ? '▾' : '▸';
+  };
+  const webRCardToggle = document.getElementById('webRCardToggle');
+  if (webRCardToggle) webRCardToggle.onclick = () => setWebRExpanded(!_webRState.expanded);
   const runRWebRBtn = document.getElementById('runRWebRBtn');
-  if (runRWebRBtn) runRWebRBtn.onclick = runRCodeInWebR;
+  if (runRWebRBtn) runRWebRBtn.onclick = () => {
+    // Expand so the status/plots/console are visible while R runs.
+    setWebRExpanded(true);
+    runRCodeInWebR();
+  };
   const resetRCodeBtn = document.getElementById('resetRCodeBtn');
   if (resetRCodeBtn) resetRCodeBtn.onclick = () => {
     if (webRCodeEl) webRCodeEl.value = WEBR_DEFAULT_CODE;
@@ -692,68 +875,52 @@ pheatmap(prs_scaled,
       .catch(err => { console.error('[PRS Clustering] PNG export error:', err); alert('Could not export the plot as PNG.'); });
   };
 
-  // Attach button handlers for PRS clustering
+  // Attach button handlers for PRS clustering. Option clicks update the
+  // controls in place and re-render only the plot (previous plot stays visible
+  // under an overlay spinner) instead of rebuilding the whole panel.
+  const applyOptionChange = (patch) => {
+    window.clusterOptions = { ...window.clusterOptions, ...patch };
+    updateClusterControlStates();
+    schedulePlotRender();
+  };
   document.getElementById('clusterRowsBtn').onclick = () => {
-    window.clusterOptions = { ...window.clusterOptions, clusterRows: !clusterRows, clusterCols };
-    renderCluster();
+    applyOptionChange({ clusterRows: !getClusterOptions().clusterRows });
   };
   document.getElementById('clusterColsBtn').onclick = () => {
-    window.clusterOptions = { ...window.clusterOptions, clusterRows, clusterCols: !clusterCols };
-    renderCluster();
+    applyOptionChange({ clusterCols: !getClusterOptions().clusterCols });
   };
   document.getElementById('clusterBothBtn').onclick = () => {
-    const bothOn = clusterRows && clusterCols;
-    window.clusterOptions = { ...window.clusterOptions, clusterRows: !bothOn, clusterCols: !bothOn };
-    renderCluster();
+    const o = getClusterOptions();
+    const bothOn = o.clusterRows && o.clusterCols;
+    applyOptionChange({ clusterRows: !bothOn, clusterCols: !bothOn });
   };
 
   // PRS clustering method handlers
-  document.getElementById('clusterMethodComplete').onclick = () => {
-    window.clusterOptions = { ...window.clusterOptions, clusterMethod: 'complete' };
-    renderCluster();
-  };
-  document.getElementById('clusterMethodSingle').onclick = () => {
-    window.clusterOptions = { ...window.clusterOptions, clusterMethod: 'single' };
-    renderCluster();
-  };
-  document.getElementById('clusterMethodAverage').onclick = () => {
-    window.clusterOptions = { ...window.clusterOptions, clusterMethod: 'average' };
-    renderCluster();
-  };
+  document.getElementById('clusterMethodComplete').onclick = () => applyOptionChange({ clusterMethod: 'complete' });
+  document.getElementById('clusterMethodSingle').onclick = () => applyOptionChange({ clusterMethod: 'single' });
+  document.getElementById('clusterMethodAverage').onclick = () => applyOptionChange({ clusterMethod: 'average' });
   document.getElementById('clusterMethodWard').onclick = () => {
     // Ward only holds its minimum-variance interpretation under Euclidean distance,
     // so selecting Ward forces the distance to Euclidean (ward.D2).
-    window.clusterOptions = { ...window.clusterOptions, clusterMethod: 'ward', clusterDistance: 'euclidean' };
-    renderCluster();
+    applyOptionChange({ clusterMethod: 'ward', clusterDistance: 'euclidean' });
   };
 
   // PRS clustering distance handlers
-  document.getElementById('clusterDistEuclidean').onclick = () => {
-    window.clusterOptions = { ...window.clusterOptions, clusterDistance: 'euclidean' };
-    renderCluster();
-  };
+  document.getElementById('clusterDistEuclidean').onclick = () => applyOptionChange({ clusterDistance: 'euclidean' });
   document.getElementById('clusterDistManhattan').onclick = () => {
     // Ward is invalid with non-Euclidean distances; fall back to complete linkage.
-    const method = window.clusterOptions?.clusterMethod === 'ward' ? 'complete' : window.clusterOptions?.clusterMethod;
-    window.clusterOptions = { ...window.clusterOptions, clusterDistance: 'manhattan', clusterMethod: method };
-    renderCluster();
+    const method = getClusterOptions().clusterMethod === 'ward' ? 'complete' : getClusterOptions().clusterMethod;
+    applyOptionChange({ clusterDistance: 'manhattan', clusterMethod: method });
   };
   document.getElementById('clusterDistCosine').onclick = () => {
     // Ward is invalid with non-Euclidean distances; fall back to complete linkage.
-    const method = window.clusterOptions?.clusterMethod === 'ward' ? 'complete' : window.clusterOptions?.clusterMethod;
-    window.clusterOptions = { ...window.clusterOptions, clusterDistance: 'cosine', clusterMethod: method };
-    renderCluster();
+    const method = getClusterOptions().clusterMethod === 'ward' ? 'complete' : getClusterOptions().clusterMethod;
+    applyOptionChange({ clusterDistance: 'cosine', clusterMethod: method });
   };
 
   // PRS clustering scale (normalization) handlers
-  document.getElementById('clusterScaleRaw').onclick = () => {
-    window.clusterOptions = { ...window.clusterOptions, normalize: false };
-    renderCluster();
-  };
-  document.getElementById('clusterScaleZ').onclick = () => {
-    window.clusterOptions = { ...window.clusterOptions, normalize: true };
-    renderCluster();
-  };
+  document.getElementById('clusterScaleRaw').onclick = () => applyOptionChange({ normalize: false });
+  document.getElementById('clusterScaleZ').onclick = () => applyOptionChange({ normalize: true });
 
   // Wire PRS matrix CSV download
   const downloadPrsCsvBtn = document.getElementById('downloadPrsCsvBtn');
@@ -765,66 +932,10 @@ pheatmap(prs_scaled,
     };
   }
 
-  // Apply per-PGS z-score standardization when the Z-score scale is selected.
-  const plotData = normalize ? standardizePivot(pivoted, pgsIds) : pivoted;
-
-  // Append the reported trait to each PGS column label (plot only; downloads
-  // keep raw PGS ids). Full label shows on hover; axis text is capped at 12 chars.
-  const plotDataLabeled = relabelPgsColumns(plotData, getPgsTraitMap(window.prsResults));
-
-  // Grow the canvas with the matrix so dendrograms and axis labels have room
-  // and aren't clipped at the plot edges, while keeping a roughly square aspect.
-  const colCount = Object.keys(pivoted[0]).length - 1;
-  const fullWidth = Math.max(900, 120 * colCount + 400);
-  const fullHeight = Math.max(760, 46 * pivoted.length + 320);
-  // Render the plot smaller while keeping the reserved area (box) unchanged, so
-  // the surrounding layout and the top-right download button stay put.
-  const plotScale = 0.8;
-  const plotWidth = Math.round(fullWidth * plotScale);
-  const plotHeight = Math.round(fullHeight * plotScale);
-
-  // Bound the scroll area to the drawn plot so wide/tall matrices scroll inside
-  // the box without leaving blank space underneath.
-  const plotBox = document.getElementById('clusterPlotBox');
-  if (plotBox) plotBox.style.minHeight = plotHeight + 'px';
-  const plotScroll = document.getElementById('clusterPlotScroll');
-  if (plotScroll) plotScroll.style.maxHeight = plotHeight + 'px';
-
-  // Render PRS cluster plot
-  try {
-    await hclust_plot({
-       divId:  "clusterPlotMount",
-      data: plotDataLabeled,
-      width: plotWidth,
-      height: plotHeight,
-      marginBottom: 180,
-     // marginRight: 240,
-         // Pull the color legend + "Missing" swatch left so they aren't clipped at
-      // the right edge. hclust_plot auto-computes the right margin (marginRight
-      // is ignored), so legendOffsetX is the lever for legend position.
-      legendOffsetX: 38,
-      clusterRows: clusterRows,
-      clusterCols: clusterCols,
-      clusteringMethodRows: clusterMethod,
-      clusteringMethodCols: clusterMethod,
-      clusteringDistanceRows: clusterDistance,
-      clusteringDistanceCols: clusterDistance
-    });
-  } catch(e) { console.error('[PRS Clustering] hclust_plot error:', e); }
-
-  // The remote ClustJS SDK appends the row index to each user label to keep
-  // axis labels unique (e.g. "v5 Cajun" is rendered as "v5 Cajun1"), which
-  // reads like part of the name. Rewrite exact "<label><index>" matches in the
-  // rendered SVG back to the clean label.
-  try {
-    const labels = plotDataLabeled.map(r => r.label);
-    document.querySelectorAll('#clusterPlotMount svg text').forEach(t => {
-      const raw = (t.textContent ?? '').trim();
-      for (let i = 0; i < labels.length; i++) {
-        if (raw === `${labels[i]}${i}`) { t.textContent = labels[i]; break; }
-      }
-    });
-  } catch (e) { console.warn('[PRS Clustering] label cleanup skipped:', e); }
+  // Sync control states (Ward/distance disabling, both-button label, caption)
+  // and draw the plot via the serialized plot queue.
+  updateClusterControlStates();
+  schedulePlotRender();
 }
 
 window.renderCluster = renderCluster;
