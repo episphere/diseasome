@@ -493,6 +493,17 @@ function updateClusterControlStates() {
 
   const caption = document.getElementById('clusterLegendCaption');
   if (caption) caption.textContent = `Heatmap color = ${normalize ? 'z-score of PRS (standardized per PGS column)' : 'raw PRS value'} · gray = missing`;
+
+  // Inline hint under the distance group explaining why buttons are disabled
+  // (title tooltips are invisible on touch devices).
+  const distHint = document.getElementById('clusterDistanceHint');
+  if (distHint) {
+    distHint.textContent = wardActive
+      ? 'Manhattan and cosine are disabled while Ward linkage is selected — Ward requires Euclidean distance.'
+      : nonEuclidean
+        ? 'Ward linkage is unavailable with Manhattan/cosine distance — it requires Euclidean.'
+        : 'Single, complete, and average linkage work with any distance. Ward (ward.D2) is restricted to Euclidean, where its minimum-variance interpretation holds.';
+  }
 }
 
 /** Show a translucent spinner overlay on the plot box while it re-renders. */
@@ -697,7 +708,7 @@ async function renderCluster() {
               <button id="clusterDistManhattan" class="btn btn-sm ${clusterDistance === 'manhattan' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterDistance === 'manhattan'}" ${wardActive ? 'disabled' : ''} title="${wardActive ? nonEuclideanTitle : 'Manhattan (city-block) distance.'}">Manhattan</button>
               <button id="clusterDistCosine" class="btn btn-sm ${clusterDistance === 'cosine' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterDistance === 'cosine'}" ${wardActive ? 'disabled' : ''} title="${wardActive ? nonEuclideanTitle : 'Cosine distance.'}">Cosine</button>
             </div>
-            <div class="form-text small">Single, complete, and average linkage work with any distance. Ward (ward.D2) is restricted to Euclidean, where its minimum-variance interpretation holds.</div>
+            <div class="form-text small" id="clusterDistanceHint">Single, complete, and average linkage work with any distance. Ward (ward.D2) is restricted to Euclidean, where its minimum-variance interpretation holds.</div>
           </div>
           <div class="col-md-6">
             <label class="form-label small text-uppercase text-muted fw-bold mb-1">Scale</label>
@@ -712,6 +723,7 @@ async function renderCluster() {
     </div>
 
     <div id="clusterLegendCaption" class="small text-muted mb-1">Heatmap color = ${normalize ? 'z-score of PRS (standardized per PGS column)' : 'raw PRS value'} · gray = missing</div>
+    <div class="small text-muted mb-1">Tip: drag on the heatmap to zoom in — “Reset zoom” restores the full view.</div>
     <div id="clusterPlotBox" style="position:relative; min-height:200px;">
       <div id="clusterPlotScroll" style="overflow:auto; max-width:100%;">
         <div id="clusterPlotMount"></div>
@@ -724,10 +736,10 @@ async function renderCluster() {
       </div>
       <div class="card-body py-3">
         <div class="d-flex flex-wrap align-items-center gap-2">
-          <button id="downloadHeatmapPngBtn" class="btn btn-outline-primary btn-sm">⬇ Heatmap PNG</button>
+          <button id="downloadHeatmapPngBtn" class="btn btn-outline-primary btn-sm"><i class="fa fa-download me-1" aria-hidden="true"></i>Heatmap PNG</button>
           <span class="vr d-none d-sm-block"></span>
-          <button id="downloadPrsMatrixBtn" class="btn btn-outline-secondary btn-sm">⬇ Matrix JSON</button>
-          <button id="downloadPrsCsvBtn" class="btn btn-outline-secondary btn-sm">⬇ Matrix CSV</button>
+          <button id="downloadPrsMatrixBtn" class="btn btn-outline-secondary btn-sm"><i class="fa fa-download me-1" aria-hidden="true"></i>Matrix JSON</button>
+          <button id="downloadPrsCsvBtn" class="btn btn-outline-secondary btn-sm"><i class="fa fa-download me-1" aria-hidden="true"></i>Matrix CSV</button>
         </div>
         <div class="form-text small mt-2">
           JSON and CSV use the ClustJS-compatible format: one row object per user with a <code>label</code> field and one field per PGS ID.
@@ -738,11 +750,11 @@ async function renderCluster() {
     <div class="card mb-3">
       <div class="card-header bg-white py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
         <button id="webRCardToggle" type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-semibold small text-uppercase text-muted" aria-expanded="${_webRState.expanded}" aria-controls="webRCardBody">
-          <span id="webRCardChevron">${_webRState.expanded ? '▾' : '▸'}</span> Reproduce in R &mdash; pheatmap
+          <i id="webRCardChevron" class="fa fa-caret-${_webRState.expanded ? 'down' : 'right'} me-1" aria-hidden="true"></i>Reproduce in R &mdash; pheatmap
         </button>
         <div class="d-flex align-items-center gap-2">
-          <button id="runRWebRBtn" class="btn btn-success btn-sm">▶ Run in browser</button>
-          <button id="resetRCodeBtn" class="btn btn-outline-secondary btn-sm">↺ Reset code</button>
+          <button id="runRWebRBtn" class="btn btn-success btn-sm"><i class="fa fa-play me-1" aria-hidden="true"></i>Run in browser</button>
+          <button id="resetRCodeBtn" class="btn btn-outline-secondary btn-sm"><i class="fa fa-undo me-1" aria-hidden="true"></i>Reset code</button>
         </div>
       </div>
       <div id="webRCardBody" class="${_webRState.expanded ? '' : 'd-none'}">
@@ -761,7 +773,7 @@ async function renderCluster() {
           <summary class="small text-muted" style="cursor:pointer;">Run this in a local R / RStudio session instead</summary>
           <p class="text-muted small mt-2 mb-1">Download the CSV above, point <code>read.csv()</code> at it, and run:</p>
           <div class="d-flex justify-content-end mb-1">
-            <button id="copyRCodeBtn" class="btn btn-outline-secondary btn-sm btn-cache">📋 Copy</button>
+            <button id="copyRCodeBtn" class="btn btn-outline-secondary btn-sm btn-cache"><i class="fa fa-clipboard me-1" aria-hidden="true"></i>Copy</button>
           </div>
           <pre id="rCodeBlock" class="small bg-light border rounded p-2 mb-0" style="white-space:pre; overflow:auto;"><code>library(pheatmap)
 
@@ -816,9 +828,9 @@ pheatmap(prs_scaled,
       const code = document.getElementById('rCodeBlock')?.innerText ?? '';
       try {
         await navigator.clipboard.writeText(code);
-        const prev = copyRCodeBtn.textContent;
-        copyRCodeBtn.textContent = '✓ Copied';
-        setTimeout(() => { copyRCodeBtn.textContent = prev; }, 1500);
+        const prev = copyRCodeBtn.innerHTML;
+        copyRCodeBtn.innerHTML = '<i class="fa fa-check me-1" aria-hidden="true"></i>Copied';
+        setTimeout(() => { copyRCodeBtn.innerHTML = prev; }, 1500);
       } catch (err) {
         console.error('[PRS Clustering] Copy R code failed:', err);
         alert('Could not copy the R code.');
@@ -851,7 +863,7 @@ pheatmap(prs_scaled,
     const toggle = document.getElementById('webRCardToggle');
     if (toggle) toggle.setAttribute('aria-expanded', String(expanded));
     const chevron = document.getElementById('webRCardChevron');
-    if (chevron) chevron.textContent = expanded ? '▾' : '▸';
+    if (chevron) chevron.className = `fa fa-caret-${expanded ? 'down' : 'right'} me-1`;
   };
   const webRCardToggle = document.getElementById('webRCardToggle');
   if (webRCardToggle) webRCardToggle.onclick = () => setWebRExpanded(!_webRState.expanded);

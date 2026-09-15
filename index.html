@@ -72,6 +72,10 @@
                     <br>23andMe reports, using the <a class="link-unstyled" href='https://www.pgscatalog.org'
                         target="_blank"><u>PGS Catalog</u></a>.</p>
                 <button class="glow-on-hover"
+                    onclick="document.querySelector('.tab .tablinks').click(); document.querySelector('.tab').scrollIntoView({behavior:'smooth'});"
+                    type="button">
+                    Get Started</button>
+                <button class="glow-on-hover"
                     onclick="window.open('https://observablehq.com/@lorenasandoval88/polygenic-risk-scores-sdk-examples', '_blank', 'noopener,noreferrer')"
                     type="button">
                     Try it in a Notebook</button>
@@ -92,14 +96,14 @@
         }
     </script>
 
-    <div class="tab">
-        <button class="tablinks" onclick="tabFunction(event, 'GenomicData')">1. Select/Upload 23andMe Files</button>
-        <button class="tablinks" onclick="tabFunction(event, 'PGSCatalog')">2. Select Risk Models</button>
-        <button id="prsButton" class="tablinks active" onclick="tabFunction(event, 'PRS')">3. Calculate PRS</button>
-        <button id="plotPrsButton" class="tablinks" onclick="tabFunction(event, 'PlotPRS')">4. Inspect Individual PRS Results</button>
-        <button id="clusterButton" class="tablinks" onclick="tabFunction(event, 'Cluster')">5. Cluster PRS Results</button>
-        <button id="aiInterpretButton" class="tablinks" onclick="tabFunction(event, 'AIInterpret')" title="Interpret PRS results with a cloud API (your key) or a fully local in-browser model">🤖 AI Interpret</button>
-        <button id="aboutButton" class="tablinks" onclick="tabFunction(event, 'About')" style="display:none">About</button>
+    <div class="tab" role="tablist" aria-label="App sections">
+        <button class="tablinks" role="tab" aria-selected="false" onclick="tabFunction(event, 'GenomicData')">1. Select/Upload 23andMe Files<i id="tabCheckGenomic" class="fa fa-check-circle tab-check" style="display:none;" aria-hidden="true"></i></button>
+        <button class="tablinks" role="tab" aria-selected="false" onclick="tabFunction(event, 'PGSCatalog')">2. Select Risk Models<i id="tabCheckModels" class="fa fa-check-circle tab-check" style="display:none;" aria-hidden="true"></i></button>
+        <button id="prsButton" class="tablinks active" role="tab" aria-selected="true" onclick="tabFunction(event, 'PRS')">3. Calculate PRS<i id="tabCheckPrs" class="fa fa-check-circle tab-check" style="display:none;" aria-hidden="true"></i></button>
+        <button id="plotPrsButton" class="tablinks" role="tab" aria-selected="false" onclick="tabFunction(event, 'PlotPRS')">4. Inspect Individual PRS Results</button>
+        <button id="clusterButton" class="tablinks" role="tab" aria-selected="false" onclick="tabFunction(event, 'Cluster')">5. Cluster PRS Results</button>
+        <button id="aiInterpretButton" class="tablinks" role="tab" aria-selected="false" onclick="tabFunction(event, 'AIInterpret')" title="Interpret PRS results with a cloud API (your key) or a fully local in-browser model"><i class="fa fa-magic me-1" aria-hidden="true"></i>AI Interpret</button>
+        <button id="aboutButton" class="tablinks" role="tab" aria-selected="false" onclick="tabFunction(event, 'About')" style="display:none">About</button>
     </div>
     <div id="selection"></div>
 
@@ -323,7 +327,7 @@
                             onclick="document.querySelector('.tablinks[onclick*=GenomicData]').click(); return false;">Go
                             to 23andMe Data →</a></div>
                     <button id="loadExampleUsersBtn" class="btn btn-primary btn-sm mt-2">Load Example
-                        Users</button>
+                        Participants</button>
                     <div id="prsUsersAction"></div>
                     </div>
 
@@ -521,10 +525,10 @@
                             </div>
                         </div>
 
-                        <!-- Tab: Example users -->
+                        <!-- Tab: Example participants -->
                         <div class="tab-pane fade" id="pane-examples" role="tabpanel" aria-labelledby="tab-examples">
                             <div class="d-flex flex-column" style="max-width:640px;">
-                                    <h5 class="card-title">Example Users</h5>
+                                    <h5 class="card-title">Example Participants</h5>
                                     <p class="card-text text-muted small flex-grow-1">Load a set of pre-bundled example participants to quickly explore PRS calculations without uploading any files.</p>
                                     <button class="btn btn-primary btn-sm mb-2"
                                         onclick="document.querySelector('.tablinks[onclick*=PRS]').click(); document.getElementById('loadExampleUsersBtn')?.scrollIntoView({behavior:'smooth'}); return false;">
@@ -576,7 +580,6 @@
 
                     <!-- Genome cache management (right-aligned, sits above participants table's Deselect All) -->
                     <div class="mb-3">
-                        <div id="genomicLoadingStatus" class="text-muted text-end mb-1 text-status">Loading 23andMe participants...</div>
                         <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
                             <span class="text-muted text-status"><b>Genome Cache:</b></span>
                             <button id="showGenomicCacheBtn" class="btn btn-outline-secondary btn-cache">Show Genomic Cache</button>
@@ -594,7 +597,8 @@
                             <div class="progress w-50" style="height: 6px;">
                                 <div id="participantsProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%"></div>
                             </div>
-                            <small class="text-muted mt-2">Loading 23andMe participants...</small>
+                            <!-- Single loading status for tab 1 (progress + errors render here) -->
+                            <div id="genomicLoadingStatus" class="text-muted mt-2 text-status">Loading 23andMe participants...</div>
                         </div>
                     </div>
                 </div>

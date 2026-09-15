@@ -32,6 +32,7 @@ async function tabFunction(evt, openTab, subTab) {
 
     for (i = 0; i < tablinks.length; i++) {
         tablinks[i].className = tablinks[i].className.replace(" active", "");
+        tablinks[i].setAttribute("aria-selected", "false");
     }
     if(subTab) {
       var parent = evt.currentTarget.closest('.tabcontent');
@@ -40,6 +41,8 @@ async function tabFunction(evt, openTab, subTab) {
     }
     document.getElementById(openTab).style.display = "block";
     evt.currentTarget.className += " active";
+    evt.currentTarget.setAttribute("aria-selected", "true");
+    updateTabCompletion();
 
         if (openTab === 'PGSCatalog') {
             try { await ensurePgsModuleLoaded(); } catch (e) { console.error('PGS module load error', e); }
@@ -94,8 +97,25 @@ function selectAIMode(mode) {
     }
 }
 
+// Show a green checkmark on the step tabs whose data is loaded (genomes, risk
+// models, PRS results). Called on tab switches and polled cheaply so checkmarks
+// appear when background loads finish without wiring into every load path.
+function updateTabCompletion() {
+    const done = {
+        tabCheckGenomic: (window.loadedUsers?.length ?? 0) > 0,
+        tabCheckModels: (window.loadedPgsTxts?.length ?? 0) > 0,
+        tabCheckPrs: (window.prsResults?.length ?? 0) > 0,
+    };
+    for (const [id, isDone] of Object.entries(done)) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = isDone ? '' : 'none';
+    }
+}
+setInterval(updateTabCompletion, 2000);
+
 window.tabFunction = tabFunction;
 window.selectAIMode = selectAIMode;
+window.updateTabCompletion = updateTabCompletion;
 
 export {
     tabFunction

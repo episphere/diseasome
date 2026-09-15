@@ -257,6 +257,12 @@ function setGenomicLoadingStatus(message, isError = false) {
 	genomicLoadingStatusEl.textContent = message;
 	genomicLoadingStatusEl.classList.toggle('text-danger', isError);
 	genomicLoadingStatusEl.classList.toggle('text-muted', !isError);
+	// The status lives inside the localUsersDiv spinner block; on error, hide the
+	// spinner/progress so the message doesn't imply loading is still under way.
+	if (isError) {
+		document.querySelector('#localUsersDiv .spinner-border')?.classList.add('d-none');
+		document.querySelector('#localUsersDiv .progress')?.classList.add('d-none');
+	}
 }
 
 // Show initial loading state

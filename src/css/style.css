@@ -52,6 +52,11 @@
 .text-status {
     font-size: 0.75rem;
 }
+/* Green completion checkmark on the main step tabs (shown once a step's data is loaded) */
+.tablinks .tab-check {
+    color: #2e9e4f;
+    margin-left: 6px;
+}
 .filter-check-list .filter-chip input {
     cursor: pointer;
     margin: 0;
