@@ -33,6 +33,12 @@ function setPgsLoadingStatus(message, isError = false, progress = 0) {
 	if (pgsProgressBar) {
 		pgsProgressBar.style.width = `${progress}%`;
 	}
+	// The status now lives inside the #scoresDiv spinner block: stop the
+	// spinner on failure so the error message isn't shown under an
+	// endlessly animating loader.
+	if (isError) {
+		document.querySelector("#scoresDiv .spinner-border")?.classList.add("d-none");
+	}
 }
 
 let data = { scoresPerTrait: {} };

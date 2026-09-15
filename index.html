@@ -10,7 +10,7 @@
                left in the DOM but their inline forwarders were removed.
     -->
     <meta charset="UTF-8">
-    <title>Diseasome - Local 5 Users</title>
+    <title>Diseasome — PRS Calculator</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="src/css/style.css?v=20260807">
     <!-- <link rel="stylesheet" href="lib/css/font-awesome.min.css">
@@ -52,7 +52,8 @@
         <li class="nav-item">
             <a id="aboutNavLink" class="nav-link" href="#" onclick="document.getElementById('aboutButton')?.click(); return false;">About</a>
         </li>
-        <li class="nav-item">
+        <!-- Tutorial link hidden until a video is available -->
+        <li class="nav-item" style="display:none">
             <a class="nav-link" target="_blank" href="">
                 <img style="vertical-align:top" src="youtube_img.png" width="20" height="20" /> Tutorial</a>
         </li>
@@ -68,7 +69,7 @@
                 <p class="hero_desc">Calculation of multiple <a class="link-unstyled"
                         href="https://www.nature.com/articles/nrg.2016.27" target="_blank"><u>risk profiles</u></a>
                     for
-                    <br>23andme reports,using the <a class="link-unstyled" href='https://www.pgscatalog.org'
+                    <br>23andMe reports, using the <a class="link-unstyled" href='https://www.pgscatalog.org'
                         target="_blank"><u>PGS Catalog</u></a>.</p>
                 <button class="glow-on-hover"
                     onclick="window.open('https://observablehq.com/@lorenasandoval88/polygenic-risk-scores-sdk-examples', '_blank', 'noopener,noreferrer')"
@@ -143,35 +144,34 @@
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                 </div>
                                 <div class="modal-body">
-                                    <p>This page defines the <strong>Cluster Analysis for the PRS</strong>. It imports the ClustJS SDK and builds multiple clustering views from <code>window.prsResults</code>.</p>
+                                    <p><strong>Clustering groups similar users and risk models together</strong> so you can spot patterns in your PRS results at a glance.</p>
 
-                                    <h6 class="mt-3">Clustering view</h6>
+                                    <h6 class="mt-3">What the heatmap shows</h6>
                                     <ul>
-                                        <li><strong>PRS clustering</strong> — converts flat PRS results into a <em>user × PGS</em> matrix. Rows are users, columns are PGS models, values are PRS scores. Used to cluster users and/or PGS entries.</li>
+                                        <li>Each <strong>row</strong> is a user (genome file) and each <strong>column</strong> is a risk model (PGS ID).</li>
+                                        <li>Each cell's <strong>color</strong> reflects that user's score for that model — darker/warmer colors mean a higher relative score.</li>
+                                        <li>Blocks of similar color reveal groups of users that score similarly across the same models.</li>
                                     </ul>
 
-                                    <h6 class="mt-3">Session cache</h6>
+                                    <h6 class="mt-3">What the dendrogram (tree) shows</h6>
                                     <ul>
-                                        <li>Stores the pivoted PRS matrix so it is not recomputed on every re-render.</li>
+                                        <li>The branching tree along the edge shows which users (or models) are most alike.</li>
+                                        <li>The <strong>lower</strong> two branches join, the more similar they are; long, late-joining branches indicate outliers.</li>
                                     </ul>
 
-                                    <h6 class="mt-3">Helper functions</h6>
+                                    <h6 class="mt-3">Options you can adjust</h6>
                                     <ul>
-                                        <li>Pivot <code>window.prsResults</code> into matrix format.</li>
-                                        <li>Extract unique PGS IDs and user IDs.</li>
-                                        <li>Export the matrix as CSV or JSON.</li>
-                                        <li>Build the matrix for the heatmap and dendrogram.</li>
+                                        <li><strong>Cluster rows / columns</strong> — reorder users and/or models so similar ones sit next to each other.</li>
+                                        <li><strong>Linkage</strong> — how similarity between groups is measured: <em>ward</em> (compact, evenly sized clusters — a good default), <em>average</em> (balanced), <em>complete</em> (tight clusters), <em>single</em> (chains of nearest neighbors).</li>
+                                        <li><strong>Distance</strong> — how similarity between two score profiles is measured: <em>Euclidean</em> (overall size of differences), <em>Manhattan</em> (sum of absolute differences, less affected by outliers), <em>cosine</em> (shape of the score pattern, ignoring magnitude).</li>
                                     </ul>
 
-                                    <h6 class="mt-3">UI controls</h6>
+                                    <h6 class="mt-3">Tips</h6>
                                     <ul>
-                                        <li>Row &amp; column clustering toggles.</li>
-                                        <li>Linkage methods: <em>complete, single, average, ward</em>.</li>
-                                        <li>Distance metrics: <em>Euclidean, Manhattan, cosine</em>.</li>
-                                        <li>D3 / ClustJS heatmap and dendrogram rendering.</li>
+                                        <li>You need PRS results first — run <strong>3. Calculate PRS</strong> before clustering.</li>
+                                        <li>You can export the underlying user × model score matrix as CSV or JSON for further analysis.</li>
+                                        <li>Clusters show <em>relative</em> score patterns among the loaded users and models — they are not a measure of absolute disease risk.</li>
                                     </ul>
-
-                                    <p class="text-muted small mt-3">In short: this page turns PRS results into a matrix, then renders an interactive clustering view so you can explore patterns across users and PGS models.</p>
                                 </div>
                                 <div class="modal-footer">
                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -318,22 +318,9 @@
                     </h3>
                     <hr class="my-3" />
 
-                    <div class="prs-section prs-section-gray">
-                    <h5 class="prs-step-header d-inline">1.) Select Risk Models</h5>
-                    <button class="btn btn-outline-secondary btn-sm ms-2" style="font-size: 0.7rem; padding: 2px 6px;"
-                        onclick="clearPGSCache().then(n => alert('Cleared ' + n + ' PGS cache item(s)')).catch(e => alert('Error: ' + e.message))">Clear
-                        Cache</button>
-                    <div id=prsScoresDiv>Choose a risk model from the PGS Catalog, or load example models below to get started. <a href="#"
-                            onclick="document.querySelector('.tablinks[onclick*=PGSCatalog]').click(); return false;">Go
-                            to PGS Catalog →</a></div>
-                    <button id="loadExampleScoresBtn" class="btn btn-primary btn-sm mt-2">Load Example
-                        Scores</button>
-                    <div id="prsScoresAction"></div>
-                    </div>
-
                     <div class="prs-section prs-section-blue">
-                    <h5 class="prs-step-header d-inline">2.) Select Genomic Data</h5>
-                    <button class="btn btn-outline-secondary btn-sm ms-2" style="font-size: 0.7rem; padding: 2px 6px;"
+                    <h5 class="prs-step-header d-inline">1.) Select Genomic Data</h5>
+                    <button class="btn btn-outline-secondary btn-sm ms-2 btn-cache"
                         onclick="clearGenomeCache().then(n => alert('Cleared ' + n + ' genome cache item(s)')).catch(e => alert('Error: ' + e.message))">Clear
                         Cache</button>
                     <div id=prsUsersdiv>Upload your 23andMe file and/or choose from available 23andMe files, or load examples below to get started. <a href="#"
@@ -344,10 +331,23 @@
                     <div id="prsUsersAction"></div>
                     </div>
 
+                    <div class="prs-section prs-section-gray">
+                    <h5 class="prs-step-header d-inline">2.) Select Risk Models</h5>
+                    <button class="btn btn-outline-secondary btn-sm ms-2 btn-cache"
+                        onclick="clearPGSCache().then(n => alert('Cleared ' + n + ' PGS cache item(s)')).catch(e => alert('Error: ' + e.message))">Clear
+                        Cache</button>
+                    <div id=prsScoresDiv>Choose a risk model from the PGS Catalog, or load example models below to get started. <a href="#"
+                            onclick="document.querySelector('.tablinks[onclick*=PGSCatalog]').click(); return false;">Go
+                            to Select Risk Models →</a></div>
+                    <button id="loadExampleScoresBtn" class="btn btn-primary btn-sm mt-2">Load Example
+                        Scores</button>
+                    <div id="prsScoresAction"></div>
+                    </div>
+
                     <div class="prs-section prs-section-green">
                     <!-- Calculate PRS Section -->
                     <h5 class="prs-step-header d-inline">3.) Calculate Polygenic Risk Scores</h5>
-                    <button class="btn btn-outline-secondary btn-sm ms-2" style="font-size: 0.7rem; padding: 2px 6px;"
+                    <button class="btn btn-outline-secondary btn-sm ms-2 btn-cache"
                         onclick="clearPRSCache().then(() => alert('PRS cache cleared')).catch(e => alert('Error: ' + e.message))">Clear
                         Cache</button>
                     <p class="text-muted small">After loading weight and genomic files above, click to calculate PRS.
@@ -406,7 +406,7 @@
                                     </div>
                                     <div id="my23Status" class="small text-muted"></div>
                                     <p class="small text-muted mt-2 mb-2"><i class="fa fa-lock me-1"></i>Files are processed locally in your browser and are never uploaded to a server.</p>
-                                    <button id="clearUploadedBtn" class="btn btn-outline-danger btn-sm mt-auto" style="display:none;font-size:0.7rem;padding:2px 6px;width:fit-content;" onclick="window.clearUploadedFiles && window.clearUploadedFiles()">Unselect Uploaded Files</button>
+                                    <button id="clearUploadedBtn" class="btn btn-outline-danger btn-sm mt-auto btn-cache" style="display:none;width:fit-content;" onclick="window.clearUploadedFiles && window.clearUploadedFiles()">Unselect Uploaded Files</button>
                             </div>
                         </div>
 
@@ -414,7 +414,7 @@
                         <div class="tab-pane fade show active" id="pane-browse" role="tabpanel" aria-labelledby="tab-browse">
                             <div class="d-flex flex-column">
                                     <h5 class="card-title">Select Public PGP 23andMe Files</h5>
-                                    <p class="card-text text-muted small flex-grow-1">Browse and select up to 10 publicly available 23adnMe files from the Personal Genome Project for demo or research workflows.
+                                    <p class="card-text text-muted small flex-grow-1">Browse and select up to 10 publicly available 23andMe files from the Personal Genome Project for demo or research workflows.
                                         <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2"
                                                 style="line-height:1;border-radius:50%;font-weight:bold;font-size:0.8rem"
                                                 data-bs-toggle="popover"
@@ -460,17 +460,17 @@
                                         <div id="participantsVersionFilterDiv">
                                             <label class="form-label mb-1 small"><b>Version</b></label>
                                             <div id="participantsVersionSelect" class="filter-check-list" style="max-width:160px;"></div>
-                                            <button type="button" class="btn btn-link btn-sm p-0 mt-1" style="font-size:0.7rem;" onclick="clearCheckboxFilter('participantsVersionSelect')">Clear</button>
+                                            <button type="button" class="btn btn-link btn-sm p-0 mt-1 btn-clear-filter" onclick="clearCheckboxFilter('participantsVersionSelect')">Clear</button>
                                         </div>
                                         <div id="participantsBuildFilterDiv">
                                             <label class="form-label mb-1 small"><b>Build</b></label>
                                             <div id="participantsBuildSelect" class="filter-check-list" style="max-width:140px;"></div>
-                                            <button type="button" class="btn btn-link btn-sm p-0 mt-1" style="font-size:0.7rem;" onclick="clearCheckboxFilter('participantsBuildSelect')">Clear</button>
+                                            <button type="button" class="btn btn-link btn-sm p-0 mt-1 btn-clear-filter" onclick="clearCheckboxFilter('participantsBuildSelect')">Clear</button>
                                         </div>
                                         <div id="participantsValidFilterDiv">
                                             <label class="form-label mb-1 small"><b>Valid 23andMe</b></label>
                                             <div id="participantsValidSelect" class="filter-check-list" style="max-width:150px;"></div>
-                                            <button type="button" class="btn btn-link btn-sm p-0 mt-1" style="font-size:0.7rem;" onclick="clearCheckboxFilter('participantsValidSelect')">Clear</button>
+                                            <button type="button" class="btn btn-link btn-sm p-0 mt-1 btn-clear-filter" onclick="clearCheckboxFilter('participantsValidSelect')">Clear</button>
                                         </div>
                                         <div id="participantsSizeFilterDiv">
                                             <label class="form-label mb-1 small"><b>Filter by Size (MB)</b></label>
@@ -487,17 +487,17 @@
                                         <div id="participantsGenderFilterDiv">
                                             <label class="form-label mb-1 small"><b>Gender</b></label>
                                             <div id="participantsGenderSelect" class="filter-check-list" style="max-width:160px;"></div>
-                                            <button type="button" class="btn btn-link btn-sm p-0 mt-1" style="font-size:0.7rem;" onclick="clearCheckboxFilter('participantsGenderSelect')">Clear</button>
+                                            <button type="button" class="btn btn-link btn-sm p-0 mt-1 btn-clear-filter" onclick="clearCheckboxFilter('participantsGenderSelect')">Clear</button>
                                         </div>
                                         <div id="participantsRaceFilterDiv">
                                             <label class="form-label mb-1 small"><b>Race</b></label>
                                             <div id="participantsRaceSelect" class="filter-check-list" style="max-width:240px;"></div>
-                                            <button type="button" class="btn btn-link btn-sm p-0 mt-1" style="font-size:0.7rem;" onclick="clearCheckboxFilter('participantsRaceSelect')">Clear</button>
+                                            <button type="button" class="btn btn-link btn-sm p-0 mt-1 btn-clear-filter" onclick="clearCheckboxFilter('participantsRaceSelect')">Clear</button>
                                         </div>
                                         <div id="participantsEthnicityFilterDiv">
                                             <label class="form-label mb-1 small"><b>Ethnicity</b></label>
                                             <div id="participantsEthnicitySelect" class="filter-check-list" style="max-width:240px;"></div>
-                                            <button type="button" class="btn btn-link btn-sm p-0 mt-1" style="font-size:0.7rem;" onclick="clearCheckboxFilter('participantsEthnicitySelect')">Clear</button>
+                                            <button type="button" class="btn btn-link btn-sm p-0 mt-1 btn-clear-filter" onclick="clearCheckboxFilter('participantsEthnicitySelect')">Clear</button>
                                         </div>
                                         <div id="participantsConditionFilterDiv">
                                             <label class="form-label mb-1 small" for="participantsConditionText"><b>Conditions</b>
@@ -515,7 +515,7 @@
                                                 style="max-width:260px;" placeholder="contains, e.g. cancer"
                                                 oninput="onParticipantsConditionSearch()" />
                                             <div id="participantsConditionSelect" class="filter-check-list" style="max-width:260px;"></div>
-                                            <button type="button" class="btn btn-link btn-sm p-0 mt-1" style="font-size:0.7rem;" onclick="clearCheckboxFilter('participantsConditionSelect')">Clear</button>
+                                            <button type="button" class="btn btn-link btn-sm p-0 mt-1 btn-clear-filter" onclick="clearCheckboxFilter('participantsConditionSelect')">Clear</button>
                                         </div>
                                     </div>
                                     </div>
@@ -550,7 +550,7 @@
                                     <button id="loadByUrlBtn" class="btn btn-primary btn-sm mt-auto" style="width:fit-content;">Load</button>
                                     <div class="small text-muted mt-2">
                                         Example: <code>huA08F4D, huC8B936</code>
-                                        <button type="button" id="loadByUrlExampleBtn" class="btn btn-link btn-sm p-0 ms-1" style="font-size:0.7rem;vertical-align:baseline;">Copy example</button>
+                                        <button type="button" id="loadByUrlExampleBtn" class="btn btn-link btn-sm p-0 ms-1 btn-clear-filter" style="vertical-align:baseline;">Copy example</button>
                                     </div>
                                     <div id="loadByUrlStatus" class="small text-muted mt-2"></div>
                             </div>
@@ -573,18 +573,18 @@
                             </div>
                             <button id="fetchUsersBtn" class="btn btn-success btn-sm" style="display:none;"
                                 onclick="document.getElementById('nextToModelsBtn').style.display='';">Load File(s)</button>
-                            <button class="btn btn-outline-primary btn-sm" id="nextToModelsBtn" style="display:none;" onclick="document.querySelector('.tablinks[onclick*=PGSCatalog]').click(); return false;">Next: Select Disease / Trait Models →</button>
+                            <button class="btn btn-outline-primary btn-sm" id="nextToModelsBtn" style="display:none;" onclick="document.querySelector('.tablinks[onclick*=PGSCatalog]').click(); return false;">Next: Select Risk Models →</button>
                             <div id="loadedFilesCount" class="small text-muted" style="display:none;">Loaded Data: 0 / 10</div>
                         </div>
                     </div>
 
                     <!-- Genome cache management (right-aligned, sits above participants table's Deselect All) -->
                     <div class="mb-3">
-                        <div id="genomicLoadingStatus" class="text-muted text-end mb-1" style="font-size:0.7rem;">Loading 23andMe participants...</div>
+                        <div id="genomicLoadingStatus" class="text-muted text-end mb-1 text-status">Loading 23andMe participants...</div>
                         <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
-                            <span class="text-muted" style="font-size:0.7rem;"><b>Genome Cache:</b></span>
-                            <button id="showGenomicCacheBtn" class="btn btn-outline-secondary" style="font-size:0.65rem;padding:1px 6px;">Show Genomic Cache</button>
-                            <button id="clearGenomicCacheBtn" class="btn btn-outline-danger" style="font-size:0.65rem;padding:1px 6px;">Clear Genomic Cache</button>
+                            <span class="text-muted text-status"><b>Genome Cache:</b></span>
+                            <button id="showGenomicCacheBtn" class="btn btn-outline-secondary btn-cache">Show Genomic Cache</button>
+                            <button id="clearGenomicCacheBtn" class="btn btn-outline-danger btn-cache">Clear Genomic Cache</button>
                         </div>
                         <div id="genomicCacheList" class="mt-2"></div>
                     </div>
@@ -770,7 +770,7 @@
                             <!-- Tab: Examples (bundled Example scores) -->
                             <div class="tab-pane fade" id="pane-pgs-examples" role="tabpanel" aria-labelledby="tab-pgs-examples">
                                 <p class="text-muted small">Load a bundled set of example risk models to try the workflow without browsing the catalog.</p>
-                                <button id="loadExampleScoresBtn" class="btn btn-sm btn-outline-success"
+                                <button id="loadExampleScoresCatalogBtn" class="btn btn-sm btn-outline-success"
                                     onclick="window.loadExampleScores && window.loadExampleScores(); var s=document.getElementById('exampleScoresStatus'); if(s){s.textContent='Example risk models loaded. Go to Calculate PRS to view them.';}">
                                     <i class="fa fa-flask me-1"></i>Load Example Scores
                                 </button>
@@ -803,7 +803,6 @@
                                         <div id="pgsSelectionProgressBar" class="progress-bar bg-success" role="progressbar"
                                             style="width:0%; transition:width .2s ease;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="10"></div>
                                     </div>
-                                    <div id="pgsLoadingStatus" class="text-muted mt-1" style="font-size:0.7rem;">Loading PGS scores...</div>
                                     <span id="fetchScoresStatus" class="small text-muted"></span>
                                 </div>
                                 <div class="d-flex align-items-center gap-1" style="flex:0 0 auto;"
@@ -826,17 +825,17 @@
                                             aria-label="About genome build">?</button>
                                 </div>
                                 <button id="fetchPgsFilesBtn" class="btn btn-success btn-sm" style="display:none;">Fetch PGS Files</button>
-                                <button id="nextToPrsBtn" class="btn btn-outline-primary btn-sm" style="display:none;" onclick="document.querySelector('.tablinks[onclick*=PRS]').click(); return false;">Continue to Calculation →</button>
+                                <button id="nextToPrsBtn" class="btn btn-outline-primary btn-sm" style="display:none;" onclick="document.querySelector('.tablinks[onclick*=PRS]').click(); return false;">Next: Calculate PRS →</button>
                             </div>
                         </div>
 
                         <!-- PGS cache management (right-aligned, matches Genome Cache on tab 1) -->
                         <div class="mb-3">
                             <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
-                                <span class="text-muted" style="font-size:0.7rem;"><b>PGS Cache:</b></span>
-                                <button id="showPgsCacheBtn" class="btn btn-outline-secondary" style="font-size:0.65rem;padding:1px 6px;"
+                                <span class="text-muted text-status"><b>PGS Cache:</b></span>
+                                <button id="showPgsCacheBtn" class="btn btn-outline-secondary btn-cache"
                                     onclick="window.showPgsCacheInfo && window.showPgsCacheInfo()">Show PGS Cache</button>
-                                <button id="clearPgsCacheBtn" class="btn btn-outline-danger" style="font-size:0.65rem;padding:1px 6px;"
+                                <button id="clearPgsCacheBtn" class="btn btn-outline-danger btn-cache"
                                     onclick="window.clearPgsTxtCache && window.clearPgsTxtCache().catch(e => alert('Error: ' + e.message))">Clear PGS Cache</button>
                             </div>
                             <div id="pgsCacheInfo" class="small text-muted mt-1"></div>
@@ -857,7 +856,7 @@
                             <div class="progress w-50" style="height: 6px;">
                                 <div id="pgsProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%"></div>
                             </div>
-                            <small class="text-muted mt-2">Loading PGS scoring data...</small>
+                            <div id="pgsLoadingStatus" class="small text-muted mt-2">Loading PGS scoring data...</div>
                         </div>
                     </div>
                 </div>
