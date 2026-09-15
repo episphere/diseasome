@@ -445,8 +445,11 @@ async function renderCluster() {
         <p class="text-muted loading-message">Loading cluster analysis...</p>
       </div>
     `;
-    // Allow the loading UI to render before heavy computation
-    await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 10)));
+    // Allow the loading UI to render before heavy computation.
+    // Note: setTimeout (not requestAnimationFrame) — rAF never fires while the
+    // browser tab is hidden, which would leave the spinner stuck until the user
+    // returns to the tab.
+    await new Promise(resolve => setTimeout(resolve, 30));
   }
 
   // Use cached or compute fresh data
@@ -498,14 +501,10 @@ async function renderCluster() {
 
   clusterContainer.innerHTML = `
     <div id="clusterSectionA">
-    <div class="d-flex align-items-baseline flex-wrap gap-2 mb-1">
-      <h5 class="mb-0">PRS Clustering</h5>
+    <div class="d-flex align-items-baseline flex-wrap gap-2 mb-2">
       <span class="badge bg-light text-dark border">${pivoted.length} users</span>
-      <span class="badge bg-light text-dark border">${Object.keys(pivoted[0]).length - 1} PGS entries</span>
+      <span class="badge bg-light text-dark border">${Object.keys(pivoted[0]).length - 1} PGS models</span>
     </div>
-    <p class="text-muted small mb-3">
-      Hierarchical clustering of PRS results. Adjust the options below to explore how users and risk models group together.
-    </p>
 
     <div class="card mb-3">
       <div class="card-body py-3">
@@ -513,34 +512,34 @@ async function renderCluster() {
           <div class="col-md-6">
             <label class="form-label small text-uppercase text-muted fw-bold mb-1">Cluster by</label>
             <div class="btn-group d-flex" role="group">
-              <button id="clusterRowsBtn" class="btn btn-sm ${clusterRows ? 'btn-primary' : 'btn-outline-primary'}">Rows (Users)</button>
-              <button id="clusterColsBtn" class="btn btn-sm ${clusterCols ? 'btn-primary' : 'btn-outline-primary'}">Columns (PGS)</button>
-              <button id="clusterBothBtn" class="btn btn-sm ${clusterRows && clusterCols ? 'btn-success' : 'btn-outline-success'}">${clusterRows && clusterCols ? 'None' : 'Both'}</button>
+              <button id="clusterRowsBtn" class="btn btn-sm ${clusterRows ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterRows}">Rows (Users)</button>
+              <button id="clusterColsBtn" class="btn btn-sm ${clusterCols ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterCols}">Columns (PGS)</button>
+              <button id="clusterBothBtn" class="btn btn-sm btn-outline-secondary">${clusterRows && clusterCols ? 'Turn both off' : 'Turn both on'}</button>
             </div>
           </div>
           <div class="col-md-6">
             <label class="form-label small text-uppercase text-muted fw-bold mb-1">Linkage</label>
             <div class="btn-group d-flex" role="group">
-              <button id="clusterMethodComplete" class="btn btn-sm ${clusterMethod === 'complete' ? 'btn-secondary' : 'btn-outline-secondary'}">Complete</button>
-              <button id="clusterMethodSingle" class="btn btn-sm ${clusterMethod === 'single' ? 'btn-secondary' : 'btn-outline-secondary'}">Single</button>
-              <button id="clusterMethodAverage" class="btn btn-sm ${clusterMethod === 'average' ? 'btn-secondary' : 'btn-outline-secondary'}">Average</button>
-              <button id="clusterMethodWard" class="btn btn-sm ${clusterMethod === 'ward' ? 'btn-secondary' : 'btn-outline-secondary'}" ${nonEuclidean ? 'disabled' : ''} title="${nonEuclidean ? wardTitle : 'Ward (ward.D2) minimum-variance linkage — Euclidean only.'}">Ward</button>
+              <button id="clusterMethodComplete" class="btn btn-sm ${clusterMethod === 'complete' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterMethod === 'complete'}">Complete</button>
+              <button id="clusterMethodSingle" class="btn btn-sm ${clusterMethod === 'single' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterMethod === 'single'}">Single</button>
+              <button id="clusterMethodAverage" class="btn btn-sm ${clusterMethod === 'average' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterMethod === 'average'}">Average</button>
+              <button id="clusterMethodWard" class="btn btn-sm ${clusterMethod === 'ward' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterMethod === 'ward'}" ${nonEuclidean ? 'disabled' : ''} title="${nonEuclidean ? wardTitle : 'Ward (ward.D2) minimum-variance linkage — Euclidean only.'}">Ward</button>
             </div>
           </div>
           <div class="col-md-6">
             <label class="form-label small text-uppercase text-muted fw-bold mb-1">Distance</label>
             <div class="btn-group d-flex" role="group">
-              <button id="clusterDistEuclidean" class="btn btn-sm ${clusterDistance === 'euclidean' ? 'btn-info' : 'btn-outline-info'}">Euclidean</button>
-              <button id="clusterDistManhattan" class="btn btn-sm ${clusterDistance === 'manhattan' ? 'btn-info' : 'btn-outline-info'}" ${wardActive ? 'disabled' : ''} title="${wardActive ? nonEuclideanTitle : 'Manhattan (city-block) distance.'}">Manhattan</button>
-              <button id="clusterDistCosine" class="btn btn-sm ${clusterDistance === 'cosine' ? 'btn-info' : 'btn-outline-info'}" ${wardActive ? 'disabled' : ''} title="${wardActive ? nonEuclideanTitle : 'Cosine distance.'}">Cosine</button>
+              <button id="clusterDistEuclidean" class="btn btn-sm ${clusterDistance === 'euclidean' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterDistance === 'euclidean'}">Euclidean</button>
+              <button id="clusterDistManhattan" class="btn btn-sm ${clusterDistance === 'manhattan' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterDistance === 'manhattan'}" ${wardActive ? 'disabled' : ''} title="${wardActive ? nonEuclideanTitle : 'Manhattan (city-block) distance.'}">Manhattan</button>
+              <button id="clusterDistCosine" class="btn btn-sm ${clusterDistance === 'cosine' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterDistance === 'cosine'}" ${wardActive ? 'disabled' : ''} title="${wardActive ? nonEuclideanTitle : 'Cosine distance.'}">Cosine</button>
             </div>
             <div class="form-text small">Single, complete, and average linkage work with any distance. Ward (ward.D2) is restricted to Euclidean, where its minimum-variance interpretation holds.</div>
           </div>
           <div class="col-md-6">
             <label class="form-label small text-uppercase text-muted fw-bold mb-1">Scale</label>
             <div class="btn-group d-flex" role="group">
-              <button id="clusterScaleRaw" class="btn btn-sm ${!normalize ? 'btn-dark' : 'btn-outline-dark'}">Raw PRS</button>
-              <button id="clusterScaleZ" class="btn btn-sm ${normalize ? 'btn-dark' : 'btn-outline-dark'}">Z-score (per PGS)</button>
+              <button id="clusterScaleRaw" class="btn btn-sm ${!normalize ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${!normalize}">Raw PRS</button>
+              <button id="clusterScaleZ" class="btn btn-sm ${normalize ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${normalize}">Z-score (per PGS)</button>
             </div>
             <div class="form-text small">Z-score standardizes each PGS column so no single model dominates by scale.</div>
           </div>
@@ -548,6 +547,7 @@ async function renderCluster() {
       </div>
     </div>
 
+    <div class="small text-muted mb-1">Heatmap color = ${normalize ? 'z-score of PRS (standardized per PGS column)' : 'raw PRS value'} · gray = missing</div>
     <div id="clusterPlotBox" style="position:relative;">
       <div id="clusterPlotScroll" style="overflow:auto; max-width:100%;">
         <div id="clusterPlotMount"></div>
@@ -594,7 +594,7 @@ async function renderCluster() {
           <summary class="small text-muted" style="cursor:pointer;">Run this in a local R / RStudio session instead</summary>
           <p class="text-muted small mt-2 mb-1">Download the CSV above, point <code>read.csv()</code> at it, and run:</p>
           <div class="d-flex justify-content-end mb-1">
-            <button id="copyRCodeBtn" class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 8px;">📋 Copy</button>
+            <button id="copyRCodeBtn" class="btn btn-outline-secondary btn-sm btn-cache">📋 Copy</button>
           </div>
           <pre id="rCodeBlock" class="small bg-light border rounded p-2 mb-0" style="white-space:pre; overflow:auto;"><code>library(pheatmap)
 
@@ -811,6 +811,20 @@ pheatmap(prs_scaled,
       clusteringDistanceCols: clusterDistance
     });
   } catch(e) { console.error('[PRS Clustering] hclust_plot error:', e); }
+
+  // The remote ClustJS SDK appends the row index to each user label to keep
+  // axis labels unique (e.g. "v5 Cajun" is rendered as "v5 Cajun1"), which
+  // reads like part of the name. Rewrite exact "<label><index>" matches in the
+  // rendered SVG back to the clean label.
+  try {
+    const labels = plotDataLabeled.map(r => r.label);
+    document.querySelectorAll('#clusterPlotMount svg text').forEach(t => {
+      const raw = (t.textContent ?? '').trim();
+      for (let i = 0; i < labels.length; i++) {
+        if (raw === `${labels[i]}${i}`) { t.textContent = labels[i]; break; }
+      }
+    });
+  } catch (e) { console.warn('[PRS Clustering] label cleanup skipped:', e); }
 }
 
 window.renderCluster = renderCluster;

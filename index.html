@@ -127,12 +127,12 @@
                 <!-- NOTE: Cluster UI is a placeholder; implement handlers in JS when ready -->
                 <div id="Cluster" class="tabcontent">
                     <h3>
-                        Genomic Clustering
+                        Cluster PRS Results
                         <button type="button"
                                 class="btn btn-outline-secondary btn-sm ms-2 align-middle"
                                 style="font-size:0.75rem;padding:1px 7px;border-radius:50%;"
                                 data-bs-toggle="modal" data-bs-target="#clustInfoModal"
-                                aria-label="About Genomic Clustering">?</button>
+                                aria-label="About PRS Clustering">?</button>
                     </h3>
 
                     <!-- Genomic Clustering info modal -->
@@ -140,7 +140,7 @@
                         <div class="modal-dialog modal-lg modal-dialog-scrollable">
                             <div class="modal-content">
                                 <div class="modal-header">
-                                    <h5 class="modal-title" id="clustInfoModalLabel">About Genomic Clustering</h5>
+                                    <h5 class="modal-title" id="clustInfoModalLabel">About PRS Clustering</h5>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                 </div>
                                 <div class="modal-body">
@@ -179,13 +179,9 @@
                             </div>
                         </div>
                     </div>
-                    <p>
-                        Compare users and models through PRS and SNP-based clustering. Explore patterns, similarity, and shared
-                        variants using interactive clustering.
+                    <p class="text-muted">
+                        Group users and risk models by the similarity of their PRS results — an interactive users × models heatmap with dendrograms.
                     </p>
-                    <ul>
-                        <li>Cluster users by PRS similarity across selected PGS entries. (users × PGS)</li>
-                    </ul>
                     <hr class="my-3" />
                     <div id="clusterErrorDiv" class="text-danger small mb-2"></div>
                     <div id="clusterDiv"></div>
