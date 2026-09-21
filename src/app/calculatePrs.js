@@ -1,4 +1,4 @@
-﻿import { getPgsTxt } from "../sdk/pgsSdk.js";
+﻿import { getPgsTxt, parseScore } from "../sdk/pgsSdk.js";
 import { MatchOptimized } from "../sdk/prs.js";
 // import { parsePGP23, get23Txt } from "../sdk/get23me.js";
 import { get23Txt } from "../sdk/pgpSdk.js";
@@ -42,7 +42,7 @@ function ensureProgressBar(key, statusEl) {
 	if (prsProgressBars.has(key)) return prsProgressBars.get(key);
 
 	const wrap = document.createElement("div");
-	wrap.className = "progress mt-2";
+	wrap.className = "progress mt-2 prs-progress";
 	wrap.style.height = "8px";
 	// Cap the bar at ~1/3 of the section width so it reads as a compact
 	// indicator rather than spanning the full page.
@@ -59,7 +59,7 @@ function ensureProgressBar(key, statusEl) {
 	wrap.appendChild(bar);
 	statusEl.insertAdjacentElement("afterend", wrap);
 
-	const entry = { wrap, bar };
+	const entry = { wrap, bar, hideTimer: null };
 	prsProgressBars.set(key, entry);
 	return entry;
 }
@@ -68,8 +68,24 @@ function setProgressBar(key, statusEl, percent) {
 	const entry = ensureProgressBar(key, statusEl);
 	if (!entry) return;
 	const p = Math.max(0, Math.min(100, Math.round(percent)));
+	// New activity cancels any pending fade-out and shows the bar again.
+	if (entry.hideTimer) { clearTimeout(entry.hideTimer); entry.hideTimer = null; }
+	entry.wrap.classList.remove("progress-done");
+	entry.wrap.style.display = "";
 	entry.bar.style.width = `${p}%`;
 	entry.bar.setAttribute("aria-valuenow", String(p));
+	if (p >= 100) {
+		// Complete: show the filled bar briefly, then fade it away so it doesn't
+		// linger as clutter once the load is done.
+		entry.hideTimer = setTimeout(() => {
+			entry.wrap.classList.add("progress-done");
+			entry.hideTimer = setTimeout(() => {
+				entry.wrap.style.display = "none";
+				entry.wrap.classList.remove("progress-done");
+				entry.hideTimer = null;
+			}, 700);
+		}, 900);
+	}
 }
 
 /*** Get cached PRS result for a user+PGS combination.
@@ -724,7 +740,10 @@ const MAX_CELL_CHARS = 30;
 function truncCell(value) {
 	const text = String(value ?? "");
 	if (text.length <= MAX_CELL_CHARS) return escapeHtml(text);
-	return `<span title="${escapeHtml(text)}">${escapeHtml(text.slice(0, MAX_CELL_CHARS))}…</span>`;
+	const safe = escapeHtml(text);
+	// Clickable so the full value is reachable on touch devices too: opens the
+	// same closable text box as the "?" column badges (see colHelpPopover.js).
+	return `<span class="cell-more" tabindex="0" role="button" title="${safe}" data-help="${safe}">${escapeHtml(text.slice(0, MAX_CELL_CHARS))}…</span>`;
 }
 
 /*** A "?" badge for a column header that explains what the column holds and where it
@@ -817,22 +836,37 @@ function prsWeightType(r) {
 	return String(r?.weightType ?? r?.pgs?.meta?.weight_type ?? "NR");
 }
 
+/*** Render a coverage percentage cell, flagging poorly covered scores: amber below
+ * 50%, red below 25%. Low-coverage scores are computed on a small fraction of the
+ * model and should not be over-interpreted.
+ * @param {number} pct - Coverage percentage (0-100)
+ * @param {any} display - Value to show in the cell
+ * @returns {string} Cell HTML
+ */
+function coverageCell(pct, display) {
+	const safe = escapeHtml(String(display));
+	if (!Number.isFinite(pct) || pct >= 50) return safe;
+	const cls = pct < 25 ? "coverage-low" : "coverage-mid";
+	const note = pct < 25 ? "Very low coverage" : "Low coverage";
+	return `<span class="${cls}" title="${note}: this score is computed on a small fraction of the model's variants.">${safe}</span>`;
+}
+
 /** Column definitions for the PRS results table: label, optional sort getter, cell renderer. */
 const PRS_RESULT_COLUMNS = [
-	{ label: "#", cell: (r, i) => String(i + 1) },
+	{ label: "#", numeric: true, cell: (r, i) => String(i + 1) },
 	{ label: "Participant ID", help: "PGP participant identifier (or uploaded filename) of the genome this score was computed for.", sort: (r) => String(r.userId ?? "").toLowerCase(), cell: (r) => truncCell(r.userId) },
 	{ label: "Name", help: "Participant name from the PGP profile; often empty for anonymous participants.", sort: (r) => String(r.userName ?? "").toLowerCase(), cell: (r) => truncCell(r.userName) },
 	{ label: "PGS ID", help: "PGS Catalog accession of the risk model scored in this row.", sort: (r) => String(r.pgsId ?? "").toLowerCase(), cell: (r) => escapeHtml(r.pgsId) },
-	{ label: "PRS Score", help: "Sum of effect-allele dosage x reported effect_weight over matched variants, on the scale of the original model (not normalized).", sort: (r) => (typeof r.PRS === "number" ? r.PRS : -Infinity), cell: (r) => (typeof r.PRS === "number" ? r.PRS.toFixed(6) : (r.PRS ?? "-")) },
+	{ label: "PRS Score", numeric: true, help: "Sum of effect-allele dosage x reported effect_weight over matched variants, on the scale of the original model (not normalized).", sort: (r) => (typeof r.PRS === "number" ? r.PRS : -Infinity), cell: (r) => (typeof r.PRS === "number" ? r.PRS.toFixed(6) : (r.PRS ?? "-")) },
 	{ label: "Weight Type", help: "weight_type reported by the PGS Catalog scoring file. NR = not reported to the catalog — the weight type may still be found in the score's original publication. Never inferred from the weights themselves.", sort: (r) => prsWeightType(r).toLowerCase(), cell: (r) => escapeHtml(prsWeightType(r)) },
-	{ label: "Matched", help: "Model variants found in this genome and used in the score.", sort: (r) => (r.alleles?.length ?? 0), cell: (r) => (r.alleles?.length ?? 0) },
-	{ label: "0", help: "Matched variants where the genome carries 0 copies of the effect allele.", sort: (r) => prsResultNum(r.organized?.summary?.zeroAlleleCount), cell: (r) => (r.organized?.summary?.zeroAlleleCount ?? "-") },
-	{ label: "1", help: "Matched variants where the genome carries 1 copy of the effect allele.", sort: (r) => prsResultNum(r.organized?.summary?.oneAlleleCount), cell: (r) => (r.organized?.summary?.oneAlleleCount ?? "-") },
-	{ label: "2", help: "Matched variants where the genome carries 2 copies of the effect allele.", sort: (r) => prsResultNum(r.organized?.summary?.twoAlleleCount), cell: (r) => (r.organized?.summary?.twoAlleleCount ?? "-") },
-	{ label: "Total", help: "Total number of variants in the model's scoring file.", sort: (r) => prsResultNum(r.totalVariants), cell: (r) => (r.totalVariants ?? "-") },
-	{ label: "Match %", help: "Matched / Total: share of the model's variants found in this genome. Low values mean the score is computed on a small fraction of the model.", sort: (r) => prsResultNum(r.organized?.summary?.matchRate), cell: (r) => (r.organized?.summary?.matchRate ?? "-") },
-	{ label: "Weight %", help: "Fraction of the model's total absolute effect weight represented by matched variants — a weight-aware coverage measure.", sort: (r) => (Number.isFinite(r.weightCoverage) ? r.weightCoverage : -Infinity), cell: (r) => (Number.isFinite(r.weightCoverage) ? (r.weightCoverage * 100).toFixed(2) + "%" : "-") },
-	{ label: "Src", help: "Where this result came from: 📦 = restored from cache, 🔄 = calculated in this session.", sort: (r) => (r.fromCache ? 1 : 0), cell: (r) => (r.fromCache ? "📦" : "🔄") },
+	{ label: "Matched", numeric: true, help: "Model variants found in this genome and used in the score.", sort: (r) => (r.alleles?.length ?? 0), cell: (r) => (r.alleles?.length ?? 0) },
+	{ label: "0", numeric: true, help: "Matched variants where the genome carries 0 copies of the effect allele.", sort: (r) => prsResultNum(r.organized?.summary?.zeroAlleleCount), cell: (r) => (r.organized?.summary?.zeroAlleleCount ?? "-") },
+	{ label: "1", numeric: true, help: "Matched variants where the genome carries 1 copy of the effect allele.", sort: (r) => prsResultNum(r.organized?.summary?.oneAlleleCount), cell: (r) => (r.organized?.summary?.oneAlleleCount ?? "-") },
+	{ label: "2", numeric: true, help: "Matched variants where the genome carries 2 copies of the effect allele.", sort: (r) => prsResultNum(r.organized?.summary?.twoAlleleCount), cell: (r) => (r.organized?.summary?.twoAlleleCount ?? "-") },
+	{ label: "Total", numeric: true, help: "Total number of variants in the model's scoring file.", sort: (r) => prsResultNum(r.totalVariants), cell: (r) => (r.totalVariants ?? "-") },
+	{ label: "Match %", numeric: true, help: "Matched / Total: share of the model's variants found in this genome. Amber below 50%, red below 25% — low values mean the score is computed on a small fraction of the model.", sort: (r) => prsResultNum(r.organized?.summary?.matchRate), cell: (r) => coverageCell(prsResultNum(r.organized?.summary?.matchRate), r.organized?.summary?.matchRate ?? "-") },
+	{ label: "Weight %", numeric: true, help: "Fraction of the model's total absolute effect weight represented by matched variants — a weight-aware coverage measure. Amber below 50%, red below 25%.", sort: (r) => (Number.isFinite(r.weightCoverage) ? r.weightCoverage : -Infinity), cell: (r) => (Number.isFinite(r.weightCoverage) ? coverageCell(r.weightCoverage * 100, (r.weightCoverage * 100).toFixed(2) + "%") : "-") },
+	{ label: "Src", help: "Where this result came from: 'cached' = restored from a previous calculation, 'new' = calculated in this session.", sort: (r) => (r.fromCache ? 1 : 0), cell: (r) => (r.fromCache ? '<span class="badge bg-secondary">cached</span>' : '<span class="badge bg-primary">new</span>') },
 ];
 
 let _prsResults = [];
@@ -884,7 +918,7 @@ function _renderPrsResultsPage() {
 
 	const bodyHtml = pageRows.map((r, i) => {
 		const cls = r.fromCache ? ' class="table-secondary"' : "";
-		const cells = PRS_RESULT_COLUMNS.map((c) => `<td>${c.cell(r, startIndex + i)}</td>`).join("");
+		const cells = PRS_RESULT_COLUMNS.map((c) => `<td${c.numeric ? ' class="num-cell"' : ""}>${c.cell(r, startIndex + i)}</td>`).join("");
 		return `<tr${cls}>${cells}</tr>`;
 	}).join("");
 
@@ -893,7 +927,7 @@ function _renderPrsResultsPage() {
 			<button class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" title="Full result objects, including every matched variant" onclick="window.downloadRiskScoresJson && window.downloadRiskScoresJson()">⬇ Full Results (JSON)</button>
 			<button class="btn btn-outline-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" title="The rows shown in this table" onclick="window.downloadRiskScoresCsv && window.downloadRiskScoresCsv()">⬇ Results Table (CSV)</button>
 		</div>
-		<div class="table-responsive">
+		<div class="table-responsive sticky-scroll">
 			<table class="table table-striped table-sm mt-3">
 				<thead class="table-dark"><tr>${headHtml}</tr></thead>
 				<tbody>${bodyHtml}</tbody>
@@ -975,8 +1009,8 @@ function renderScoresTable(scores, txts = []) {
 				<td>${name}</td>
 				<td>${trait}</td>
 				<td>${weightType}</td>
-				<td>${variants}</td>
-				<td>${variantsLoaded.toLocaleString()}</td>
+				<td class="num-cell">${variants}</td>
+				<td class="num-cell">${variantsLoaded.toLocaleString()}</td>
 				<td>${date}</td>
 			</tr>`;
 	}).join("");
@@ -1047,8 +1081,8 @@ function renderUsersTable(users, loaded) {
 				<td>${version || "-"}</td>
 				<td>${build || "-"}</td>
 				<td>${published}</td>
-				<td>${genoCount}</td>
-				<td>${variantCount.toLocaleString()}</td>
+				<td class="num-cell">${genoCount}</td>
+				<td class="num-cell">${variantCount.toLocaleString()}</td>
 				<td>${downloadHtml}</td>
 			</tr>`;
 	}).join("");
@@ -1228,20 +1262,40 @@ async function loadScoresFromList(scores, onProgress = null) {
 		// the fetch and its cache key match what fetchScoresTxts() used.
 		const build = window.getPgsBuild?.() ?? 37;
 		for (const score of toFetch) {
+			let parsed = null;
 			try {
 				const result = await getPgsTxt(score.id, undefined, true, build);
-				const parsed = Array.isArray(result) ? result[0] : result;
-				if (!parsed) {
-					console.warn(`No parseable file for score ${score?.id}`);
-				} else {
-					results.push({ score, parsed });
-				}
+				parsed = Array.isArray(result) ? result[0] : result;
 			} catch (err) {
-				console.error(`Failed to load scoring file ${score?.id}:`, err);
+				console.warn(`Catalog fetch failed for ${score?.id}:`, err);
+			}
+			// A failed download can surface as an error string or an empty parse;
+			// treat anything without variant rows as a miss.
+			if (!(parsed?.dt?.length > 0)) parsed = null;
+			// Fall back to the copy bundled with the app (data/PGSxxxxxx_hmPOS_GRCh37.txt)
+			// so the example models still load when the PGS Catalog file server is
+			// unreachable. Bundled copies are GRCh37 only.
+			if (!parsed && score?.local_file && build === 37) {
+				try {
+					const resp = await fetch(score.local_file);
+					if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+					// Normalize CRLF line endings (git checkout on Windows) so the
+					// parser doesn't produce empty phantom rows that inflate totals.
+					const text = (await resp.text()).replace(/\r/g, "");
+					parsed = await parseScore(score.id, text);
+					console.warn(`Loaded ${score.id} from bundled copy ${score.local_file} (catalog fetch failed).`);
+				} catch (err) {
+					console.error(`Bundled copy also failed for ${score?.id}:`, err);
+				}
+			}
+			if (parsed?.dt?.length > 0) {
+				results.push({ score, parsed });
+			} else {
+				console.error(`Failed to load scoring file ${score?.id}`);
 			}
 			completed += 1;
 			reportProgress();
-			}
+		}
 	}
 
 	return results;
@@ -1286,7 +1340,11 @@ async function fetchScores() {
 		window.loadedPgsTxts = added.map(a => a.parsed);
 
 		const elapsedSec = ((performance.now() - loadStartMs) / 1000).toFixed(2);
-		if (statusEl) statusEl.textContent = `Loaded ${loadedScores.length} of ${selectedScores.length} scoring file(s) in ${elapsedSec}s.`;
+		if (statusEl) {
+			statusEl.textContent = `Loaded ${loadedScores.length} of ${selectedScores.length} scoring file(s) in ${elapsedSec}s.`;
+			const failedCount = selectedScores.length - added.length;
+			if (failedCount > 0) statusEl.innerHTML += ` <span class="text-danger">${failedCount} model(s) failed to load — the PGS Catalog file server may be unreachable. See the browser console for details.</span>`;
+		}
 		setProgressBar("scores", statusEl, 100);
 
 		// Render table
@@ -1486,7 +1544,11 @@ async function loadExampleScores() {
 	window.loadedPgsTxts = existingTxts.concat(addedTxts);
 
 	const elapsedSec = ((performance.now() - loadStartMs) / 1000).toFixed(2);
-	if (statusEl) statusEl.textContent = `Loaded ${loadedScores.length} risk model(s) total: ${existing.length} previously + ${added.length} newly loaded in ${elapsedSec}s.`;
+	if (statusEl) {
+		statusEl.textContent = `Loaded ${loadedScores.length} risk model(s) total: ${existing.length} previously + ${added.length} newly loaded in ${elapsedSec}s.`;
+		const failedCount = toLoad.length - added.length;
+		if (failedCount > 0) statusEl.innerHTML += ` <span class="text-danger">${failedCount} model(s) failed to load — the PGS Catalog file server may be unreachable. See the browser console for details.</span>`;
+	}
 	setProgressBar("scores", statusEl, 100);
 
 	renderPrsScoresTable();

@@ -131,11 +131,11 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 14px;
-    height: 14px;
+    width: 17px;
+    height: 17px;
     border-radius: 50%;
     border: 1px solid currentColor;
-    font-size: 0.65rem;
+    font-size: 0.72rem;
     font-weight: 700;
     line-height: 1;
     vertical-align: middle;
@@ -154,7 +154,7 @@
 th:has(.col-help),
 .table th:has(.col-help) {
     position: relative;
-    padding-right: 1.3rem;
+    padding-right: 1.5rem;
 }
 th .col-help {
     position: absolute;
@@ -200,6 +200,55 @@ thead th,
 }
 .col-help-popover-close:hover {
     color: #212529;
+}
+/* Column-name heading inside the help box (empty for truncated body cells) */
+.col-help-popover-title {
+    font-weight: 600;
+    font-size: 0.8rem;
+    margin-bottom: 2px;
+}
+/* Small arrow pointing back at the badge that opened the box */
+.col-help-popover::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    left: var(--arrow-left, 16px);
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top: 0;
+    border-bottom: 6px solid #fff;
+    filter: drop-shadow(0 -1px 0 rgba(0, 0, 0, 0.25));
+}
+
+/* Truncated table cell: click (or Enter/Space) opens the full value in the
+   same closable box as the "?" badges — hover title alone doesn't work on touch */
+.cell-more {
+    cursor: pointer;
+    border-bottom: 1px dotted #6c757d;
+}
+
+/* Numeric table cells: right-aligned with lining figures so digits line up */
+.num-cell {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Coverage cells (Match % / Weight %): amber below 50%, red below 25% */
+.coverage-mid {
+    color: #b45309;
+    font-weight: 600;
+}
+.coverage-low {
+    color: #b02a37;
+    font-weight: 600;
+}
+
+/* PRS loading bars fade away once the load completes (see setProgressBar) */
+.prs-progress {
+    transition: opacity 0.7s ease;
+}
+.prs-progress.progress-done {
+    opacity: 0;
 }
 
 /* Expandable multi-file participant rows */
@@ -270,7 +319,7 @@ tr.file-parent-nomatch > td {
 
 /* hero background image */
 .bgimage {
-  min-height: 14vh;
+  min-height: 10vh;
     background: url('../../dna2.jpg');
     background-size: cover;
     background-position: center;
@@ -280,17 +329,18 @@ tr.file-parent-nomatch > td {
 }
 /* text css above hero image*/
 .hero_title {
-    font-size:2.5rem;
-        color: rgb(225, 222, 222);
-
+    font-size: 2rem;
+    color: rgb(225, 222, 222);
+    margin-bottom: 0.25rem;
 }
 .hero_desc {
     font-size: 1rem;
+    margin-bottom: 0.5rem;
 }
 .hero-text {
     text-align: left;
     color: rgb(150, 145, 145);
-    padding: 1rem 0;
+    padding: 0.5rem 0;
 }
 
 /* PRS section step headers */
