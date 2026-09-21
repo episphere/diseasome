@@ -728,12 +728,12 @@ function truncCell(value) {
 }
 
 /*** A "?" badge for a column header that explains what the column holds and where it
- * comes from. The text shows as a native tooltip on hover/focus.
+ * comes from. Clicking (or Enter/Space) opens a closable text box — see colHelpPopover.js.
  * @param {string} text - Explanation of the column
  * @returns {string} Help icon HTML
  */
 function colHelp(text) {
-	return ` <span class="col-help" tabindex="0" role="note" title="${escapeHtml(text)}" aria-label="${escapeHtml(text)}">?</span>`;
+	return ` <span class="col-help" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false" aria-label="Column help" data-help="${escapeHtml(text)}">?</span>`;
 }
 
 /** Explanations shown by the "?" badge on each Genomic Data table column. */
@@ -916,7 +916,7 @@ function _renderPrsResultsPage() {
 
 	resultsDiv.querySelectorAll("th.prs-result-sort").forEach((th) => {
 		th.addEventListener("click", (e) => {
-			if (e.target.closest?.(".col-help")) return; // "?" badge: tooltip only, don't sort
+			if (e.target.closest?.(".col-help")) return; // "?" badge: opens help box, don't sort
 			const i = Number(th.dataset.idx);
 			if (_prsResultsSort.idx === i) _prsResultsSort.dir = -_prsResultsSort.dir;
 			else { _prsResultsSort.idx = i; _prsResultsSort.dir = 1; }

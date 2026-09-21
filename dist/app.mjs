@@ -30,14 +30,14 @@ let localDataModuleLoaded = false;
 // the tab functionality.
 async function ensurePgsModuleLoaded() {
     if (!pgsModuleLoaded) {
-        await import('./chunks/displayScores-DM4ZlxJm.mjs');
+        await import('./chunks/displayScores-gIg9KADV.mjs');
         pgsModuleLoaded = true;
     }
 }
 
 async function ensureLocalDataModuleLoaded() {
     if (!localDataModuleLoaded) {
-        await import('./chunks/displayUsers-iFSXwtr2.mjs');
+        await import('./chunks/displayUsers-XZKddzO3.mjs');
         localDataModuleLoaded = true;
     }
 }
@@ -136,6 +136,80 @@ setInterval(updateTabCompletion, 2000);
 window.tabFunction = tabFunction;
 window.selectAIMode = selectAIMode;
 window.updateTabCompletion = updateTabCompletion;
+
+// Closable help text box for the "?" column badges used across all tables.
+//
+// A single delegated listener serves every table (Genomic Data, Risk Models,
+// Results, participants, variant tables), including ones re-rendered later:
+// clicking a `.col-help` badge opens a small text box anchored under it. The
+// box closes via its × button, the Escape key, clicking outside, or clicking
+// the badge again. Only one box is open at a time.
+
+let openHelp = null; // { el, anchor }
+
+function closeHelpPopover() {
+	if (!openHelp) return;
+	openHelp.anchor?.setAttribute?.("aria-expanded", "false");
+	openHelp.el.remove();
+	openHelp = null;
+}
+
+function openHelpPopover(anchor) {
+	closeHelpPopover();
+	const text = anchor.getAttribute("data-help") || "";
+	if (!text) return;
+
+	const pop = document.createElement("div");
+	pop.className = "col-help-popover";
+	pop.setAttribute("role", "note");
+
+	const close = document.createElement("button");
+	close.type = "button";
+	close.className = "col-help-popover-close";
+	close.setAttribute("aria-label", "Close");
+	close.innerHTML = "&times;";
+	pop.appendChild(close);
+
+	const body = document.createElement("div");
+	body.className = "col-help-popover-body";
+	body.textContent = text;
+	pop.appendChild(body);
+
+	document.body.appendChild(pop);
+
+	// Position under the badge, clamped to the viewport width.
+	const r = anchor.getBoundingClientRect();
+	const margin = 8;
+	const w = pop.offsetWidth;
+	let left = window.scrollX + r.left + r.width / 2 - w / 2;
+	const maxLeft = window.scrollX + document.documentElement.clientWidth - w - margin;
+	left = Math.max(window.scrollX + margin, Math.min(left, maxLeft));
+	pop.style.left = `${left}px`;
+	pop.style.top = `${window.scrollY + r.bottom + 6}px`;
+
+	anchor.setAttribute("aria-expanded", "true");
+	openHelp = { el: pop, anchor };
+}
+
+function toggleHelpPopover(badge) {
+	if (openHelp && openHelp.anchor === badge) closeHelpPopover();
+	else openHelpPopover(badge);
+}
+
+document.addEventListener("click", (e) => {
+	if (e.target.closest?.(".col-help-popover-close")) { closeHelpPopover(); return; }
+	if (e.target.closest?.(".col-help-popover")) return; // allow selecting text inside the box
+	const badge = e.target.closest?.(".col-help");
+	if (badge) { toggleHelpPopover(badge); return; }
+	closeHelpPopover(); // any other click closes the box
+});
+
+document.addEventListener("keydown", (e) => {
+	if (e.key === "Escape") { closeHelpPopover(); return; }
+	if (e.key !== "Enter" && e.key !== " ") return;
+	const badge = e.target.closest?.(".col-help");
+	if (badge) { e.preventDefault(); toggleHelpPopover(badge); }
+});
 
 function MatchOptimized(mypgs, my23) {
   // Defensive checks
@@ -3915,12 +3989,12 @@ function truncCell(value) {
 }
 
 /*** A "?" badge for a column header that explains what the column holds and where it
- * comes from. The text shows as a native tooltip on hover/focus.
+ * comes from. Clicking (or Enter/Space) opens a closable text box — see colHelpPopover.js.
  * @param {string} text - Explanation of the column
  * @returns {string} Help icon HTML
  */
 function colHelp(text) {
-	return ` <span class="col-help" tabindex="0" role="note" title="${escapeHtml(text)}" aria-label="${escapeHtml(text)}">?</span>`;
+	return ` <span class="col-help" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false" aria-label="Column help" data-help="${escapeHtml(text)}">?</span>`;
 }
 
 /** Explanations shown by the "?" badge on each Genomic Data table column. */
@@ -4065,7 +4139,7 @@ function _renderPrsResultsPage() {
 
 	resultsDiv.querySelectorAll("th.prs-result-sort").forEach((th) => {
 		th.addEventListener("click", (e) => {
-			if (e.target.closest?.(".col-help")) return; // "?" badge: tooltip only, don't sort
+			if (e.target.closest?.(".col-help")) return; // "?" badge: opens help box, don't sort
 			const i = Number(th.dataset.idx);
 			if (_prsResultsSort.idx === i) _prsResultsSort.dir = -_prsResultsSort.dir;
 			else { _prsResultsSort.idx = i; _prsResultsSort.dir = 1; }
@@ -6155,7 +6229,7 @@ function tabulateAllMatchByEffect(data = PGS23.data, div = document.getElementBy
     div.appendChild(tb);
     let thead = document.createElement('thead');
     tb.appendChild(thead);
-    const hHelp = (text) => ` <span class="col-help" tabindex="0" role="note" title="${text}" aria-label="${text}">?</span>`;
+    const hHelp = (text) => ` <span class="col-help" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false" aria-label="Column help" data-help="${text}">?</span>`;
     thead.innerHTML = `<tr>`
         + `<th align="left">#</th>`
         + `<th>w${hHelp('effect_weight of the variant, as reported in the PGS Catalog scoring file')}</th>`

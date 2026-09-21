@@ -140,13 +140,66 @@
     line-height: 1;
     vertical-align: middle;
     opacity: 0.65;
-    cursor: help;
+    cursor: pointer;
     user-select: none;
 }
 .col-help:hover,
 .col-help:focus {
     opacity: 1;
     outline: none;
+}
+
+/* Pin the "?" badge to the top-right corner of its header cell, clear of the
+   label and sort arrow. The .table variant outranks Bootstrap's cell padding. */
+th:has(.col-help),
+.table th:has(.col-help) {
+    position: relative;
+    padding-right: 1.3rem;
+}
+th .col-help {
+    position: absolute;
+    top: 3px;
+    right: 4px;
+}
+
+/* All table column headers: label centered horizontally, aligned to the top */
+thead th,
+.table > thead > tr > th {
+    text-align: center;
+    vertical-align: top;
+}
+
+/* Closable text box opened by the "?" badge (see colHelpPopover.js) */
+.col-help-popover {
+    position: absolute;
+    z-index: 1080;
+    max-width: 320px;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 8px 28px 8px 12px;
+    font-size: 0.8rem;
+    font-weight: 400;
+    line-height: 1.4;
+    color: #212529;
+    text-align: left;
+    white-space: normal;
+}
+.col-help-popover-close {
+    position: absolute;
+    top: 2px;
+    right: 6px;
+    border: 0;
+    background: none;
+    font-size: 1rem;
+    line-height: 1;
+    color: #6c757d;
+    cursor: pointer;
+    padding: 2px;
+}
+.col-help-popover-close:hover {
+    color: #212529;
 }
 
 /* Expandable multi-file participant rows */

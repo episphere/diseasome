@@ -1115,7 +1115,7 @@ function tabulateAllMatchByEffect(data = PGS23.data, div = document.getElementBy
     div.appendChild(tb)
     let thead = document.createElement('thead')
     tb.appendChild(thead)
-    const hHelp = (text) => ` <span class="col-help" tabindex="0" role="note" title="${text}" aria-label="${text}">?</span>`
+    const hHelp = (text) => ` <span class="col-help" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false" aria-label="Column help" data-help="${text}">?</span>`
     thead.innerHTML = `<tr>`
         + `<th align="left">#</th>`
         + `<th>w${hHelp('effect_weight of the variant, as reported in the PGS Catalog scoring file')}</th>`

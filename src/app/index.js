@@ -1,4 +1,5 @@
 import "./tabs.js";
+import "./colHelpPopover.js";
 import "./calculatePrs.js";
 import "./plotPrs.js";
 import "./clust.js";
