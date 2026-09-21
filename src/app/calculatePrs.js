@@ -727,6 +727,43 @@ function truncCell(value) {
 	return `<span title="${escapeHtml(text)}">${escapeHtml(text.slice(0, MAX_CELL_CHARS))}…</span>`;
 }
 
+/*** A "?" badge for a column header that explains what the column holds and where it
+ * comes from. The text shows as a native tooltip on hover/focus.
+ * @param {string} text - Explanation of the column
+ * @returns {string} Help icon HTML
+ */
+function colHelp(text) {
+	return ` <span class="col-help" tabindex="0" role="note" title="${escapeHtml(text)}" aria-label="${escapeHtml(text)}">?</span>`;
+}
+
+/** Explanations shown by the "?" badge on each Genomic Data table column. */
+const USER_COL_HELP = {
+	select: "Include this genome in the PRS calculation. Unchecking leaves the row in the table but skips it when scores are computed.",
+	id: "Personal Genome Project (PGP) public participant identifier (e.g. hu0F2E0D), or the name of the file you uploaded. A \"file N\" badge means the participant published several genome files and this row is one of them.",
+	name: "Participant name as published on their PGP profile. Many participants publish anonymously, so this is often empty.",
+	ethnicity: "Self-reported ethnicity from the participant's PGP survey. Shown as \"-\" when not reported. Ancestry matters: PGS models are mostly derived from European-ancestry cohorts and transfer poorly to other groups.",
+	race: "Self-reported race from the participant's PGP survey. Shown as \"-\" when not reported.",
+	gender: "Self-reported gender from the participant's PGP survey. Shown as \"-\" when not reported. Some scores are sex-specific.",
+	version: "23andMe genotyping chip version used to produce the file (v4, v5, …). The chip determines which variants were measured, so it caps how much of a risk model can be matched. Inferred from the filename when the file does not state it.",
+	build: "Reference genome assembly the variant positions are given in (e.g. 37 = GRCh37/hg19). Scoring files here are harmonized to GRCh37; a mismatched build would align positions incorrectly.",
+	published: "Date the genome file was published to the PGP public data repository.",
+	genotypes: "How many raw genotype files this participant has published. Uploaded files always count as 1.",
+	variantsLoaded: "Number of genotype rows parsed from the file into memory (typically ~600k–1.6M). Stays 0 until the file has been downloaded and parsed.",
+	download: "Direct link to the raw genotype text file on the PGP server. Opens in a new tab."
+};
+
+/** Explanations shown by the "?" badge on each Risk Models table column. */
+const SCORE_COL_HELP = {
+	select: "Include this risk model in the PRS calculation. Unchecking leaves the row in the table but skips it when scores are computed.",
+	id: "PGS Catalog accession of the polygenic score model (e.g. PGS000004). Full details at pgscatalog.org.",
+	name: "Model name given by the authors in the PGS Catalog.",
+	trait: "Trait or disease the model was built to predict, as reported by the authors (trait_reported).",
+	weightType: "How the effect weights were derived, as reported by the scoring file / PGS Catalog (e.g. beta, log(OR), log(HR)). NR = not reported to the catalog — the weight type may still be found in the score's original publication. Never inferred from the weights themselves.",
+	variantsNumber: "Total number of variants in the model according to the PGS Catalog metadata.",
+	variantsLoaded: "Number of variant rows parsed from the harmonized (GRCh37) scoring file into memory. Stays 0 until the file has been downloaded and parsed.",
+	date: "Release date of the score in the PGS Catalog."
+};
+
 /*** Make an already-rendered table sortable by clicking any column header.
  * Sorts the tbody rows in place based on each cell's text: numeric when both
  * values parse as numbers, otherwise natural (locale, numeric-aware) string order.
@@ -783,19 +820,19 @@ function prsWeightType(r) {
 /** Column definitions for the PRS results table: label, optional sort getter, cell renderer. */
 const PRS_RESULT_COLUMNS = [
 	{ label: "#", cell: (r, i) => String(i + 1) },
-	{ label: "Participant ID", sort: (r) => String(r.userId ?? "").toLowerCase(), cell: (r) => truncCell(r.userId) },
-	{ label: "Name", sort: (r) => String(r.userName ?? "").toLowerCase(), cell: (r) => truncCell(r.userName) },
-	{ label: "PGS ID", sort: (r) => String(r.pgsId ?? "").toLowerCase(), cell: (r) => escapeHtml(r.pgsId) },
-	{ label: "PRS Score", title: "Sum of effect-allele dosage x reported effect_weight over matched variants, on the scale of the original model", sort: (r) => (typeof r.PRS === "number" ? r.PRS : -Infinity), cell: (r) => (typeof r.PRS === "number" ? r.PRS.toFixed(6) : (r.PRS ?? "-")) },
-	{ label: "Weight Type", title: "weight_type reported by the PGS Catalog scoring file (NR = not reported). Never inferred from the weights themselves.", sort: (r) => prsWeightType(r).toLowerCase(), cell: (r) => escapeHtml(prsWeightType(r)) },
-	{ label: "Matched", sort: (r) => (r.alleles?.length ?? 0), cell: (r) => (r.alleles?.length ?? 0) },
-	{ label: "0", title: "Matched with 0 effect alleles", sort: (r) => prsResultNum(r.organized?.summary?.zeroAlleleCount), cell: (r) => (r.organized?.summary?.zeroAlleleCount ?? "-") },
-	{ label: "1", title: "Matched with 1 effect allele", sort: (r) => prsResultNum(r.organized?.summary?.oneAlleleCount), cell: (r) => (r.organized?.summary?.oneAlleleCount ?? "-") },
-	{ label: "2", title: "Matched with 2 effect alleles", sort: (r) => prsResultNum(r.organized?.summary?.twoAlleleCount), cell: (r) => (r.organized?.summary?.twoAlleleCount ?? "-") },
-	{ label: "Total", sort: (r) => prsResultNum(r.totalVariants), cell: (r) => (r.totalVariants ?? "-") },
-	{ label: "Match %", sort: (r) => prsResultNum(r.organized?.summary?.matchRate), cell: (r) => (r.organized?.summary?.matchRate ?? "-") },
-	{ label: "Weight %", title: "Fraction of the model's total absolute effect weight represented by matched variants", sort: (r) => (Number.isFinite(r.weightCoverage) ? r.weightCoverage : -Infinity), cell: (r) => (Number.isFinite(r.weightCoverage) ? (r.weightCoverage * 100).toFixed(2) + "%" : "-") },
-	{ label: "Src", title: "📦 = cached, 🔄 = calculated", sort: (r) => (r.fromCache ? 1 : 0), cell: (r) => (r.fromCache ? "📦" : "🔄") },
+	{ label: "Participant ID", help: "PGP participant identifier (or uploaded filename) of the genome this score was computed for.", sort: (r) => String(r.userId ?? "").toLowerCase(), cell: (r) => truncCell(r.userId) },
+	{ label: "Name", help: "Participant name from the PGP profile; often empty for anonymous participants.", sort: (r) => String(r.userName ?? "").toLowerCase(), cell: (r) => truncCell(r.userName) },
+	{ label: "PGS ID", help: "PGS Catalog accession of the risk model scored in this row.", sort: (r) => String(r.pgsId ?? "").toLowerCase(), cell: (r) => escapeHtml(r.pgsId) },
+	{ label: "PRS Score", help: "Sum of effect-allele dosage x reported effect_weight over matched variants, on the scale of the original model (not normalized).", sort: (r) => (typeof r.PRS === "number" ? r.PRS : -Infinity), cell: (r) => (typeof r.PRS === "number" ? r.PRS.toFixed(6) : (r.PRS ?? "-")) },
+	{ label: "Weight Type", help: "weight_type reported by the PGS Catalog scoring file. NR = not reported to the catalog — the weight type may still be found in the score's original publication. Never inferred from the weights themselves.", sort: (r) => prsWeightType(r).toLowerCase(), cell: (r) => escapeHtml(prsWeightType(r)) },
+	{ label: "Matched", help: "Model variants found in this genome and used in the score.", sort: (r) => (r.alleles?.length ?? 0), cell: (r) => (r.alleles?.length ?? 0) },
+	{ label: "0", help: "Matched variants where the genome carries 0 copies of the effect allele.", sort: (r) => prsResultNum(r.organized?.summary?.zeroAlleleCount), cell: (r) => (r.organized?.summary?.zeroAlleleCount ?? "-") },
+	{ label: "1", help: "Matched variants where the genome carries 1 copy of the effect allele.", sort: (r) => prsResultNum(r.organized?.summary?.oneAlleleCount), cell: (r) => (r.organized?.summary?.oneAlleleCount ?? "-") },
+	{ label: "2", help: "Matched variants where the genome carries 2 copies of the effect allele.", sort: (r) => prsResultNum(r.organized?.summary?.twoAlleleCount), cell: (r) => (r.organized?.summary?.twoAlleleCount ?? "-") },
+	{ label: "Total", help: "Total number of variants in the model's scoring file.", sort: (r) => prsResultNum(r.totalVariants), cell: (r) => (r.totalVariants ?? "-") },
+	{ label: "Match %", help: "Matched / Total: share of the model's variants found in this genome. Low values mean the score is computed on a small fraction of the model.", sort: (r) => prsResultNum(r.organized?.summary?.matchRate), cell: (r) => (r.organized?.summary?.matchRate ?? "-") },
+	{ label: "Weight %", help: "Fraction of the model's total absolute effect weight represented by matched variants — a weight-aware coverage measure.", sort: (r) => (Number.isFinite(r.weightCoverage) ? r.weightCoverage : -Infinity), cell: (r) => (Number.isFinite(r.weightCoverage) ? (r.weightCoverage * 100).toFixed(2) + "%" : "-") },
+	{ label: "Src", help: "Where this result came from: 📦 = restored from cache, 🔄 = calculated in this session.", sort: (r) => (r.fromCache ? 1 : 0), cell: (r) => (r.fromCache ? "📦" : "🔄") },
 ];
 
 let _prsResults = [];
@@ -841,9 +878,8 @@ function _renderPrsResultsPage() {
 
 	const arrow = (i) => (s.idx === i ? (s.dir === 1 ? " ▲" : " ▼") : (PRS_RESULT_COLUMNS[i].sort ? " ⇅" : ""));
 	const headHtml = PRS_RESULT_COLUMNS.map((c, i) => {
-		const titleAttr = c.title ? ` title="${escapeHtml(c.title)}"` : "";
 		const cls = c.sort ? ` class="prs-result-sort" style="cursor:pointer;user-select:none;"` : "";
-		return `<th data-idx="${i}"${cls}${titleAttr}>${escapeHtml(c.label)}${arrow(i)}</th>`;
+		return `<th data-idx="${i}"${cls}>${escapeHtml(c.label)}${c.help ? colHelp(c.help) : ""}${arrow(i)}</th>`;
 	}).join("");
 
 	const bodyHtml = pageRows.map((r, i) => {
@@ -879,7 +915,8 @@ function _renderPrsResultsPage() {
 		</details>`;
 
 	resultsDiv.querySelectorAll("th.prs-result-sort").forEach((th) => {
-		th.addEventListener("click", () => {
+		th.addEventListener("click", (e) => {
+			if (e.target.closest?.(".col-help")) return; // "?" badge: tooltip only, don't sort
 			const i = Number(th.dataset.idx);
 			if (_prsResultsSort.idx === i) _prsResultsSort.dir = -_prsResultsSort.dir;
 			else { _prsResultsSort.idx = i; _prsResultsSort.dir = 1; }
@@ -953,14 +990,14 @@ function renderScoresTable(scores, txts = []) {
 			<thead class="table-dark">
 				<tr>
 					<th>#</th>
-					<th>Select</th>
-					<th>PGS ID</th>
-					<th>Name</th>
-					<th>Trait</th>
-					<th title="weight_type reported by the PGS Catalog (NR = not reported)">Weight Type</th>
-					<th>Variants #</th>
-					<th>Variants Loaded</th>
-					<th>Date</th>
+					<th>Select${colHelp(SCORE_COL_HELP.select)}</th>
+					<th>PGS ID${colHelp(SCORE_COL_HELP.id)}</th>
+					<th>Name${colHelp(SCORE_COL_HELP.name)}</th>
+					<th>Trait${colHelp(SCORE_COL_HELP.trait)}</th>
+					<th>Weight Type${colHelp(SCORE_COL_HELP.weightType)}</th>
+					<th>Variants #${colHelp(SCORE_COL_HELP.variantsNumber)}</th>
+					<th>Variants Loaded${colHelp(SCORE_COL_HELP.variantsLoaded)}</th>
+					<th>Date${colHelp(SCORE_COL_HELP.date)}</th>
 				</tr>
 			</thead>
 			<tbody>${rows}</tbody>
@@ -1021,18 +1058,18 @@ function renderUsersTable(users, loaded) {
 			<thead class="table-dark">
 				<tr>
 					<th>#</th>
-					<th>Select</th>
-					<th>Participant ID</th>
-					<th>Name</th>
-					<th>Ethnicity</th>
-					<th>Race</th>
-					<th>Gender</th>
-					<th>Version</th>
-					<th>Build</th>
-					<th>Published Date</th>
-					<th>Genotypes #</th>
-					<th>Variants Loaded</th>
-					<th>Download</th>
+					<th>Select${colHelp(USER_COL_HELP.select)}</th>
+					<th>Participant ID${colHelp(USER_COL_HELP.id)}</th>
+					<th>Name${colHelp(USER_COL_HELP.name)}</th>
+					<th>Ethnicity${colHelp(USER_COL_HELP.ethnicity)}</th>
+					<th>Race${colHelp(USER_COL_HELP.race)}</th>
+					<th>Gender${colHelp(USER_COL_HELP.gender)}</th>
+					<th>Version${colHelp(USER_COL_HELP.version)}</th>
+					<th>Build${colHelp(USER_COL_HELP.build)}</th>
+					<th>Published Date${colHelp(USER_COL_HELP.published)}</th>
+					<th>Genotypes #${colHelp(USER_COL_HELP.genotypes)}</th>
+					<th>Variants Loaded${colHelp(USER_COL_HELP.variantsLoaded)}</th>
+					<th>Download${colHelp(USER_COL_HELP.download)}</th>
 				</tr>
 			</thead>
 			<tbody>${rows}</tbody>
@@ -1526,10 +1563,10 @@ async function loadExampleUsers() {
 				<thead class="table-dark">
 					<tr>
 						<th>#</th>
-						<th>Participant ID</th>
-						<th>Name</th>
-						<th>Variants</th>
-						<th>Status</th>
+						<th>Participant ID${colHelp(USER_COL_HELP.id)}</th>
+						<th>Name${colHelp(USER_COL_HELP.name)}</th>
+						<th>Variants${colHelp(USER_COL_HELP.variantsLoaded)}</th>
+						<th>Status${colHelp("Ready = the genome file is parsed in memory and available for PRS calculation.")}</th>
 					</tr>
 				</thead>
 				<tbody>${userRows}</tbody>

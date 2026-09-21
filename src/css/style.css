@@ -126,6 +126,29 @@
     font-size: 0.8rem;
 }
 
+/* "?" badge next to a table column name, explaining what the column holds */
+.col-help {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid currentColor;
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 1;
+    vertical-align: middle;
+    opacity: 0.65;
+    cursor: help;
+    user-select: none;
+}
+.col-help:hover,
+.col-help:focus {
+    opacity: 1;
+    outline: none;
+}
+
 /* Expandable multi-file participant rows */
 .file-expander {
     color: #495057;

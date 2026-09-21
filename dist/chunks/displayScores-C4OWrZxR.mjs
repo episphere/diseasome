@@ -1,5 +1,8 @@
-import { fetchAllScores, fetchSomeScores, getScoresPerTrait, getScoresPerCategory, fetchTraits, getPgsTxt } from "../sdk/pgsSdk.js";
-import localforage from "localforage";
+import { fetchTraits, fetchAllScores, getScoresPerTrait, getScoresPerCategory, getPgsTxt, fetchSomeScores } from 'https://lorenasandoval88.github.io/pgs_catalog_sdk/dist/sdk.mjs';
+import { l as localforage } from '../app.mjs';
+import 'https://lorenasandoval88.github.io/personal_genomes_project_sdk/dist/sdk.mjs';
+import 'https://lorenasandoval88.github.io/clustjs/dist/sdk.mjs';
+import 'https://esm.run/@mlc-ai/web-llm';
 
 // Persistent reference to the PGS selection status bar so it can be relocated
 // below the search box on every re-render (innerHTML resets would detach it).
@@ -477,10 +480,10 @@ function getSelectionScores() {
 /** Render the score table for the current category/trait/variant selection. */
 function renderPgsFromSelection() {
 	const scores = getSelectionScores();
-	const catLabel = selectedCategories.size
+	selectedCategories.size
 		? `${selectedCategories.size} categor${selectedCategories.size === 1 ? "y" : "ies"}`
 		: "All categories";
-	const traitLabel = selectedTraits.size ? ` · ${selectedTraits.size} trait(s)` : "";
+	selectedTraits.size ? ` · ${selectedTraits.size} trait(s)` : "";
 	const title = `PGS Catalog Scoring Files - ${scores.length} of ${totalAvailableScores}`;
 	const key = sanitizeKey(`sel_${Array.from(selectedCategories).join("_")}_${Array.from(selectedTraits).join("_")}`) || "sel";
 	renderPgsTable(scores, "scoresDiv", title, key);
@@ -613,7 +616,7 @@ const PGS_COL_HELP = {
 	id: "PGS Catalog accession of the polygenic score model (e.g. PGS000004). Full details at pgscatalog.org.",
 	name: "Model name given by the authors in the PGS Catalog.",
 	trait: "Trait or disease the model was built to predict, as reported by the authors (trait_reported).",
-	weightType: "How the effect weights were derived, as reported to the PGS Catalog (e.g. beta, log(OR), log(HR)). NR = not reported to the catalog — the weight type may still be found in the score's original publication. Never inferred from the weights themselves.",
+	weightType: "How the effect weights were derived, as reported to the PGS Catalog (e.g. beta, log(OR), log(HR)). NR = not reported; never inferred from the weights themselves.",
 	variants: "Total number of variants in the model according to the PGS Catalog metadata.",
 	v4: "Fraction of this model's variants covered by the 23andMe v4 chip — an upper bound on the match rate for v4 genomes.",
 	v5: "Fraction of this model's variants covered by the 23andMe v5 chip — an upper bound on the match rate for v5 genomes.",
@@ -1006,7 +1009,7 @@ function renderScores(value, type = "Trait") {
 		: `${type}: ${value} (${scores.length} scoring files)`;
 
 	renderPgsTable(scores, "scoresDiv", title, key);
-	renderActiveFilterChips(value, type);
+	renderActiveFilterChips();
 }
 
 /**
@@ -1132,54 +1135,6 @@ window.onPgsTraitChange = function onPgsTraitChange(selectedTrait) {
 	const title = `${match.id} - ${match.name ?? match.trait_reported ?? "PGS"}`;
 	renderPgsTable([match], "scoresDiv", title, sanitizeKey(pgsId));
 };
-
-
-// --- Helpers for dropdown management ---
-
-/** Default onchange handler for trait selection. */
-function setDefaultTraitOnChange(select) {
-	select.onchange = (e) => {
-		try { window.onPgsTraitChange(e.target.value); } catch (err) { console.error('onPgsTraitChange error', err); }
-	};
-}
-
-/** Build options HTML from a Map of name → scores[]. */
-function buildOptionsHtml(map, keys, allLabel, filteredCount) {
-	const allOption = `<option value="${ALL_VALUE}"> ${filteredCount} scoring files for all ${map.size} ${allLabel}</option>`;
-	const itemOptions = keys
-		.map((key) => {
-			const filtered = (map.get(key) ?? []).filter(passesFilters);
-			return `<option value="${escapeHtml(key)}">${escapeHtml(key)} (${filtered.length})</option>`;
-		})
-		.join("");
-	return allOption + itemOptions;
-}
-
-/** Populate dropdown with traits and wire default handler. */
-function populateTraitDropdown(select) {
-	select.innerHTML = buildOptionsHtml(traitScoresMap, traits, "traits", getFilteredTraitScores().length);
-	select.value = ALL_VALUE;
-	renderScores(ALL_VALUE, "Trait");
-	setDefaultTraitOnChange(select);
-}
-
-/** Populate dropdown with categories and wire category handler. */
-function populateCategoryDropdown(select) {
-	select.innerHTML = buildOptionsHtml(categoryScoresMap, categories, "categories", getFilteredCategoryScores().length);
-	select.value = ALL_VALUE;
-	renderScores(ALL_VALUE, "Category");
-
-	select.onchange = (e) => {
-		const val = e.target.value;
-		if (!val) return;
-		if (val === ALL_VALUE) {
-			setDefaultTraitOnChange(select);
-			renderScores(ALL_VALUE, "Category");
-			return;
-		}
-		renderScores(val, "Category");
-	};
-}
 
 // --- Initialize category + trait filters ---
 
@@ -1607,3 +1562,4 @@ window.sdk = Object.assign(window.sdk ?? {}, {
 	updatePrsScoresDisplay,
 	getPgsBuild,
 });
+//# sourceMappingURL=displayScores-C4OWrZxR.mjs.map

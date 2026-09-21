@@ -1,5 +1,9 @@
-import { get23Txt, parse23Txt, allUsersMetaDataByType_fast } from "../sdk/pgpSdk.js";
-import localforage from "localforage";
+import { allUsersMetaDataByType_fast, parse23Txt, get23Txt } from 'https://lorenasandoval88.github.io/personal_genomes_project_sdk/dist/sdk.mjs';
+import { l as localforage } from '../app.mjs';
+import 'https://lorenasandoval88.github.io/pgs_catalog_sdk/dist/sdk.mjs';
+import 'https://lorenasandoval88.github.io/clustjs/dist/sdk.mjs';
+import 'https://esm.run/@mlc-ai/web-llm';
+
 // console.log("displayUsers.js loaded")
 
 // Persistent reference to the selection status bar so it can be relocated below
@@ -496,35 +500,6 @@ function escapeHtml(value) {
 		.replaceAll("'", "&#39;");
 }
 
-/*** A "?" badge for a column header that explains what the column holds and where it
- * comes from. The text shows as a native tooltip on hover/focus.
- * @param {string} text - Explanation of the column
- * @returns {string} Help icon HTML
- */
-function colHelp(text) {
-	return ` <span class="col-help" tabindex="0" role="note" title="${escapeHtml(text)}" aria-label="${escapeHtml(text)}">?</span>`;
-}
-
-/** Explanations shown by the "?" badge on each participants table column. */
-const PGP_COL_HELP = {
-	select: "Select this genome file for analysis. Selected files are loaded into the Calculate PRS tab (up to the selection limit).",
-	id: "Personal Genome Project (PGP) public participant identifier (e.g. hu0F2E0D). A caret in the first column means the participant published several genome files.",
-	name: "Participant name as published on their PGP profile. Many participants publish anonymously, so this is often empty.",
-	age: "Self-reported age from the participant's PGP survey. Blank when not reported.",
-	gender: "Self-reported gender from the participant's PGP survey. Blank when not reported. Some risk scores are sex-specific.",
-	race: "Self-reported race from the participant's PGP survey. Blank when not reported.",
-	ethnicity: "Self-reported ethnicity from the participant's PGP survey. Blank when not reported. Ancestry matters: PGS models are mostly derived from European-ancestry cohorts and transfer poorly to other groups.",
-	conditions: "Conditions reported in the PGP survey question \"Have you ever been diagnosed with one of the following conditions?\"",
-	valid: "Whether the file's header matches the 23andMe export signature. Files that don't match may fail to parse.",
-	version: "23andMe genotyping chip version used to produce the file (v4, v5, …). The chip determines which variants were measured, so it caps how much of a risk model can be matched.",
-	build: "Reference genome assembly the variant positions are given in (37 = GRCh37/hg19). Scoring files here are harmonized to GRCh37.",
-	size: "Size of the genome file in megabytes.",
-	filename: "Name of the genome file as published on the PGP data repository.",
-	published: "Date the genome file was published to the PGP public data repository.",
-	profile: "Link to the participant's public profile page on personalgenomes.org.",
-	download: "Direct link to the raw genotype text file on the PGP server."
-};
-
 /**
  * sanitizeKey(value)
  * Produce a lowercase alphanumeric underscore-only key suitable for element IDs.
@@ -532,7 +507,7 @@ const PGP_COL_HELP = {
  * @returns {string}
  */
 function sanitizeKey(value) {
-	return String(value ?? "")
+	return String(value)
 		.toLowerCase()
 		.replaceAll(/[^a-z0-9]+/g, "_")
 		.replaceAll(/^_+|_+$/g, "");
@@ -1462,7 +1437,6 @@ function renderParticipantsTable(list, targetId, title, key) {
 				return id.includes(q) || nm.includes(q) || age.includes(q) || race.includes(q) || ethnicity.includes(q) || conditions.includes(q);
 			});
 		}
-		const sortable = true;
 		const sortArrow = (k) => (sortState.key === k ? (sortState.dir === 'asc' ? ' ▲' : ' ▼') : ' ⇅');
 		const sortAttrs = (k) => `class="sortable" data-sort="${k}" style="cursor:pointer;user-select:none;"`;
 		// Right-aligned variant for numeric sortable columns (Age, Build, Size)
@@ -1678,22 +1652,22 @@ function renderParticipantsTable(list, targetId, title, key) {
 						<tr>
 							<th style="width:32px;" class="text-center p-1">${hasMultiFile ? `<button type="button" id="expandAllFiles_${key}" class="btn btn-sm p-0 file-expander-all" aria-expanded="${allExpanded}" title="${allExpanded ? 'Collapse all files' : 'Expand all files'}" aria-label="${allExpanded ? 'Collapse all files' : 'Expand all files'}">${allExpanded ? '▾' : '▸'}</button>` : ''}</th>
 							<th>#</th>
-							<th>Select${colHelp(PGP_COL_HELP.select)}</th>
-							<th ${sortAttrs('id')}>Participant ID${colHelp(PGP_COL_HELP.id)}${sortArrow('id')}</th>
-							<th ${sortAttrs('name')}>Name${colHelp(PGP_COL_HELP.name)}${sortArrow('name')}</th>
-							<th ${sortAttrsEnd('age')}>Age${colHelp(PGP_COL_HELP.age)}${sortArrow('age')}</th>
-							<th ${sortAttrs('gender')}>Gender${colHelp(PGP_COL_HELP.gender)}${sortArrow('gender')}</th>
-							<th ${sortAttrs('race')}>Race${colHelp(PGP_COL_HELP.race)}${sortArrow('race')}</th>
-							<th ${sortAttrs('ethnicity')}>Ethnicity${colHelp(PGP_COL_HELP.ethnicity)}${sortArrow('ethnicity')}</th>
-							<th class="sortable" data-sort="conditions" style="cursor:pointer;user-select:none;">Conditions${colHelp(PGP_COL_HELP.conditions)}${sortArrow('conditions')}</th>
-							<th class="sortable" data-sort="valid" style="cursor:pointer;user-select:none;">Valid 23andMe${colHelp(PGP_COL_HELP.valid)}${sortArrow('valid')}</th>
-							<th ${sortAttrs('version')}>Version${colHelp(PGP_COL_HELP.version)}${sortArrow('version')}</th>
-							<th ${sortAttrsEnd('build')}>Build${colHelp(PGP_COL_HELP.build)}${sortArrow('build')}</th>
-							<th ${sortAttrsEnd('size')}>Size (MB)${colHelp(PGP_COL_HELP.size)}${sortArrow('size')}</th>
-							<th class="sortable" data-sort="filename" style="cursor:pointer;user-select:none;max-width:180px;">Filename${colHelp(PGP_COL_HELP.filename)}${sortArrow('filename')}</th>
-							<th ${sortAttrs('published')}>Published Date${colHelp(PGP_COL_HELP.published)}${sortArrow('published')}</th>
-							<th>Profile${colHelp(PGP_COL_HELP.profile)}</th>
-							<th>Download URL${colHelp(PGP_COL_HELP.download)}</th>
+							<th>Select</th>
+							<th ${sortAttrs('id')}>Participant ID${sortArrow('id')}</th>
+							<th ${sortAttrs('name')}>Name${sortArrow('name')}</th>
+							<th ${sortAttrsEnd('age')}>Age${sortArrow('age')}</th>
+							<th ${sortAttrs('gender')}>Gender${sortArrow('gender')}</th>
+							<th ${sortAttrs('race')}>Race${sortArrow('race')}</th>
+							<th ${sortAttrs('ethnicity')}>Ethnicity${sortArrow('ethnicity')}</th>
+							<th class="sortable" data-sort="conditions" style="cursor:pointer;user-select:none;" title="Conditions reported in the PGP survey question &quot;Have you ever been diagnosed with one of the following conditions?&quot;">Conditions${sortArrow('conditions')}</th>
+							<th class="sortable" data-sort="valid" style="cursor:pointer;user-select:none;" title="File matched the 23andMe header signature">Valid 23andMe${sortArrow('valid')}</th>
+							<th ${sortAttrs('version')}>Version${sortArrow('version')}</th>
+							<th ${sortAttrsEnd('build')}>Build${sortArrow('build')}</th>
+							<th ${sortAttrsEnd('size')}>Size (MB)${sortArrow('size')}</th>
+							<th class="sortable" data-sort="filename" style="cursor:pointer;user-select:none;max-width:180px;">Filename${sortArrow('filename')}</th>
+							<th ${sortAttrs('published')}>Published Date${sortArrow('published')}</th>
+							<th>Profile</th>
+							<th>Download URL</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -1763,8 +1737,7 @@ function renderParticipantsTable(list, targetId, title, key) {
 
 		// Sortable column headers
 		container.querySelectorAll('th.sortable').forEach((th) => {
-			th.addEventListener('click', (e) => {
-				if (e.target.closest?.('.col-help')) return; // "?" badge: tooltip only, don't sort
+			th.addEventListener('click', () => {
 				const k = th.dataset.sort;
 				if (sortState.key === k) {
 					sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
@@ -2314,3 +2287,4 @@ window.sdk = Object.assign(window.sdk ?? {}, {
 	onParticipantsModeChange: window.onParticipantsModeChange,
 	onPgsSelectionChange: window.onPgsSelectionChange,
 });
+//# sourceMappingURL=displayUsers-B5koDTf1.mjs.map

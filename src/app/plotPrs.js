@@ -1115,7 +1115,16 @@ function tabulateAllMatchByEffect(data = PGS23.data, div = document.getElementBy
     div.appendChild(tb)
     let thead = document.createElement('thead')
     tb.appendChild(thead)
-    thead.innerHTML = `<tr><th align="left">#</th><th>w</th><th align="left">z</th><th align="right"> w*z</th><th align="center">variant</th><th align="center">dbSNP</th><th align="left">SNPedia </th></tr>`
+    const hHelp = (text) => ` <span class="col-help" tabindex="0" role="note" title="${text}" aria-label="${text}">?</span>`
+    thead.innerHTML = `<tr>`
+        + `<th align="left">#</th>`
+        + `<th>w${hHelp('effect_weight of the variant, as reported in the PGS Catalog scoring file')}</th>`
+        + `<th align="left">z${hHelp('Effect-allele dosage: how many copies (0, 1, or 2) of the effect allele this genome carries')}</th>`
+        + `<th align="right"> w*z${hHelp('Contribution of this variant to the total PRS (weight x dosage)')}</th>`
+        + `<th align="center">variant${hHelp('Variant as chromosome:position and other>effect alleles, on the GRCh37 assembly')}</th>`
+        + `<th align="center">dbSNP${hHelp('Link to this rsID in NCBI dbSNP, the reference variant database')}</th>`
+        + `<th align="left">SNPedia${hHelp('Link to this rsID in SNPedia, a wiki describing the known phenotype associations of the variant')} </th>`
+        + `</tr>`
     let tbody = document.createElement('tbody')
     tb.appendChild(tbody)
     const indChr = data.pgs.cols.indexOf('hm_chr')
