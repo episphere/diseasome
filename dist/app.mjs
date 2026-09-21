@@ -157,12 +157,45 @@ function MatchOptimized(mypgs, my23) {
   const ind23Chr = my23.cols.indexOf('chromosome') !== -1 ? my23.cols.indexOf('chromosome') : 1;
   const ind23Pos = my23.cols.indexOf('position') !== -1 ? my23.cols.indexOf('position') : 2;
   const ind23Genotype = my23.cols.indexOf('genotype');
+  const ind23Rsid = my23.cols.indexOf('rsid') !== -1 ? my23.cols.indexOf('rsid') : 0;
 
   let data2 = {};
   let dtMatch = [];
   // Parallel to dtMatch: 'allele' when the genotype carries the effect or other allele,
   // 'position' when only chr:pos lined up. Position-only entries always score 0 alleles.
   let matchType = [];
+
+  const isCalledDuplet = (g) => typeof g === 'string' && /^[ACGT]{2}$/.test(g);
+  const isRsProbe = (id) => typeof id === 'string' && /^rs/i.test(id);
+  // Order-insensitive genotype key: "AG" and "GA" are the same unordered diploid call.
+  const genotypeKey = (g) => g.split('').sort().join('');
+
+  // Resolve duplicate probes at a single locus with deterministic precedence rather
+  // than a first-encountered rule:
+  //   1. called ACGT duplets beat no-calls ("--", "II", haploid calls),
+  //   2. rsID-labeled probes beat vendor-internal `i`-probes,
+  //   3. surviving candidates must agree on the (unordered) genotype; disagreement is
+  //      an unresolved conflict and the locus is treated as missing.
+  // Ties are broken by lexicographic probe id so the representative row is stable
+  // regardless of file order. Returns { row, status } with status
+  // 'called' | 'noCall' | 'conflict'.
+  const resolveLocusRows = (rows) => {
+    if (rows.length === 1) {
+      return { row: rows[0], status: isCalledDuplet(rows[0][ind23Genotype]) ? 'called' : 'noCall' };
+    }
+    const byId = (a, b) => String(a[ind23Rsid]).localeCompare(String(b[ind23Rsid]));
+    const called = rows.filter(r => isCalledDuplet(r[ind23Genotype]));
+    if (called.length === 0) {
+      // No probe produced a usable call: the locus cannot contribute to direct
+      // scoring; keep a representative row (rsID preferred) for accounting.
+      const rep = [...rows].sort(byId).find(r => isRsProbe(r[ind23Rsid])) || [...rows].sort(byId)[0];
+      return { row: rep, status: 'noCall' };
+    }
+    const rsCalled = called.filter(r => isRsProbe(r[ind23Rsid]));
+    const candidates = (rsCalled.length > 0 ? rsCalled : called).sort(byId);
+    const genotypes = new Set(candidates.map(r => genotypeKey(String(r[ind23Genotype]))));
+    return { row: candidates[0], status: genotypes.size > 1 ? 'conflict' : 'called' };
+  };
 
   // Build a lookup index once: key = "chr:pos" -> all genome rows at that locus.
   const genomeIndex = new Map();
@@ -175,32 +208,40 @@ function MatchOptimized(mypgs, my23) {
     }
     genomeIndex.get(key).push(row);
   }
+  // Collapse each locus to a single deterministically resolved probe row.
+  for (const [key, rows] of genomeIndex) {
+    genomeIndex.set(key, resolveLocusRows(rows));
+  }
 
-  // For each PGS row, do O(1) key lookup and filter only local candidates.
+  // For each PGS row, do O(1) key lookup against the resolved locus.
   const pgsRowCount = Array.isArray(mypgs.dt) ? mypgs.dt.length : 0;
   // Reasons a model variant never contributes to the score.
   let positionAbsent = 0;      // locus not present in the genome file
-  let noCall = 0;              // locus genotyped but the call is not an ACGT duplet ("--", "II", haploid)
+  let noCall = 0;              // locus genotyped but no probe produced an ACGT duplet ("--", "II", haploid)
+  let genotypeConflict = 0;    // duplicate probes disagree after precedence rules; treated as missing
   let alleleIncompatible = 0;  // valid call, but it carries neither the effect nor the other allele
   for (let i = 0; i < pgsRowCount; i++) {
     const r = mypgs.dt[i];
     const key = `${r[indChr]}:${r[indPos]}`;
-    // console.log(`Processing PGS row ${i} at locus ${key}:`, r);
-    const locusRows = genomeIndex.get(key) || [];
-    // console.log("locusRows = genomeIndex.get(key) || [];",locusRows)
-    if (locusRows.length === 0) { positionAbsent++; continue; }
+    const resolved = genomeIndex.get(key);
+    if (!resolved) { positionAbsent++; continue; }
+    const { row: locusRow, status } = resolved;
 
-    const regexPattern = new RegExp([r[indEffectAllele], r[indOtherAllele]].join('|'));
-    const alleleRows = locusRows.filter(myr => regexPattern.test(myr[ind23Genotype]));
     // Keep position-only matches as well: the locus was genotyped, but the call carries
     // neither the effect nor the other allele (strand flip, no-call "--", indel, third
-    // allele). Dropping them hid genotyped loci that legitimately contribute 0 alleles.
-    const isAlleleMatch = alleleRows.length > 0;
-    if (!isAlleleMatch) {
-      const called = locusRows.some(myr => /^[ACGT]{2}$/.test(String(myr[ind23Genotype])));
-      if (called) alleleIncompatible++; else noCall++;
+    // allele) or the duplicate probes conflict. Dropping them hid genotyped loci that
+    // legitimately contribute 0 alleles.
+    let isAlleleMatch = false;
+    if (status === 'called') {
+      const regexPattern = new RegExp([r[indEffectAllele], r[indOtherAllele]].join('|'));
+      isAlleleMatch = regexPattern.test(locusRow[ind23Genotype]);
+      if (!isAlleleMatch) alleleIncompatible++;
+    } else if (status === 'conflict') {
+      genotypeConflict++;
+    } else {
+      noCall++;
     }
-    dtMatch.push((isAlleleMatch ? alleleRows : locusRows).concat([r]));
+    dtMatch.push([locusRow, r]);
     matchType.push(isAlleleMatch ? 'allele' : 'position');
   }
 
@@ -215,6 +256,10 @@ function MatchOptimized(mypgs, my23) {
   dtMatch.forEach((m, i) => {
     calcRiskScore[i] = 0;
     alleles[i] = 0;
+
+    // Only allele-level matches score; position-only entries (no-call, unresolved
+    // duplicate-probe conflict, incompatible alleles) contribute a dosage of 0.
+    if (matchType[i] !== 'allele') return;
 
     const genotype = m[0]?.[ind23Genotype];
     let mi = typeof genotype === 'string' ? genotype.match(/^[ACGT]{2}$/) : null;
@@ -259,8 +304,10 @@ function MatchOptimized(mypgs, my23) {
   data2.totalVariants = pgsRowCount;
   data2.matchedVariants = data2.alleleMatchCount;
   data2.unmatchedVariants = pgsRowCount - data2.alleleMatchCount;
-  data2.missingGenotypes = positionAbsent + noCall;
-  data2.unmatchedReasons = { positionAbsent, noCall, alleleIncompatible };
+  // Unresolved duplicate-probe conflicts are treated as missing genotypes: they
+  // cannot contribute to direct scoring, reducing recoverable model coverage.
+  data2.missingGenotypes = positionAbsent + noCall + genotypeConflict;
+  data2.unmatchedReasons = { positionAbsent, noCall, genotypeConflict, alleleIncompatible };
   data2.matchPercent = pgsRowCount > 0 ? (data2.alleleMatchCount / pgsRowCount) * 100 : null;
   // Fraction of the model's total absolute effect weight represented by matched variants.
   data2.weightCoverage = totalAbsWeight > 0 ? matchedAbsWeight / totalAbsWeight : null;
