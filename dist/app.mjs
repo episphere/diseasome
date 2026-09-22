@@ -30,14 +30,14 @@ let localDataModuleLoaded = false;
 // the tab functionality.
 async function ensurePgsModuleLoaded() {
     if (!pgsModuleLoaded) {
-        await import('./chunks/displayScores-D3-StzRv.mjs');
+        await import('./chunks/displayScores-D866LtwI.mjs');
         pgsModuleLoaded = true;
     }
 }
 
 async function ensureLocalDataModuleLoaded() {
     if (!localDataModuleLoaded) {
-        await import('./chunks/displayUsers-CUQ9wCiN.mjs');
+        await import('./chunks/displayUsers-B5rKVl3i.mjs');
         localDataModuleLoaded = true;
     }
 }
