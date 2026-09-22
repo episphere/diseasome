@@ -578,12 +578,13 @@
                         </div>
                     </div>
 
-                    <!-- Genome cache management (right-aligned, sits above participants table's Deselect All) -->
-                    <div class="mb-3">
-                        <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                    <!-- Genome cache tools. Relocated by renderParticipantsTable() into the
+                         participants table's button row (next to Deselect all). -->
+                    <div class="mb-3" id="genomicCacheBlock">
+                        <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end" id="genomicCacheControls">
                             <span class="text-muted text-status"><b>Genome Cache:</b></span>
-                            <button id="showGenomicCacheBtn" class="btn btn-outline-secondary btn-cache">Show Genomic Cache</button>
-                            <button id="clearGenomicCacheBtn" class="btn btn-outline-danger btn-cache">Clear Genomic Cache</button>
+                            <button id="showGenomicCacheBtn" class="btn btn-outline-secondary btn-cache" title="List the genome files currently cached in this browser">Show</button>
+                            <button id="clearGenomicCacheBtn" class="btn btn-outline-danger btn-cache" title="Delete all cached genome files from this browser">Clear</button>
                         </div>
                         <div id="genomicCacheList" class="mt-2"></div>
                     </div>
@@ -829,14 +830,15 @@
                             </div>
                         </div>
 
-                        <!-- PGS cache management (right-aligned, matches Genome Cache on tab 1) -->
-                        <div class="mb-3">
-                            <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                        <!-- PGS cache tools. Relocated by renderPgsTable() into the PGS table's
+                             button row (next to Deselect all), matching Genome Cache on tab 1. -->
+                        <div class="mb-3" id="pgsCacheBlock">
+                            <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end" id="pgsCacheControls">
                                 <span class="text-muted text-status"><b>PGS Cache:</b></span>
-                                <button id="showPgsCacheBtn" class="btn btn-outline-secondary btn-cache"
-                                    onclick="window.showPgsCacheInfo && window.showPgsCacheInfo()">Show PGS Cache</button>
-                                <button id="clearPgsCacheBtn" class="btn btn-outline-danger btn-cache"
-                                    onclick="window.clearPgsTxtCache && window.clearPgsTxtCache().catch(e => alert('Error: ' + e.message))">Clear PGS Cache</button>
+                                <button id="showPgsCacheBtn" class="btn btn-outline-secondary btn-cache" title="Show how many scoring files are cached in this browser"
+                                    onclick="window.showPgsCacheInfo && window.showPgsCacheInfo()">Show</button>
+                                <button id="clearPgsCacheBtn" class="btn btn-outline-danger btn-cache" title="Delete all cached scoring files from this browser"
+                                    onclick="window.clearPgsTxtCache && window.clearPgsTxtCache().catch(e => alert('Error: ' + e.message))">Clear</button>
                             </div>
                             <div id="pgsCacheInfo" class="small text-muted mt-1"></div>
                         </div>
