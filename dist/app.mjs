@@ -3473,6 +3473,66 @@ async function clearGenomeCache$1() {
 }
 window.clearGenomeCache = clearGenomeCache$1;
 
+/*** Reset the Calculate PRS tab to its initial, empty state: clear the loaded
+ * genomes, loaded risk models, and computed results shown in this tab, drop any
+ * lingering progress bars, and restore each step's placeholder text.
+ *
+ * This does NOT delete cached data (use the per-step "Clear Cache" buttons for
+ * that) and does not change the selections made in the Genomic Data / Risk
+ * Models tabs — reloading examples or recalculating restores everything.
+ */
+function resetPrsTab() {
+	if (!window.confirm("Reset the Calculate PRS tab? This clears the loaded genomes, risk models, and results shown here. Cached data is not deleted and can be reloaded.")) return;
+
+	// In-memory state for this tab.
+	loadedScores = [];
+	loadedUsers = [];
+	window.loadedPgsTxts = [];
+	window.loadedUsers = [];
+	window.prsResults = [];
+	if (window.sdk) window.sdk.prsResults = [];
+
+	// Results-table paging/sort state.
+	_prsResults = [];
+	_prsResultsDiv = null;
+	_prsResultsPage = 1;
+	_prsResultsSort = { idx: -1, dir: 1 };
+
+	// Remove any progress bars left in the DOM and cancel their fade timers.
+	for (const entry of prsProgressBars.values()) {
+		if (entry?.hideTimer) clearTimeout(entry.hideTimer);
+		entry?.wrap?.remove();
+	}
+	prsProgressBars.clear();
+
+	// Clear the tables, results, status, and heatmap.
+	const usersAction = document.getElementById("prsUsersAction");
+	if (usersAction) usersAction.innerHTML = "";
+	const scoresAction = document.getElementById("prsScoresAction");
+	if (scoresAction) scoresAction.innerHTML = "";
+	const resultsDiv = document.getElementById("prsResultsDiv");
+	if (resultsDiv) resultsDiv.innerHTML = "";
+	const resultsStatus = document.getElementById("prsResultsStatus");
+	if (resultsStatus) resultsStatus.textContent = "";
+	const heatmap = document.getElementById("container-id-1");
+	if (heatmap) heatmap.innerHTML = "";
+
+	// Restore the step-1 and step-2 placeholder prompts (matches index.html).
+	const usersStatus = document.getElementById("prsUsersdiv");
+	if (usersStatus) usersStatus.innerHTML = 'Upload your 23andMe file and/or choose from available 23andMe files, or load examples below to get started. <a href="#" onclick="document.querySelector(\'.tablinks[onclick*=GenomicData]\').click(); return false;">Go to 23andMe Data →</a>';
+	const scoresStatus = document.getElementById("prsScoresDiv");
+	if (scoresStatus) scoresStatus.innerHTML = 'Choose a risk model from the PGS Catalog, or load example models below to get started. <a href="#" onclick="document.querySelector(\'.tablinks[onclick*=PGSCatalog]\').click(); return false;">Go to Select Risk Models →</a>';
+
+	// Clear any cluster/heatmap derived from the (now empty) results.
+	if (typeof window.invalidateClusterCache === "function") window.invalidateClusterCache();
+	if (typeof window.renderCluster === "function") {
+		try { window.renderCluster(); } catch (e) { console.error("renderCluster error during reset:", e); }
+	}
+
+	console.log("Calculate PRS tab reset.");
+}
+window.resetPrsTab = resetPrsTab;
+
 /* -------------------------------------------------------------------------- *
  * Download helpers for the PRS tab.
  *   §1 "Select Risk Models"  -> selected PGS models (window.getSelectedScores)
