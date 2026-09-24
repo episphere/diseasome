@@ -1485,6 +1485,38 @@ async function fetchUsers() {
 	const loadStartMs = performance.now();
 	setProgressBar("users", statusEl, 0);
 
+	// Tab-1 "Load File(s)" button + inline loading bar feedback.
+	const btn = document.getElementById("fetchUsersBtn");
+	const btnOriginalHtml = btn ? btn.innerHTML : null;
+	const progressWrap = document.getElementById("fetchUsersProgressWrap");
+	const progressBar = document.getElementById("fetchUsersProgressBar");
+	const tab1Status = document.getElementById("fetchUsersStatus");
+	const setTab1Progress = (pct) => {
+		if (!progressBar) return;
+		const p = Math.max(0, Math.min(100, pct));
+		progressBar.style.width = `${p}%`;
+		progressBar.setAttribute("aria-valuenow", String(Math.round(p)));
+	};
+	const setTab1Status = (msg, kind = "muted") => {
+		if (!tab1Status) return;
+		const cls = kind === "error" ? "text-danger" : kind === "success" ? "text-success" : "text-muted";
+		tab1Status.className = `small mt-1 ${cls}`;
+		tab1Status.innerHTML = msg;
+	};
+
+	// Put the button into a loading state (spinner + disabled) and reveal the bar.
+	if (btn) {
+		btn.disabled = true;
+		btn.classList.remove("btn-danger", "btn-success");
+		btn.classList.add("btn-secondary");
+		btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Loading…`;
+	}
+	if (progressWrap) progressWrap.style.display = "";
+	if (progressBar) {
+		progressBar.classList.remove("bg-danger");
+		progressBar.classList.add("bg-success", "progress-bar-animated");
+	}
+	setTab1Progress(0);
 
 	try {
 		// Get selected users from the 23andMe Data tab
@@ -1495,10 +1527,19 @@ async function fetchUsers() {
 			if (statusEl) statusEl.textContent = "Please select at least one participant in the 23andMe Data tab.";
 			if (resultsDiv) resultsDiv.innerHTML = "";
 			setProgressBar("users", statusEl, 0);
+			setTab1Progress(0);
+			setTab1Status("Please select at least one 23andMe file above before loading.", "error");
+			if (btn) {
+				btn.classList.remove("btn-secondary", "btn-success");
+				btn.classList.add("btn-danger");
+				btn.innerHTML = btnOriginalHtml ?? "Load File(s)";
+			}
 			return;
 		}
 		if (statusEl) statusEl.textContent = `Fetching and parsing ${selectedUsers.length} participant genome file(s)...`;
 		setProgressBar("users", statusEl, 10);
+		setTab1Progress(5);
+		setTab1Status(`Loading 0 of ${selectedUsers.length} file(s)…`);
 
 		// Parse genome files for all selected users, keeping any users already loaded
 		// here (e.g. example participants) so fetching does not drop them.
@@ -1506,6 +1547,8 @@ async function fetchUsers() {
 		const fetched = await loadUsersFromList(selectedUsers, (done, total) => {
 			const pct = total > 0 ? 10 + (done / total) * 80 : 90;
 			setProgressBar("users", statusEl, pct);
+			setTab1Progress(pct);
+			setTab1Status(`Loading ${done} of ${total} file(s)…`);
 		});
 		const fetchedIds = new Set(fetched.map(d => d?.user?.id).filter(Boolean));
 		loadedUsers = existing.filter(d => !fetchedIds.has(d?.user?.id)).concat(fetched);
@@ -1521,6 +1564,27 @@ async function fetchUsers() {
 		if (statusEl) statusEl.textContent = `Loaded ${fetched.length} of ${selectedUsers.length} participant(s) in ${elapsedSec}s.`;
 		setProgressBar("users", statusEl, 100);
 
+		// Tab-1 completion feedback, with error comments for any files that failed.
+		setTab1Progress(100);
+		if (progressBar) progressBar.classList.remove("progress-bar-animated");
+		const failedCount = selectedUsers.length - fetched.length;
+		if (failedCount > 0) {
+			if (progressBar) progressBar.classList.replace("bg-success", "bg-danger");
+			setTab1Status(`Loaded ${fetched.length} of ${selectedUsers.length} file(s) in ${elapsedSec}s. <span class="fw-semibold">${failedCount} file(s) failed to load</span> — the PGP file server may be unreachable. See the browser console for details.`, "error");
+			if (btn) {
+				btn.classList.remove("btn-secondary", "btn-success");
+				btn.classList.add("btn-danger");
+				btn.innerHTML = `<i class="fa fa-exclamation-triangle me-1"></i>Retry Load`;
+			}
+		} else {
+			setTab1Status(`Loaded ${fetched.length} of ${selectedUsers.length} file(s) in ${elapsedSec}s.`, "success");
+			if (btn) {
+				btn.classList.remove("btn-danger", "btn-success");
+				btn.classList.add("btn-secondary");
+				btn.innerHTML = `<i class="fa fa-check me-1"></i>Loaded`;
+			}
+		}
+
 		// Render table
 		renderPrsUsersTable();
 
@@ -1529,6 +1593,19 @@ async function fetchUsers() {
 		console.error("fetchUsers error:", err);
 		if (statusEl) statusEl.textContent = `Error: ${err.message}`;
 		setProgressBar("users", statusEl, 100);
+		if (progressBar) {
+			progressBar.classList.remove("progress-bar-animated");
+			progressBar.classList.replace("bg-success", "bg-danger");
+		}
+		setTab1Progress(100);
+		setTab1Status(`Error loading files: ${err.message}`, "error");
+		if (btn) {
+			btn.classList.remove("btn-secondary", "btn-success");
+			btn.classList.add("btn-danger");
+			btn.innerHTML = `<i class="fa fa-exclamation-triangle me-1"></i>Retry Load`;
+		}
+	} finally {
+		if (btn) btn.disabled = false;
 	}
 }
 window.fetchUsers = fetchUsers;

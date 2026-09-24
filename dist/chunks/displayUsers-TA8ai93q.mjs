@@ -1,5 +1,9 @@
-import { get23Txt, parse23Txt, allUsersMetaDataByType_fast } from "../sdk/pgpSdk.js";
-import localforage from "localforage";
+import { allUsersMetaDataByType_fast, parse23Txt, get23Txt } from 'https://lorenasandoval88.github.io/personal_genomes_project_sdk/dist/sdk.mjs';
+import { l as localforage } from '../app.mjs';
+import 'https://lorenasandoval88.github.io/pgs_catalog_sdk/dist/sdk.mjs';
+import 'https://lorenasandoval88.github.io/clustjs/dist/sdk.mjs';
+import 'https://esm.run/@mlc-ai/web-llm';
+
 // console.log("displayUsers.js loaded")
 
 // Persistent reference to the selection status bar so it can be relocated below
@@ -541,7 +545,7 @@ const PGP_COL_HELP = {
  * @returns {string}
  */
 function sanitizeKey(value) {
-	return String(value ?? "")
+	return String(value)
 		.toLowerCase()
 		.replaceAll(/[^a-z0-9]+/g, "_")
 		.replaceAll(/^_+|_+$/g, "");
@@ -1471,7 +1475,6 @@ function renderParticipantsTable(list, targetId, title, key) {
 				return id.includes(q) || nm.includes(q) || age.includes(q) || race.includes(q) || ethnicity.includes(q) || conditions.includes(q);
 			});
 		}
-		const sortable = true;
 		const sortArrow = (k) => (sortState.key === k ? (sortState.dir === 'asc' ? ' ▲' : ' ▼') : ' ⇅');
 		const sortAttrs = (k) => `class="sortable" data-sort="${k}" style="cursor:pointer;user-select:none;"`;
 		// Right-aligned variant for numeric sortable columns (Age, Build, Size)
@@ -2338,3 +2341,4 @@ window.sdk = Object.assign(window.sdk ?? {}, {
 	onParticipantsModeChange: window.onParticipantsModeChange,
 	onPgsSelectionChange: window.onPgsSelectionChange,
 });
+//# sourceMappingURL=displayUsers-TA8ai93q.mjs.map
