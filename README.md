@@ -31,15 +31,15 @@ Toolkit functionalities
 
 ## 23andMe chip overlap index
 
-The PGS Catalog tab can filter and rank risk models by how well each model's variants are covered by the 23andMe **v4** and **v5** genotyping arrays.
+The PGS Catalog tab can filter and rank risk models by how well each model's variants are covered by the 23andMe **v2**, **v3**, **v4**, and **v5** genotyping arrays.
 
-> This index is computed once, offline, from array marker sets rather than from individual genotype data, and is distributed with the application as a static table; no user genotype data is involved at any point in its construction.
+> This index is computed once, offline, and is distributed with the application as a static table. It contains only per-model summary statistics (variant counts and percentages) — no genotypes, alleles, or participant identifiers — and no data uploaded by app users is involved at any point in its construction.
 
-The index ships as static JSON (`data/overlap_0_100_v4.json`, `data/overlap_0_100_v5.json`).
+The index ships as a static CSV (`data/model_chip_overlap.csv`), one row per PGS model (≤1,000 variants), with matched/missing variant counts, overlap percent, and absolute-weight coverage percent for each chip. Overlap is direct GRCh37 coordinate coverage against each chip's core variant manifest; it is not a measure of imputation quality or PRS accuracy. It is produced by the `pgs_overlap_v2_v5` pipeline (see the [Observable notebook](https://observablehq.com/@lorenasandoval88/pgs-models-overlap-with-23andme-variants)).
 
-The same holds for the **curated 23andMe (v4/v5) marker data** the index is built from:
+The **23andMe (v2–v5) core variant manifests** the index is built from work differently:
 
-> The curated 23andMe marker sets are derived from the arrays' published marker definitions rather than from individual genotype data, and are distributed with the application as static reference tables; no user genotype data is involved at any point in their construction.
+> Each chip's core manifest was derived empirically from publicly shared 23andMe raw-data files of that chip version from the [Personal Genome Project (PGP)](https://my.pgp-hms.org/public_genetic_data): a variant position is kept if it appears in at least 95% of the files. The manifests record only GRCh37 `chromosome:position` coordinates (plus rsID aliases) — no genotype calls or alleles are retained — and they are not shipped with the application; only the overlap summary above is. For v2, only three sample files were available, so its manifest effectively requires presence in all three and should be read with caution.
 
 ---
 

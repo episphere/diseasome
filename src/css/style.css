@@ -361,12 +361,26 @@ tr.file-child-row:hover > td {
 }
 /* A file that doesn't match the active filters: grayed out and not selectable. */
 tr.file-row-filtered > td {
-    opacity: 0.5;
+    opacity: 0.45;
     background-color: #f3f4f6;
     font-style: italic;
+    filter: grayscale(0.4);
 }
 tr.file-row-filtered input[type="checkbox"] {
     cursor: not-allowed;
+}
+/* A file that matches the active filters: green accent + tint so it clearly
+   stands out from the dimmed, filtered-out rows above/below it. */
+tr.file-row-match > td {
+    background-color: #e3f8ec;
+    border-top: 1px solid #a3e4c2;
+    font-weight: 600;
+}
+tr.file-row-match > td:first-child {
+    border-left: 4px solid #198754;
+}
+tr.file-row-match:hover > td {
+    background-color: #d1f2df;
 }
 /* Multi-file parent whose files all fail the active filters. */
 tr.file-parent-nomatch > td {
