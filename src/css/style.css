@@ -273,6 +273,12 @@ thead th,
     font-size: 0.8rem;
     margin-bottom: 2px;
 }
+/* Optional "learn more" link (e.g. Observable notebook) under the help text */
+.col-help-popover-link {
+    display: inline-block;
+    margin-top: 4px;
+    font-weight: 500;
+}
 /* Small arrow pointing back at the badge that opened the box */
 .col-help-popover::before {
     content: "";

@@ -49,6 +49,18 @@ function openHelpPopover(anchor) {
 	body.textContent = text;
 	pop.appendChild(body);
 
+	// Optional "learn more" link (e.g. an Observable notebook documenting the process).
+	const linkUrl = anchor.getAttribute("data-help-link") || "";
+	if (/^https?:\/\//i.test(linkUrl)) {
+		const more = document.createElement("a");
+		more.className = "col-help-popover-link";
+		more.href = linkUrl;
+		more.target = "_blank";
+		more.rel = "noopener";
+		more.textContent = `${anchor.getAttribute("data-help-link-label") || "Learn more"} →`;
+		pop.appendChild(more);
+	}
+
 	document.body.appendChild(pop);
 
 	// Position under the badge, clamped to the viewport width; the arrow keeps

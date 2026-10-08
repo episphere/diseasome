@@ -30,14 +30,14 @@ let localDataModuleLoaded = false;
 // the tab functionality.
 async function ensurePgsModuleLoaded() {
     if (!pgsModuleLoaded) {
-        await import('./chunks/displayScores-jh9R-SFL.mjs');
+        await import('./chunks/displayScores-Dizg0PUd.mjs');
         pgsModuleLoaded = true;
     }
 }
 
 async function ensureLocalDataModuleLoaded() {
     if (!localDataModuleLoaded) {
-        await import('./chunks/displayUsers-BZzF7E9y.mjs');
+        await import('./chunks/displayUsers-DrF_ryl6.mjs');
         localDataModuleLoaded = true;
     }
 }
@@ -187,6 +187,18 @@ function openHelpPopover(anchor) {
 	body.className = "col-help-popover-body";
 	body.textContent = text;
 	pop.appendChild(body);
+
+	// Optional "learn more" link (e.g. an Observable notebook documenting the process).
+	const linkUrl = anchor.getAttribute("data-help-link") || "";
+	if (/^https?:\/\//i.test(linkUrl)) {
+		const more = document.createElement("a");
+		more.className = "col-help-popover-link";
+		more.href = linkUrl;
+		more.target = "_blank";
+		more.rel = "noopener";
+		more.textContent = `${anchor.getAttribute("data-help-link-label") || "Learn more"} →`;
+		pop.appendChild(more);
+	}
 
 	document.body.appendChild(pop);
 
@@ -3280,6 +3292,15 @@ function requireLocalforage () {
 var localforageExports = requireLocalforage();
 var localforage = /*@__PURE__*/getDefaultExportFromCjs(localforageExports);
 
+// Observable notebooks documenting how the app's precomputed 23andMe / PGS data were built.
+const BASE = "https://observablehq.com/@lorenasandoval88";
+
+const NOTEBOOKS = {
+	pgpFiles: { url: `${BASE}/23andme-files-from-the-pgp`, label: "How PGP 23andMe files were collected" },
+	chipClassification: { url: `${BASE}/23andme-chip-classification`, label: "Fingerprint-based chip classification" },
+	pgsChipOverlap: { url: `${BASE}/pgs-models-overlap-with-23andme-chips`, label: "How PGS–chip overlap was computed" },
+};
+
 console.log("calculatePrs.js loaded");
 
 
@@ -4086,10 +4107,12 @@ function truncCell(value) {
 /*** A "?" badge for a column header that explains what the column holds and where it
  * comes from. Clicking (or Enter/Space) opens a closable text box — see colHelpPopover.js.
  * @param {string} text - Explanation of the column
+ * @param {{url: string, label: string}} [link] - Optional "learn more" link shown under the text
  * @returns {string} Help icon HTML
  */
-function colHelp(text) {
-	return ` <span class="col-help" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false" aria-label="Column help" data-help="${escapeHtml(text)}">?</span>`;
+function colHelp(text, link) {
+	const linkAttrs = link ? ` data-help-link="${escapeHtml(link.url)}" data-help-link-label="${escapeHtml(link.label)}"` : "";
+	return ` <span class="col-help" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false" aria-label="Column help" data-help="${escapeHtml(text)}"${linkAttrs}>?</span>`;
 }
 
 /** Explanations shown by the "?" badge on each Genomic Data table column. */
@@ -4397,8 +4420,8 @@ function renderUsersTable(users, loaded) {
 					<th>Ethnicity${colHelp(USER_COL_HELP.ethnicity)}</th>
 					<th>Race${colHelp(USER_COL_HELP.race)}</th>
 					<th>Gender${colHelp(USER_COL_HELP.gender)}</th>
-					<th>Version${colHelp(USER_COL_HELP.version)}</th>
-					<th>Build${colHelp(USER_COL_HELP.build)}</th>
+					<th>Version${colHelp(USER_COL_HELP.version, NOTEBOOKS.chipClassification)}</th>
+					<th>Build${colHelp(USER_COL_HELP.build, NOTEBOOKS.pgpFiles)}</th>
 					<th>Published Date${colHelp(USER_COL_HELP.published)}</th>
 					<th>Genotypes #${colHelp(USER_COL_HELP.genotypes)}</th>
 					<th>Variants Loaded${colHelp(USER_COL_HELP.variantsLoaded)}</th>
@@ -33433,5 +33456,5 @@ window.initWebLLMModel = initModel;
 window.clearWebLLMCache = clearModelCache;
 window.unloadWebLLMModel = unloadModel;
 
-export { localforage as l };
+export { NOTEBOOKS as N, localforage as l };
 //# sourceMappingURL=app.mjs.map

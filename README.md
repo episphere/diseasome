@@ -1,4 +1,4 @@
-﻿# Diseasome SDK
+# Diseasome SDK
 
 We present the Diseasome SDK, a JavaScript library and web application for computing polygenic risk scores from consumer genotype data (23andMe) and PGS Catalog score models. The SDK operates in both browser and Node.js environments, supporting programmatic use by developers and interactive exploration by end users.
 live at: https://episphere.github.io/diseasome/
@@ -35,7 +35,15 @@ The PGS Catalog tab can filter and rank risk models by how well each model's var
 
 > This index is computed once, offline, and is distributed with the application as a static table. It contains only per-model summary statistics (variant counts and percentages) — no genotypes, alleles, or participant identifiers — and no data uploaded by app users is involved at any point in its construction.
 
-The index ships as a static CSV (`data/model_chip_overlap.csv`), one row per PGS model (≤1,000 variants), with matched/missing variant counts, overlap percent, and absolute-weight coverage percent for each chip. Overlap is direct GRCh37 coordinate coverage against each chip's core variant manifest; it is not a measure of imputation quality or PRS accuracy. It is produced by the `pgs_overlap_v2_v5` pipeline (see the [Observable notebook](https://observablehq.com/@lorenasandoval88/pgs-models-overlap-with-23andme-variants)).
+The index ships as a static CSV (`data/model_chip_overlap.csv`), one row per PGS model (≤1,000 variants), with matched/missing variant counts, overlap percent, and absolute-weight coverage percent for each chip. Overlap is direct GRCh37 coordinate coverage against each chip's core variant manifest; it is not a measure of imputation quality or PRS accuracy. It is produced by the `pgs_overlap_v2_v5` pipeline (see the [Observable notebook](https://observablehq.com/@lorenasandoval88/pgs-models-overlap-with-23andme-chips)).
+
+The full workflow is documented step by step in Observable notebooks, which are also linked from the relevant "?" help badges in the app:
+
+1. [23andMe data from PGP](https://observablehq.com/@lorenasandoval88/23andme-files-from-the-pgp): retrieval of public 23andMe files and participant metadata.
+2. [Chip manifests](https://observablehq.com/@lorenasandoval88/23andme-manifest): building the v2–v5 core coordinate manifests.
+3. [Chip overlap & fingerprints](https://observablehq.com/@lorenasandoval88/23andme-v3v4v5-overlap): shared vs. chip-specific coordinates.
+4. [Chip classification](https://observablehq.com/@lorenasandoval88/23andme-chip-classification): fingerprint-based chip-version classification of PGP files.
+5. [PGS overlap analysis (v2–v5)](https://observablehq.com/@lorenasandoval88/pgs-models-overlap-with-23andme-chips): PGS model coverage per chip (this index).
 
 The **23andMe (v2–v5) core variant manifests** the index is built from work differently:
 
