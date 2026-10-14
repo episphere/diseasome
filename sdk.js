@@ -1,7 +1,7 @@
 import localforage from "localforage";
 import * as clustjs from "./src/sdk/clustSdk.js";
 import {
-	fetch23andMeParticipants, fetchProfile, get23Txt,
+	fetch23andMeParticipants, fetchProfile, get23Txt, parse23Txt,
 	allUsersMetaDataByType_fast, fetchAvailableDataTypes
 } from "./src/sdk/pgpSdk.js";
 
@@ -12,6 +12,7 @@ import {
 	getScoresPerTrait,
 	getScoresPerCategory,
 	getPgsTxt,
+	parseScore,
 	estimateLocalForageSizeKB, checkStorageKB, getTextSizeKB
 } from "./src/sdk/pgsSdk.js";
 
@@ -25,6 +26,7 @@ export const pgp = {
 	allUsersMetaDataByType_fast,
 	fetchAvailableDataTypes,
 	get23Txt,
+	parse23Txt,
 	fetchProfile,
 };
 
@@ -35,6 +37,7 @@ export const pgs = {
 	getScoresPerTrait,
 	getScoresPerCategory,
 	getPgsTxt,
+	parseScore,
 	estimateLocalForageSizeKB, checkStorageKB, getTextSizeKB
 };
 

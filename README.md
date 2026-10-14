@@ -68,7 +68,9 @@ const model = await sdk.getPgsTxt("PGS000001");
 
 ## SDK API
 
-The browser SDK groups functions under `sdk.pgp`, `sdk.pgs`, and `sdk.prs`. The Node.js SDK exports these functions directly and does not include browser-only storage helpers.
+The browser SDK groups functions under `sdk.pgp`, `sdk.pgs`, `sdk.prs`, and `sdk.clustjs`. The Node.js SDK exports the same functions directly, minus browser-only storage helpers.
+
+Both dist files are fully self-contained bundles: the sibling SDKs ([pgs_catalog_sdk](https://github.com/lorenasandoval88/pgs_catalog_sdk), [personal_genomes_project_sdk](https://github.com/lorenasandoval88/personal_genomes_project_sdk), [clustjs](https://github.com/lorenasandoval88/clustjs)) are pinned as npm dependencies and bundled at build time, so builds are reproducible and the package works with any bundler or in Node.js without extra installs.
 
 ---
 

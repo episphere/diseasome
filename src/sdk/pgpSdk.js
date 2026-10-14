@@ -1,5 +1,6 @@
-// Single wrapper at pgpSdk.js that re-exports 
-// from the remote SDK URL so all PGP imports are centralized.
+﻿// Centralized PGP SDK wrapper (browser).
+// Imports from the pinned npm package (github:lorenasandoval88/personal_genomes_project_sdk)
+// so builds are reproducible and the bundle is self-contained.
 export {
 	parse23Txt,
 	get23Txt,
@@ -7,4 +8,4 @@ export {
 	fetch23andMeParticipants,
 	fetchAvailableDataTypes,
 	fetchProfile,
-} from "https://lorenasandoval88.github.io/personal_genomes_project_sdk/dist/sdk.mjs";
+} from "personal_genomes_project_sdk";

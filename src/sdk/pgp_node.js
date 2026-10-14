@@ -1,9 +1,10 @@
-﻿// Node-safe PGP SDK wrapper - imports from npm package instead of HTTPS URL
-// For Node.js/Cloud Run environments
+﻿// Node-safe PGP SDK wrapper for Node.js/Cloud Run environments.
+// Same function names as the browser wrapper (pgpSdk.js).
 export {
 	fetchAvailableDataTypes,
 	allUsersMetaDataByType_fast,
+	fetch23andMeParticipants,
 	fetchProfile,
-	load23andMeFile as get23Txt
+	get23Txt,
+	parse23Txt
 } from "personal_genomes_project_sdk/cloud_sdk.mjs";
-

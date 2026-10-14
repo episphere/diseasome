@@ -1,5 +1,6 @@
-// Single wrapper at pgsSdk.js that re-exports 
-// from the remote SDK URL so all PGS imports are centralized.
+﻿// Centralized PGS Catalog SDK wrapper (browser).
+// Imports from the pinned npm package (github:lorenasandoval88/pgs_catalog_sdk)
+// so builds are reproducible and the bundle is self-contained.
 export {
 	fetchAllScores,
 	fetchSomeScores,
@@ -9,4 +10,4 @@ export {
 	getPgsTxt,
 	parseScore,
 	estimateLocalForageSizeKB, checkStorageKB, getTextSizeKB
-} from "https://lorenasandoval88.github.io/pgs_catalog_sdk/dist/sdk.mjs";
+} from "pgs_catalog_sdk";

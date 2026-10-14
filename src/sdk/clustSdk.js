@@ -1,3 +1,4 @@
-// Single wrapper at clustSdk.js that re-exports 
-// from the remote SDK URL so all ClustJS imports are centralized.
-export * from "https://lorenasandoval88.github.io/clustjs/dist/sdk.mjs";
+﻿// Centralized ClustJS wrapper (browser).
+// Imports from the pinned npm package (github:lorenasandoval88/clustjs)
+// so builds are reproducible and the bundle is self-contained.
+export * from "clustjs";

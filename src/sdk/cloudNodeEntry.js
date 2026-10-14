@@ -1,9 +1,13 @@
-// Node-safe SDK entry for Cloud Run (no browser APIs)
+﻿// Node-safe SDK entry for Node.js/Cloud Run (no browser APIs).
+// Exposes the same function names as the browser SDK (sdk.js), minus
+// browser-only storage helpers.
 export {
   fetchAvailableDataTypes,
   allUsersMetaDataByType_fast,
+  fetch23andMeParticipants,
   fetchProfile,
-  get23Txt
+  get23Txt,
+  parse23Txt
 } from "./pgp_node.js";
 
 export {
@@ -18,7 +22,4 @@ export {
 export {
   Match2,
   MatchOptimized
-} from "./prs_node.js";
-
-// No browser-only code, no Plotly, no D3, no localforage, no window/document
-// Imports from npm packages (pgp, pgs) and local files (prs)
+} from "./prs.js";
