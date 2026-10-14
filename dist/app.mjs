@@ -22596,6 +22596,10 @@ let clusterCache = {
 const WARD_TITLE = 'Ward linkage requires Euclidean distance (ward.D2). Switch distance to Euclidean to enable it.';
 const NON_EUCLIDEAN_TITLE = 'Disabled with Ward linkage — Ward only retains its minimum-variance interpretation under Euclidean distance.';
 
+// Small-matrix guard message: pairwise distances need at least 2 jointly
+// observed values, so clustering either axis requires at least a 2 × 2 matrix.
+const MIN_MATRIX_TITLE = 'Clustering requires at least 2 users and 2 models (a 2 × 2 PRS matrix).';
+
 // Plot-only re-render machinery: the token supersedes stale renders and the
 // promise queue serializes hclust_plot calls so rapid option clicks can't
 // interleave their SVG output in the mount.
@@ -22716,7 +22720,10 @@ function pivotPrsResults(rawResults) {
   }
 
   const rows = Array.from(byUser.values());
-  return rows.length >= 2 ? rows : null;
+  // A single user still yields a useful 1 × N heatmap; row clustering for
+  // degenerate matrices is disabled by the small-matrix guard in
+  // getClusterOptions() rather than by suppressing the whole tab.
+  return rows.length >= 1 ? rows : null;
 }
 
 /**
@@ -23002,12 +23009,27 @@ async function runRCodeInWebR() {
 
 /** Read the current clustering options (with defaults) from window.clusterOptions. */
 function getClusterOptions() {
+  // Clamp row/column clustering when the matrix is too small: a dendrogram over
+  // a single row/column is degenerate, and pairwise distances need at least 2
+  // jointly observed values, so either axis requires at least a 2 × 2 matrix.
+  // The stored preference is kept, so the option springs back when more data is
+  // loaded. Unknown counts (cache not built yet) do not clamp.
+  const userCount = clusterCache.userIds ? clusterCache.userIds.length : null;
+  const modelCount = clusterCache.pgsIds ? clusterCache.pgsIds.length : null;
+  const enoughUsers = userCount === null || userCount >= 2;
+  const enoughModels = modelCount === null || modelCount >= 2;
+  const canCluster = enoughUsers && enoughModels;
   return {
-    clusterRows: window.clusterOptions?.clusterRows ?? true,
-    clusterCols: window.clusterOptions?.clusterCols ?? true,
+    clusterRows: (window.clusterOptions?.clusterRows ?? true) && canCluster,
+    clusterCols: (window.clusterOptions?.clusterCols ?? true) && canCluster,
+    canClusterRows: canCluster,
+    canClusterCols: canCluster,
+    enoughUsers,
+    enoughModels,
     clusterMethod: window.clusterOptions?.clusterMethod ?? 'complete',
     clusterDistance: window.clusterOptions?.clusterDistance ?? 'euclidean',
     normalize: window.clusterOptions?.normalize ?? true,
+    plotSize: window.clusterOptions?.plotSize ?? 'default', // 'fit' | 'default' (80%) | 'full' (100%)
   };
 }
 
@@ -23016,7 +23038,7 @@ function getClusterOptions() {
  * place, so option clicks don't need to rebuild the whole panel.
  */
 function updateClusterControlStates() {
-  const { clusterRows, clusterCols, clusterMethod, clusterDistance, normalize } = getClusterOptions();
+  const { clusterRows, clusterCols, canClusterRows, canClusterCols, enoughUsers, enoughModels, clusterMethod, clusterDistance, normalize, plotSize } = getClusterOptions();
   const setActive = (id, active) => {
     const btn = document.getElementById(id);
     if (!btn) return;
@@ -23035,9 +23057,34 @@ function updateClusterControlStates() {
   setActive('clusterDistCosine', clusterDistance === 'cosine');
   setActive('clusterScaleRaw', !normalize);
   setActive('clusterScaleZ', normalize);
+  setActive('clusterSizeFit', plotSize === 'fit');
+  setActive('clusterSizeDefault', plotSize === 'default');
+  setActive('clusterSizeFull', plotSize === 'full');
 
-  const bothBtn = document.getElementById('clusterBothBtn');
-  if (bothBtn) bothBtn.textContent = clusterRows && clusterCols ? 'Turn both off' : 'Turn both on';
+  // Small-matrix guard: disable degenerate clustering and explain why inline
+  // (title tooltips are invisible on touch devices).
+  const rowsBtn = document.getElementById('clusterRowsBtn');
+  if (rowsBtn) {
+    rowsBtn.disabled = !canClusterRows;
+    rowsBtn.title = canClusterRows ? 'Reorder users so similar ones sit next to each other.' : MIN_MATRIX_TITLE;
+  }
+  const colsBtn = document.getElementById('clusterColsBtn');
+  if (colsBtn) {
+    colsBtn.disabled = !canClusterCols;
+    colsBtn.title = canClusterCols ? 'Reorder models so similar ones sit next to each other.' : MIN_MATRIX_TITLE;
+  }
+  const clusterByHint = document.getElementById('clusterByHint');
+  if (clusterByHint) {
+    const hint = !enoughUsers && !enoughModels
+      ? 'Clustering needs at least 2 users and 2 models — load more genomes (tab 1) and risk models (tab 2).'
+      : !enoughUsers
+        ? 'Only one user loaded — clustering needs at least a 2 × 2 matrix. Load at least 2 genomes (tab 1).'
+        : !enoughModels
+          ? 'Only one model loaded — clustering needs at least a 2 × 2 matrix. Select at least 2 risk models (tab 2).'
+          : '';
+    clusterByHint.textContent = hint;
+    clusterByHint.style.display = hint ? '' : 'none';
+  }
 
   const wardActive = clusterMethod === 'ward';
   const nonEuclidean = clusterDistance !== 'euclidean';
@@ -23055,7 +23102,7 @@ function updateClusterControlStates() {
   }
 
   const caption = document.getElementById('clusterLegendCaption');
-  if (caption) caption.textContent = `Heatmap color = ${normalize ? 'z-score of PRS (standardized per PGS column)' : 'raw PRS value'} · gray = missing`;
+  if (caption) caption.textContent = `Heatmap color = ${normalize ? 'z-score of PRS (standardized per PGS column)' : 'raw PRS value'} · gray = missing · drag to zoom — “Reset zoom” restores the full view.`;
 
   // Inline hint under the distance group explaining why buttons are disabled
   // (title tooltips are invisible on touch devices).
@@ -23110,7 +23157,26 @@ async function drawClusterPlot() {
   const pivoted = clusterCache.pivoted;
   if (!pivoted || !document.getElementById('clusterPlotMount')) return;
   const pgsIds = clusterCache.pgsIds ?? getUniquePgsIds(window.prsResults);
-  const { clusterRows, clusterCols, clusterMethod, clusterDistance, normalize } = getClusterOptions();
+  const { clusterRows, clusterCols, clusterMethod, clusterDistance, normalize, plotSize } = getClusterOptions();
+
+  // ClustJS validates pairwise distances even when both cluster toggles are
+  // off, and any axis pair needs at least 2 jointly observed values — so a
+  // heatmap requires at least a 2 × 2 matrix. Show guidance instead of a
+  // console error for degenerate matrices.
+  const matrixCols = Object.keys(pivoted[0]).length - 1;
+  if (pivoted.length < 2 || matrixCols < 2) {
+    const mount = document.getElementById('clusterPlotMount');
+    mount.innerHTML = `<div class="alert alert-info my-2" style="max-width:680px;">
+      <strong>Not enough data for a heatmap.</strong><br>
+      The clustering heatmap needs at least 2 users and 2 models with PRS results —
+      currently ${pivoted.length} user${pivoted.length === 1 ? '' : 's'} × ${matrixCols} model${matrixCols === 1 ? '' : 's'}.
+      Load more genomes (tab 1) or risk models (tab 2), recalculate PRS, and return here.
+      The PRS matrix can still be downloaded below.
+    </div>`;
+    const plotBox = document.getElementById('clusterPlotBox');
+    if (plotBox) plotBox.style.minHeight = '0';
+    return;
+  }
 
   // Apply per-PGS z-score standardization when the Z-score scale is selected.
   const plotData = normalize ? standardizePivot(pivoted, pgsIds) : pivoted;
@@ -23124,9 +23190,18 @@ async function drawClusterPlot() {
   const colCount = Object.keys(pivoted[0]).length - 1;
   const fullWidth = Math.max(900, 120 * colCount + 400);
   const fullHeight = Math.max(760, 46 * pivoted.length + 320);
-  // Render the plot smaller while keeping the reserved area (box) unchanged, so
-  // the surrounding layout and the top-right download button stay put.
-  const plotScale = 0.8;
+  // Render the plot at the selected size preset while keeping the reserved
+  // area (box) unchanged: 'fit' shrinks to the visible width (no horizontal
+  // scrolling), 'default' is 80%, 'full' is 100%.
+  let plotScale;
+  if (plotSize === 'fit') {
+    const avail = document.getElementById('clusterPlotScroll')?.clientWidth || fullWidth;
+    plotScale = Math.max(0.3, Math.min(1, avail / fullWidth));
+  } else if (plotSize === 'full') {
+    plotScale = 1;
+  } else {
+    plotScale = 0.8;
+  }
   const plotWidth = Math.round(fullWidth * plotScale);
   const plotHeight = Math.round(fullHeight * plotScale);
 
@@ -23225,7 +23300,7 @@ async function renderCluster() {
   }
 
   // Get current clustering options (preserve state across re-renders)
-  const { clusterRows, clusterCols, clusterMethod, clusterDistance, normalize } = getClusterOptions();
+  const { clusterRows, clusterCols, canClusterRows, canClusterCols, clusterMethod, clusterDistance, normalize, plotSize } = getClusterOptions();
 
   // Ward linkage minimizes the increase in within-cluster sum of squared deviations
   // and only retains its minimum-variance interpretation (R's hclust ward.D2) under
@@ -23236,12 +23311,14 @@ async function renderCluster() {
   const nonEuclidean = clusterDistance !== 'euclidean';
   const wardTitle = WARD_TITLE;
   const nonEuclideanTitle = NON_EUCLIDEAN_TITLE;
+  const traitCount = new Set(Object.values(getPgsTraitMap(window.prsResults))).size;
 
   clusterContainer.innerHTML = `
     <div id="clusterSectionA">
     <div class="d-flex align-items-baseline flex-wrap gap-2 mb-2">
       <span class="badge bg-light text-dark border">${pivoted.length} users</span>
       <span class="badge bg-light text-dark border">${Object.keys(pivoted[0]).length - 1} PGS models</span>
+      ${traitCount > 0 ? `<span class="badge bg-light text-dark border">${traitCount} trait${traitCount === 1 ? '' : 's'}</span>` : ''}
     </div>
 
     <div class="card mb-3">
@@ -23250,10 +23327,10 @@ async function renderCluster() {
           <div class="col-md-6">
             <label class="form-label small text-uppercase text-muted fw-bold mb-1">Cluster by</label>
             <div class="btn-group d-flex" role="group">
-              <button id="clusterRowsBtn" class="btn btn-sm ${clusterRows ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterRows}">Rows (Users)</button>
-              <button id="clusterColsBtn" class="btn btn-sm ${clusterCols ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterCols}">Columns (PGS)</button>
-              <button id="clusterBothBtn" class="btn btn-sm btn-outline-secondary">${clusterRows && clusterCols ? 'Turn both off' : 'Turn both on'}</button>
+              <button id="clusterRowsBtn" class="btn btn-sm ${clusterRows ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterRows}" ${canClusterRows ? '' : 'disabled'} title="${canClusterRows ? 'Reorder users so similar ones sit next to each other.' : MIN_MATRIX_TITLE}">Users (rows)</button>
+              <button id="clusterColsBtn" class="btn btn-sm ${clusterCols ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterCols}" ${canClusterCols ? '' : 'disabled'} title="${canClusterCols ? 'Reorder models so similar ones sit next to each other.' : MIN_MATRIX_TITLE}">Models (columns)</button>
             </div>
+            <div class="form-text small" id="clusterByHint" style="display:none;"></div>
           </div>
           <div class="col-md-6">
             <label class="form-label small text-uppercase text-muted fw-bold mb-1">Linkage</label>
@@ -23285,8 +23362,17 @@ async function renderCluster() {
       </div>
     </div>
 
-    <div id="clusterLegendCaption" class="small text-muted mb-1">Heatmap color = ${normalize ? 'z-score of PRS (standardized per PGS column)' : 'raw PRS value'} · gray = missing</div>
-    <div class="small text-muted mb-1">Tip: drag on the heatmap to zoom in — “Reset zoom” restores the full view.</div>
+    <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
+      <span id="clusterLegendCaption" class="small text-muted">Heatmap color = ${normalize ? 'z-score of PRS (standardized per PGS column)' : 'raw PRS value'} · gray = missing · drag to zoom — “Reset zoom” restores the full view.</span>
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <div class="btn-group" role="group" aria-label="Plot size">
+          <button id="clusterSizeFit" class="btn btn-sm ${plotSize === 'fit' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${plotSize === 'fit'}" title="Shrink the plot to the visible width (no horizontal scrolling).">Fit width</button>
+          <button id="clusterSizeDefault" class="btn btn-sm ${plotSize === 'default' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${plotSize === 'default'}">80%</button>
+          <button id="clusterSizeFull" class="btn btn-sm ${plotSize === 'full' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${plotSize === 'full'}">100%</button>
+        </div>
+        <button id="downloadHeatmapPngBtn" class="btn btn-outline-secondary btn-sm" title="Download the rendered heatmap as a PNG image."><i class="fa fa-download me-1" aria-hidden="true"></i>PNG</button>
+      </div>
+    </div>
     <div id="clusterPlotBox" style="position:relative; min-height:200px;">
       <div id="clusterPlotScroll" style="overflow:auto; max-width:100%;">
         <div id="clusterPlotMount"></div>
@@ -23299,13 +23385,11 @@ async function renderCluster() {
       </div>
       <div class="card-body py-3">
         <div class="d-flex flex-wrap align-items-center gap-2">
-          <button id="downloadHeatmapPngBtn" class="btn btn-outline-primary btn-sm"><i class="fa fa-download me-1" aria-hidden="true"></i>Heatmap PNG</button>
-          <span class="vr d-none d-sm-block"></span>
           <button id="downloadPrsMatrixBtn" class="btn btn-outline-secondary btn-sm"><i class="fa fa-download me-1" aria-hidden="true"></i>Matrix JSON</button>
           <button id="downloadPrsCsvBtn" class="btn btn-outline-secondary btn-sm"><i class="fa fa-download me-1" aria-hidden="true"></i>Matrix CSV</button>
         </div>
         <div class="form-text small mt-2">
-          JSON and CSV use the ClustJS-compatible format: one row object per user with a <code>label</code> field and one field per PGS ID.
+          JSON and CSV use the ClustJS-compatible format: one row object per user with a <code>label</code> field and one field per PGS ID. The rendered heatmap can be downloaded as PNG from the button above the plot.
         </div>
       </div>
     </div>
@@ -23464,11 +23548,11 @@ pheatmap(prs_scaled,
   document.getElementById('clusterColsBtn').onclick = () => {
     applyOptionChange({ clusterCols: !getClusterOptions().clusterCols });
   };
-  document.getElementById('clusterBothBtn').onclick = () => {
-    const o = getClusterOptions();
-    const bothOn = o.clusterRows && o.clusterCols;
-    applyOptionChange({ clusterRows: !bothOn, clusterCols: !bothOn });
-  };
+
+  // Plot size preset handlers
+  document.getElementById('clusterSizeFit').onclick = () => applyOptionChange({ plotSize: 'fit' });
+  document.getElementById('clusterSizeDefault').onclick = () => applyOptionChange({ plotSize: 'default' });
+  document.getElementById('clusterSizeFull').onclick = () => applyOptionChange({ plotSize: 'full' });
 
   // PRS clustering method handlers
   document.getElementById('clusterMethodComplete').onclick = () => applyOptionChange({ clusterMethod: 'complete' });
