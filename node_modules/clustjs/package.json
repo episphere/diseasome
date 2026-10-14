@@ -1,6 +1,6 @@
 {
   "name": "clustjs",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "ClustJS: PCA, clustering, and heatmap utilities for the browser",
   "license": "MIT",
   "author": "Lorena Sandoval",
