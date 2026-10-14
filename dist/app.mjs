@@ -23042,8 +23042,7 @@ function updateClusterControlStates() {
   const setActive = (id, active) => {
     const btn = document.getElementById(id);
     if (!btn) return;
-    btn.classList.toggle('btn-primary', active);
-    btn.classList.toggle('btn-outline-primary', !active);
+    btn.classList.toggle('active', active);
     btn.setAttribute('aria-pressed', String(active));
   };
   setActive('clusterRowsBtn', clusterRows);
@@ -23323,52 +23322,51 @@ async function renderCluster() {
 
     <div class="card mb-3">
       <div class="card-body py-3">
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label small text-uppercase text-muted fw-bold mb-1">Cluster by</label>
-            <div class="btn-group d-flex" role="group">
-              <button id="clusterRowsBtn" class="btn btn-sm ${clusterRows ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterRows}" ${canClusterRows ? '' : 'disabled'} title="${canClusterRows ? 'Reorder users so similar ones sit next to each other.' : MIN_MATRIX_TITLE}">Users (rows)</button>
-              <button id="clusterColsBtn" class="btn btn-sm ${clusterCols ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterCols}" ${canClusterCols ? '' : 'disabled'} title="${canClusterCols ? 'Reorder models so similar ones sit next to each other.' : MIN_MATRIX_TITLE}">Models (columns)</button>
-            </div>
-            <div class="form-text small" id="clusterByHint" style="display:none;"></div>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label small text-uppercase text-muted fw-bold mb-1">Linkage</label>
-            <div class="btn-group d-flex" role="group">
-              <button id="clusterMethodComplete" class="btn btn-sm ${clusterMethod === 'complete' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterMethod === 'complete'}">Complete</button>
-              <button id="clusterMethodSingle" class="btn btn-sm ${clusterMethod === 'single' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterMethod === 'single'}">Single</button>
-              <button id="clusterMethodAverage" class="btn btn-sm ${clusterMethod === 'average' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterMethod === 'average'}">Average</button>
-              <button id="clusterMethodWard" class="btn btn-sm ${clusterMethod === 'ward' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterMethod === 'ward'}" ${nonEuclidean ? 'disabled' : ''} title="${nonEuclidean ? wardTitle : 'Ward (ward.D2) minimum-variance linkage — Euclidean only.'}">Ward</button>
+        <div class="d-flex flex-wrap align-items-start cluster-toolbar">
+          <div>
+            <div class="ctl-label">Cluster by</div>
+            <div class="seg-group" role="group" aria-label="Cluster by">
+              <button id="clusterRowsBtn" class="seg-btn ${clusterRows ? 'active' : ''}" aria-pressed="${clusterRows}" ${canClusterRows ? '' : 'disabled'} title="${canClusterRows ? 'Reorder users so similar ones sit next to each other.' : MIN_MATRIX_TITLE}">Users</button>
+              <button id="clusterColsBtn" class="seg-btn ${clusterCols ? 'active' : ''}" aria-pressed="${clusterCols}" ${canClusterCols ? '' : 'disabled'} title="${canClusterCols ? 'Reorder models so similar ones sit next to each other.' : MIN_MATRIX_TITLE}">Models</button>
             </div>
           </div>
-          <div class="col-md-6">
-            <label class="form-label small text-uppercase text-muted fw-bold mb-1">Distance</label>
-            <div class="btn-group d-flex" role="group">
-              <button id="clusterDistEuclidean" class="btn btn-sm ${clusterDistance === 'euclidean' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterDistance === 'euclidean'}">Euclidean</button>
-              <button id="clusterDistManhattan" class="btn btn-sm ${clusterDistance === 'manhattan' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterDistance === 'manhattan'}" ${wardActive ? 'disabled' : ''} title="${wardActive ? nonEuclideanTitle : 'Manhattan (city-block) distance.'}">Manhattan</button>
-              <button id="clusterDistCosine" class="btn btn-sm ${clusterDistance === 'cosine' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${clusterDistance === 'cosine'}" ${wardActive ? 'disabled' : ''} title="${wardActive ? nonEuclideanTitle : 'Cosine distance.'}">Cosine</button>
+          <div>
+            <div class="ctl-label">Linkage</div>
+            <div class="seg-group" role="group" aria-label="Linkage">
+              <button id="clusterMethodComplete" class="seg-btn ${clusterMethod === 'complete' ? 'active' : ''}" aria-pressed="${clusterMethod === 'complete'}">Complete</button>
+              <button id="clusterMethodSingle" class="seg-btn ${clusterMethod === 'single' ? 'active' : ''}" aria-pressed="${clusterMethod === 'single'}">Single</button>
+              <button id="clusterMethodAverage" class="seg-btn ${clusterMethod === 'average' ? 'active' : ''}" aria-pressed="${clusterMethod === 'average'}">Average</button>
+              <button id="clusterMethodWard" class="seg-btn ${clusterMethod === 'ward' ? 'active' : ''}" aria-pressed="${clusterMethod === 'ward'}" ${nonEuclidean ? 'disabled' : ''} title="${nonEuclidean ? wardTitle : 'Ward (ward.D2) minimum-variance linkage — Euclidean only.'}">Ward</button>
             </div>
-            <div class="form-text small" id="clusterDistanceHint">Single, complete, and average linkage work with any distance. Ward (ward.D2) is restricted to Euclidean, where its minimum-variance interpretation holds.</div>
           </div>
-          <div class="col-md-6">
-            <label class="form-label small text-uppercase text-muted fw-bold mb-1">Scale</label>
-            <div class="btn-group d-flex" role="group">
-              <button id="clusterScaleRaw" class="btn btn-sm ${!normalize ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${!normalize}">Raw PRS</button>
-              <button id="clusterScaleZ" class="btn btn-sm ${normalize ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${normalize}">Z-score (per PGS)</button>
+          <div>
+            <div class="ctl-label">Distance</div>
+            <div class="seg-group" role="group" aria-label="Distance">
+              <button id="clusterDistEuclidean" class="seg-btn ${clusterDistance === 'euclidean' ? 'active' : ''}" aria-pressed="${clusterDistance === 'euclidean'}">Euclidean</button>
+              <button id="clusterDistManhattan" class="seg-btn ${clusterDistance === 'manhattan' ? 'active' : ''}" aria-pressed="${clusterDistance === 'manhattan'}" ${wardActive ? 'disabled' : ''} title="${wardActive ? nonEuclideanTitle : 'Manhattan (city-block) distance.'}">Manhattan</button>
+              <button id="clusterDistCosine" class="seg-btn ${clusterDistance === 'cosine' ? 'active' : ''}" aria-pressed="${clusterDistance === 'cosine'}" ${wardActive ? 'disabled' : ''} title="${wardActive ? nonEuclideanTitle : 'Cosine distance.'}">Cosine</button>
             </div>
-            <div class="form-text small">Z-score standardizes each PGS column so no single model dominates by scale.</div>
+          </div>
+          <div>
+            <div class="ctl-label">Scale</div>
+            <div class="seg-group" role="group" aria-label="Scale">
+              <button id="clusterScaleRaw" class="seg-btn ${!normalize ? 'active' : ''}" aria-pressed="${!normalize}" title="Use PRS values exactly as calculated.">Raw PRS</button>
+              <button id="clusterScaleZ" class="seg-btn ${normalize ? 'active' : ''}" aria-pressed="${normalize}" title="Standardize each PGS column so no single model dominates by scale.">Z-score</button>
+            </div>
           </div>
         </div>
+        <div class="form-text small mt-2 mb-0" id="clusterByHint" style="display:none;"></div>
+        <div class="form-text small mt-2 mb-0" id="clusterDistanceHint">Single, complete, and average linkage work with any distance. Ward (ward.D2) is restricted to Euclidean, where its minimum-variance interpretation holds.</div>
       </div>
     </div>
 
     <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
       <span id="clusterLegendCaption" class="small text-muted">Heatmap color = ${normalize ? 'z-score of PRS (standardized per PGS column)' : 'raw PRS value'} · gray = missing · drag to zoom — “Reset zoom” restores the full view.</span>
       <div class="ms-auto d-flex align-items-center gap-2">
-        <div class="btn-group" role="group" aria-label="Plot size">
-          <button id="clusterSizeFit" class="btn btn-sm ${plotSize === 'fit' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${plotSize === 'fit'}" title="Shrink the plot to the visible width (no horizontal scrolling).">Fit width</button>
-          <button id="clusterSizeDefault" class="btn btn-sm ${plotSize === 'default' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${plotSize === 'default'}">80%</button>
-          <button id="clusterSizeFull" class="btn btn-sm ${plotSize === 'full' ? 'btn-primary' : 'btn-outline-primary'}" aria-pressed="${plotSize === 'full'}">100%</button>
+        <div class="seg-group" role="group" aria-label="Plot size">
+          <button id="clusterSizeFit" class="seg-btn ${plotSize === 'fit' ? 'active' : ''}" aria-pressed="${plotSize === 'fit'}" title="Shrink the plot to the visible width (no horizontal scrolling).">Fit width</button>
+          <button id="clusterSizeDefault" class="seg-btn ${plotSize === 'default' ? 'active' : ''}" aria-pressed="${plotSize === 'default'}">80%</button>
+          <button id="clusterSizeFull" class="seg-btn ${plotSize === 'full' ? 'active' : ''}" aria-pressed="${plotSize === 'full'}">100%</button>
         </div>
         <button id="downloadHeatmapPngBtn" class="btn btn-outline-secondary btn-sm" title="Download the rendered heatmap as a PNG image."><i class="fa fa-download me-1" aria-hidden="true"></i>PNG</button>
       </div>

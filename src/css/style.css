@@ -909,3 +909,57 @@ input[type=submit] {
 .prs-section-gray  { background-color: #f1f3f5; }
 .prs-section-blue  { background-color: #e7f1ff; }
 .prs-section-green { background-color: #e6f4ea; }
+
+/* ---- Cluster tab: dashboard-style segmented controls ---- */
+.seg-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    background: #eef1f4;
+    border: 1px solid #e2e6ea;
+    border-radius: 8px;
+}
+.seg-btn {
+    border: none;
+    background: transparent;
+    padding: 0.3rem 0.85rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    line-height: 1.2;
+    color: #5a6472;
+    border-radius: 6px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.seg-btn:hover:not(:disabled):not(.active) {
+    color: #1f2937;
+    background: rgba(255, 255, 255, .65);
+}
+.seg-btn.active {
+    background: #fff;
+    color: #0d6efd;
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, .14), 0 0 0 1px rgba(16, 24, 40, .04);
+}
+.seg-btn:disabled {
+    color: #aab2bd;
+    cursor: not-allowed;
+}
+.seg-btn:focus-visible {
+    outline: 2px solid #0d6efd;
+    outline-offset: 1px;
+}
+.ctl-label {
+    font-size: 0.68rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: #8a94a1;
+    margin-bottom: .35rem;
+}
+.cluster-toolbar {
+    column-gap: 2rem;
+    row-gap: 1rem;
+}
